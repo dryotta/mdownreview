@@ -36,9 +36,6 @@ jobs:
           - os: windows-latest
             artifact_glob: src-tauri/target/release/bundle/nsis/*.exe
             updater_glob: src-tauri/target/release/bundle/nsis/*.nsis.zip
-          - os: macos-13
-            artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
-            updater_glob: src-tauri/target/release/bundle/macos/*.app.tar.gz
           - os: macos-latest
             artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
             updater_glob: src-tauri/target/release/bundle/macos/*.app.tar.gz
@@ -127,18 +124,14 @@ jobs:
           mkdir -p /tmp/sigs
 
           WIN_SIG=$(fetch_sig ".*\\.nsis\\.zip\\.sig$")
-          X64_SIG=$(fetch_sig ".*_x64\\.app\\.tar\\.gz\\.sig$")
           ARM_SIG=$(fetch_sig ".*_aarch64\\.app\\.tar\\.gz\\.sig$")
 
           WIN_ZIP=$(gh release view "$TAG" --json assets \
             --jq '.assets[] | select(.name | test("\\.nsis\\.zip$")) | .name' | head -1)
-          X64_APP=$(gh release view "$TAG" --json assets \
-            --jq '.assets[] | select(.name | test("_x64\\.app\\.tar\\.gz$")) | .name' | head -1)
           ARM_APP=$(gh release view "$TAG" --json assets \
             --jq '.assets[] | select(.name | test("_aarch64\\.app\\.tar\\.gz$")) | .name' | head -1)
 
           [ -z "$WIN_ZIP" ] && { echo "::error::NSIS updater zip not found on release"; exit 1; }
-          [ -z "$X64_APP" ] && { echo "::error::x64 macOS updater bundle not found on release"; exit 1; }
           [ -z "$ARM_APP" ] && { echo "::error::aarch64 macOS updater bundle not found on release"; exit 1; }
 
           # URL-encode spaces in filenames (productName "mDown reView" produces spaces)
@@ -155,10 +148,6 @@ jobs:
               "windows-x86_64": {
                 "signature": "${WIN_SIG}",
                 "url": "${BASE_URL}/$(url_encode "${WIN_ZIP}")"
-              },
-              "darwin-x86_64": {
-                "signature": "${X64_SIG}",
-                "url": "${BASE_URL}/$(url_encode "${X64_APP}")"
               },
               "darwin-aarch64": {
                 "signature": "${ARM_SIG}",

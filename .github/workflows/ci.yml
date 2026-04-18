@@ -79,11 +79,6 @@ jobs:
             artifact: windows-installer
             bundle-path: src-tauri/target/release/bundle/nsis/*.exe
 
-          - os: macos-13
-            name: macOS Intel
-            artifact: macos-intel-installer
-            bundle-path: src-tauri/target/release/bundle/dmg/*.dmg
-
           - os: macos-latest
             name: macOS Apple Silicon
             artifact: macos-arm-installer
