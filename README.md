@@ -1,7 +1,41 @@
-# Tauri + React + Typescript
+# Markdown Review
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+> A desktop markdown reviewer for developers
 
-## Recommended IDE Setup
+[![CI](https://github.com/dryotta/markdown-review/actions/workflows/ci.yml/badge.svg)](https://github.com/dryotta/markdown-review/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/dryotta/markdown-review)](https://github.com/dryotta/markdown-review/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Browse, read, and annotate `.md` and `.mdx` files natively on Windows and macOS.
+
+## Features
+
+- **File tree** — browse your entire docs folder with native folder navigation
+- **Tabbed viewer** — open multiple files side by side
+- **Syntax highlighting** — code blocks rendered with Shiki
+- **File associations** — opens `.md` and `.mdx` files directly from your OS
+- **Comments** — annotate sections inline
+
+## Download
+
+Get the latest release from the [Releases page](https://github.com/dryotta/markdown-review/releases/latest).
+
+| Platform | Installer |
+|----------|-----------|
+| Windows  | `Markdown Review_x.x.x_x64-setup.exe` |
+| macOS    | `Markdown Review_x.x.x_x64.dmg` / `_aarch64.dmg` |
+
+## Development
+
+**Prerequisites:** [Node.js LTS](https://nodejs.org) · [Rust stable](https://rustup.rs)
+
+```bash
+npm install
+npm run tauri       # dev server with hot reload
+npm test            # unit tests (Vitest)
+npm run test:e2e    # E2E tests (Playwright)
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE)
