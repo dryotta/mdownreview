@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useShallow } from "zustand/shallow";
 import type { ReviewComment } from "@/lib/tauri-commands";
 
 // ── Workspace slice ────────────────────────────────────────────────────────
@@ -62,7 +63,23 @@ interface UISlice {
 
 // ── Combined store ─────────────────────────────────────────────────────────
 
-type Store = WorkspaceSlice & TabsSlice & CommentsSlice & UISlice;
+// ── Update slice ──────────────────────────────────────────────────────
+
+export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error";
+
+interface UpdateSlice {
+  updateStatus: UpdateStatus;
+  updateVersion: string | null;
+  updateProgress: number; // 0–100 during download
+  setUpdateStatus: (status: UpdateStatus) => void;
+  setUpdateVersion: (version: string | null) => void;
+  setUpdateProgress: (progress: number) => void;
+  dismissUpdate: () => void;
+}
+
+// ── Combined store ─────────────────────────────────────────────────────────
+
+type Store = WorkspaceSlice & TabsSlice & CommentsSlice & UISlice & UpdateSlice;
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -176,6 +193,15 @@ export const useStore = create<Store>()(
       setFolderPaneWidth: (width) => set({ folderPaneWidth: width }),
       toggleFolderPane: () => set((s) => ({ folderPaneVisible: !s.folderPaneVisible })),
       toggleCommentsPane: () => set((s) => ({ commentsPaneVisible: !s.commentsPaneVisible })),
+
+      // Update
+      updateStatus: "idle",
+      updateVersion: null,
+      updateProgress: 0,
+      setUpdateStatus: (status) => set({ updateStatus: status }),
+      setUpdateVersion: (version) => set({ updateVersion: version }),
+      setUpdateProgress: (progress) => set({ updateProgress: progress }),
+      dismissUpdate: () => set({ updateStatus: "idle", updateVersion: null, updateProgress: 0 }),
     }),
     {
       name: "mdown-review-ui",
@@ -196,6 +222,21 @@ export const useStore = create<Store>()(
 export function useUnresolvedCount(filePath: string): number {
   return useStore((s) =>
     (s.commentsByFile[filePath] ?? []).filter((c) => !c.resolved).length
+  );
+}
+
+// Convenience selector for update state
+export function useUpdateState() {
+  return useStore(
+    useShallow((s) => ({
+      updateStatus: s.updateStatus,
+      updateVersion: s.updateVersion,
+      updateProgress: s.updateProgress,
+      setUpdateStatus: s.setUpdateStatus,
+      setUpdateVersion: s.setUpdateVersion,
+      setUpdateProgress: s.setUpdateProgress,
+      dismissUpdate: s.dismissUpdate,
+    }))
   );
 }
 

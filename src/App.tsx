@@ -8,6 +8,8 @@ import { ViewerRouter } from "@/components/viewers/ViewerRouter";
 import { CommentsPanel } from "@/components/comments/CommentsPanel";
 import { AboutDialog } from "@/components/AboutDialog";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { UpdateBanner } from "@/components/UpdateBanner";
+import type { Update } from "@tauri-apps/plugin-updater";
 import "@/styles/app.css";
 
 type Theme = "system" | "light" | "dark";
@@ -28,6 +30,7 @@ export default function App() {
   } = useStore();
 
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
   // Apply theme class to <html>
@@ -95,6 +98,28 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [toggleFolderPane, toggleCommentsPane]);
 
+  // Background update check — 5 s delay, non-blocking
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const { setUpdateStatus, setUpdateVersion } = useStore.getState();
+      try {
+        setUpdateStatus("checking");
+        const { check } = await import("@tauri-apps/plugin-updater");
+        const update = await check();
+        if (update?.available) {
+          setPendingUpdate(update);
+          setUpdateVersion(update.version);
+          setUpdateStatus("available");
+        } else {
+          setUpdateStatus("idle");
+        }
+      } catch {
+        setUpdateStatus("idle");
+      }
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   const cycleTheme = useCallback(() => {
     const idx = THEME_CYCLE.indexOf(theme);
     setTheme(THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]);
@@ -133,6 +158,8 @@ export default function App() {
           </button>
         </div>
       </div>
+
+      <UpdateBanner update={pendingUpdate} />
 
       <div className="main-area">
         {folderPaneVisible && (
