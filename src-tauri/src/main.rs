@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    markdown_review_lib::run()
+    mdown_review_lib::run()
 }

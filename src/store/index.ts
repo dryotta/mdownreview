@@ -178,7 +178,7 @@ export const useStore = create<Store>()(
       toggleCommentsPane: () => set((s) => ({ commentsPaneVisible: !s.commentsPaneVisible })),
     }),
     {
-      name: "markdown-review-ui",
+      name: "mdown-review-ui",
       // Only persist UI state, not comments (those live in sidecar files)
       partialize: (state) => ({
         theme: state.theme,

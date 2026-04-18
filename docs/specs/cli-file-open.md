@@ -5,7 +5,7 @@
 The application SHALL read file paths passed as command-line arguments at startup and open each as a tab in the viewer. Paths that do not exist SHALL be silently skipped.
 
 ### Scenario: Single file argument opens a tab
-- **WHEN** the app is launched with `markdown-review path/to/file.md`
+- **WHEN** the app is launched with `mdown-review path/to/file.md`
 - **THEN** the file opens in a new tab and its content is displayed in the viewer
 
 ### Scenario: Multiple file arguments open multiple tabs
@@ -32,7 +32,7 @@ The Windows installer (NSIS and MSI) SHALL register `.md` and `.mdx` file extens
 
 ### Scenario: "Open With" lists the app
 - **WHEN** the user right-clicks a `.md` file and selects "Open With"
-- **THEN** "Markdown Review" appears in the list of available programs
+- **THEN** "mDown reView" appears in the list of available programs
 
 ### Scenario: Association is per-user (no UAC prompt)
 - **WHEN** the installer runs without administrator privileges
@@ -50,7 +50,7 @@ The macOS app bundle SHALL declare document type handlers for `.md` and `.mdx` i
 
 ### Scenario: "Open With" lists the app in Finder
 - **WHEN** the user right-clicks a `.md` file in Finder and selects "Open With"
-- **THEN** "Markdown Review" appears in the list
+- **THEN** "mDown reView" appears in the list
 
 ---
 

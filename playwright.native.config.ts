@@ -3,10 +3,10 @@ import path from "path";
 
 // Native binary path - adjust for OS
 const binaryPath = process.platform === "win32"
-  ? path.join("src-tauri", "target", "release", "markdown-review.exe")
+  ? path.join("src-tauri", "target", "release", "mdown-review.exe")
   : process.platform === "darwin"
-  ? path.join("src-tauri", "target", "release", "bundle", "macos", "Markdown Review.app", "Contents", "MacOS", "Markdown Review")
-  : path.join("src-tauri", "target", "release", "markdown-review");
+  ? path.join("src-tauri", "target", "release", "bundle", "macos", "mDown reView.app", "Contents", "MacOS", "mDown reView")
+  : path.join("src-tauri", "target", "release", "mdown-review");
 
 export default defineConfig({
   testDir: "./e2e/native",

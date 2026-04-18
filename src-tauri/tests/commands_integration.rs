@@ -1,4 +1,4 @@
-use markdown_review_lib::commands::{
+use mdown_review_lib::commands::{
     get_launch_args, load_review_comments, read_text_file, save_review_comments, LaunchArgs,
     LaunchArgsState, ReviewComment,
 };

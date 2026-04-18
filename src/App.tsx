@@ -125,7 +125,7 @@ export default function App() {
   return (
     <div className="app-layout">
       <div className="toolbar">
-        <span className="app-title">Markdown Review</span>
+        <span className="app-title">mDown reView</span>
         <div className="toolbar-actions">
           <button className="toolbar-btn" onClick={() => setAboutOpen(true)}>About</button>
           <button className="toolbar-btn" onClick={cycleTheme}>

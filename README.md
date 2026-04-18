@@ -1,4 +1,4 @@
-# Markdown Review
+# mDown reView
 
 > A desktop markdown reviewer for developers
 
@@ -22,8 +22,8 @@ Get the latest release from the [Releases page](https://github.com/dryotta/mDown
 
 | Platform | Installer |
 |----------|-----------|
-| Windows  | `Markdown Review_x.x.x_x64-setup.exe` |
-| macOS    | `Markdown Review_x.x.x_x64.dmg` / `_aarch64.dmg` |
+| Windows  | `mDown reView_x.x.x_x64-setup.exe` |
+| macOS    | `mDown reView_x.x.x_x64.dmg` / `_aarch64.dmg` |
 
 ## Development
 

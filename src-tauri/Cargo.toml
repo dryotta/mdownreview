@@ -1,13 +1,13 @@
 [package]
-name = "markdown-review"
+name = "mdown-review"
 version = "0.1.0"
-description = "A markdown review desktop application"
+description = "A desktop markdown reviewer for developers"
 license = "MIT"
 authors = ["davidzh"]
 edition = "2021"
 
 [lib]
-name = "markdown_review_lib"
+name = "mdown_review_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

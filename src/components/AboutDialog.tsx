@@ -27,7 +27,7 @@ export function AboutDialog({ onClose }: Props) {
     <div className="dialog-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="dialog-box" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-header">
-          <h2>Markdown Review</h2>
+          <h2>mDown reView</h2>
           <button className="dialog-close" onClick={onClose}>×</button>
         </div>
         <div className="dialog-body">
