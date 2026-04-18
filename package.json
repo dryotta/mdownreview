@@ -1,6 +1,7 @@
 {
   "name": "markdown-review",
   "private": true,
+  "description": "A desktop markdown reviewer for developers",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

@@ -2,7 +2,8 @@
 name = "markdown-review"
 version = "0.1.0"
 description = "A markdown review desktop application"
-authors = []
+license = "MIT"
+authors = ["davidzh"]
 edition = "2021"
 
 [lib]
