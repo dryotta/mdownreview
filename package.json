@@ -1,7 +1,7 @@
 {
   "name": "mdown-review",
   "private": true,
-  "description": "A desktop markdown reviewer for developers",
+  "description": "Markdown Viewer and Review App for AI-first Developers",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
