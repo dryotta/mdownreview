@@ -35,6 +35,8 @@ jobs:
         include:
           - os: windows-latest
             artifact_glob: src-tauri/target/release/bundle/nsis/*.exe
+          - os: macos-13
+            artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
           - os: macos-latest
             artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
     runs-on: ${{ matrix.os }}
@@ -72,7 +74,8 @@ jobs:
       - name: Upload artifact to release
         shell: bash
         run: |
-          file=$(ls ${{ matrix.artifact_glob }} | head -1)
+          file=$(ls ${{ matrix.artifact_glob }} 2>/dev/null | head -1)
+          [ -z "$file" ] && { echo "No artifact found for ${{ matrix.artifact_glob }}"; exit 1; }
           gh release upload "${{ needs.create-release.outputs.tag }}" "$file"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
