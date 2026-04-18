@@ -37,6 +37,7 @@ export function UpdateBanner({ update }: UpdateBannerProps) {
         }
       });
     } catch {
+      setUpdateProgress(0);
       setUpdateStatus("available");
     }
   };
@@ -47,7 +48,7 @@ export function UpdateBanner({ update }: UpdateBannerProps) {
   };
 
   return (
-    <div className="update-banner" role="status" aria-live="polite">
+    <div className="update-banner" role="status">
       {updateStatus === "available" && (
         <>
           <span>v{updateVersion} available</span>

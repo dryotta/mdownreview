@@ -106,7 +106,7 @@ export default function App() {
         setUpdateStatus("checking");
         const { check } = await import("@tauri-apps/plugin-updater");
         const update = await check();
-        if (update?.available) {
+        if (update) {
           setPendingUpdate(update);
           setUpdateVersion(update.version);
           setUpdateStatus("available");

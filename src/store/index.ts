@@ -65,6 +65,7 @@ interface UISlice {
 
 // ── Update slice ──────────────────────────────────────────────────────
 
+// "error" is treated identically to "idle" by the banner (silent fallback); reserved for future telemetry
 export type UpdateStatus = "idle" | "checking" | "available" | "downloading" | "ready" | "error";
 
 interface UpdateSlice {
@@ -233,7 +234,6 @@ export function useUpdateState() {
       updateVersion: s.updateVersion,
       updateProgress: s.updateProgress,
       setUpdateStatus: s.setUpdateStatus,
-      setUpdateVersion: s.setUpdateVersion,
       setUpdateProgress: s.setUpdateProgress,
       dismissUpdate: s.dismissUpdate,
     }))
