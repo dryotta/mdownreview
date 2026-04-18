@@ -4,7 +4,7 @@ import { MarkdownViewer } from "../MarkdownViewer";
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: vi.fn((src: string) => `asset://${src}`),
-  invoke: vi.fn(),
+  invoke: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock("@tauri-apps/plugin-opener", () => ({

@@ -11,7 +11,7 @@ interface FolderTreeProps {
 const MAX_EXPAND_DEPTH = 3;
 
 export function FolderTree({ onFileOpen }: FolderTreeProps) {
-  const { root, setRoot, expandedFolders, setFolderExpanded, collapseAll, toggleFolderPane, activeTabPath } = useStore();
+  const { root, setRoot, expandedFolders, setFolderExpanded, collapseAll, toggleFolderPane, activeTabPath, commentsByFile } = useStore();
   const [childrenCache, setChildrenCache] = useState<Record<string, DirEntry[]>>({});
   const [filter, setFilter] = useState("");
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
@@ -194,6 +194,9 @@ export function FolderTree({ onFileOpen }: FolderTreeProps) {
                   {isDir ? (expandedFolders[path] ? "▾" : "▸") : "·"}
                 </span>
                 <span className="tree-name" title={path}>{name}</span>
+                {!isDir && (commentsByFile[path] ?? []).some((c) => !c.resolved) && (
+                  <span className="tree-comment-dot" title="Has open comments" aria-label="Has open comments" />
+                )}
               </div>
             );
           })

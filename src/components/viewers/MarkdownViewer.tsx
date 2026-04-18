@@ -7,6 +7,7 @@ import { openUrl as shellOpen } from "@tauri-apps/plugin-opener";
 import {
   useState,
   useEffect,
+  useRef,
   isValidElement,
   useMemo,
   type ComponentPropsWithoutRef,
@@ -17,6 +18,8 @@ import type { ExtraProps } from "react-markdown";
 import { FrontmatterBlock } from "./FrontmatterBlock";
 import { TableOfContents, extractHeadings } from "./TableOfContents";
 import { CommentMargin } from "@/components/comments/CommentMargin";
+import { useStore } from "@/store";
+import { loadReviewComments, saveReviewComments } from "@/lib/tauri-commands";
 import "@/styles/markdown.css";
 
 const SIZE_WARN_THRESHOLD = 500 * 1024;
@@ -181,6 +184,44 @@ function useMarkdownComponents(
 
     type BlockTag = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
 
+    // Shared inner content for any commentable block
+    function BlockContent({
+      anchor,
+      openTrigger,
+      setOpenTrigger,
+      contextMenuPos,
+      setContextMenuPos,
+    }: {
+      anchor: ReturnType<typeof makeAnchor>;
+      openTrigger: number;
+      setOpenTrigger: React.Dispatch<React.SetStateAction<number>>;
+      contextMenuPos: { x: number; y: number } | null;
+      setContextMenuPos: React.Dispatch<React.SetStateAction<{ x: number; y: number } | null>>;
+    }) {
+      return (
+        <>
+          <CommentMargin filePath={filePath} anchor={anchor} openTrigger={openTrigger} />
+          {contextMenuPos && (
+            <>
+              <div className="comment-ctx-backdrop" onClick={() => setContextMenuPos(null)} />
+              <div className="comment-ctx-menu" style={{ top: contextMenuPos.y, left: contextMenuPos.x }}>
+                <button
+                  className="comment-ctx-item"
+                  onClick={() => {
+                    setContextMenuPos(null);
+                    setOpenTrigger((t) => t + 1);
+                  }}
+                >
+                  Add comment
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      );
+    }
+
+    // p / h1–h6: wrap in a div (valid HTML for these tags)
     function makeBlock(Tag: BlockTag) {
       return function BlockWithComment({
         children,
@@ -188,13 +229,57 @@ function useMarkdownComponents(
         ...props
       }: ComponentPropsWithoutRef<BlockTag> & ExtraProps) {
         const line = node?.position?.start.line ?? 0;
+        const anchor = makeAnchor(children, line);
+        const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+        const [openTrigger, setOpenTrigger] = useState(0);
+
         return (
-          <div className="comment-block-wrapper">
+          <div
+            className="comment-block-wrapper"
+            data-block-hash={anchor.blockHash}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenuPos({ x: e.clientX, y: e.clientY }); }}
+          >
             <Tag {...(props as ComponentPropsWithoutRef<typeof Tag>)}>{children}</Tag>
-            <CommentMargin filePath={filePath} anchor={makeAnchor(children, line)} />
+            <BlockContent
+              anchor={anchor}
+              openTrigger={openTrigger}
+              setOpenTrigger={setOpenTrigger}
+              contextMenuPos={contextMenuPos}
+              setContextMenuPos={setContextMenuPos}
+            />
           </div>
         );
       };
+    }
+
+    // li: the li itself becomes the wrapper (div around li would be invalid HTML)
+    function ListItemWithComment({
+      children,
+      node,
+      ...props
+    }: ComponentPropsWithoutRef<"li"> & ExtraProps) {
+      const line = node?.position?.start.line ?? 0;
+      const anchor = makeAnchor(children, line);
+      const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+      const [openTrigger, setOpenTrigger] = useState(0);
+
+      return (
+        <li
+          className="comment-block-wrapper"
+          data-block-hash={anchor.blockHash}
+          onContextMenu={(e) => { e.preventDefault(); setContextMenuPos({ x: e.clientX, y: e.clientY }); }}
+          {...(props as ComponentPropsWithoutRef<"li">)}
+        >
+          {children}
+          <BlockContent
+            anchor={anchor}
+            openTrigger={openTrigger}
+            setOpenTrigger={setOpenTrigger}
+            contextMenuPos={contextMenuPos}
+            setContextMenuPos={setContextMenuPos}
+          />
+        </li>
+      );
     }
 
     return {
@@ -206,6 +291,7 @@ function useMarkdownComponents(
       h4: makeBlock("h4"),
       h5: makeBlock("h5"),
       h6: makeBlock("h6"),
+      li: ListItemWithComment,
     };
   }, [filePath, headingContextMap]);
 }
@@ -215,6 +301,80 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const headings = useMemo(() => extractHeadings(body), [body]);
   const headingContextMap = useMemo(() => buildHeadingContextMap(body), [body]);
   const components = useMarkdownComponents(filePath, headingContextMap);
+
+  const setFileComments = useStore((s) => s.setFileComments);
+  const comments = useStore((s) => s.commentsByFile[filePath]);
+  const loadedRef = useRef<string | null>(null);
+
+  // Load comments from sidecar on file open
+  useEffect(() => {
+    loadedRef.current = null;
+    loadReviewComments(filePath)
+      .then((result) => {
+        if (result?.comments) {
+          setFileComments(filePath, result.comments);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        loadedRef.current = filePath;
+      });
+  }, [filePath, setFileComments]);
+
+  // Auto-save comments to sidecar (debounced, only after initial load)
+  useEffect(() => {
+    if (loadedRef.current !== filePath) return;
+    const timer = setTimeout(() => {
+      saveReviewComments(filePath, comments ?? []).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [comments, filePath]);
+
+  // Single selectionchange listener → add/remove .has-selection CSS class on DOM nodes
+  useEffect(() => {
+    function onSelectionChange() {
+      document
+        .querySelectorAll<HTMLElement>(".comment-block-wrapper.has-selection")
+        .forEach((el) => el.classList.remove("has-selection"));
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      let node: Node | null = sel.anchorNode;
+      while (node && node !== document.body) {
+        if (node instanceof HTMLElement && node.classList.contains("comment-block-wrapper")) {
+          node.classList.add("has-selection");
+          break;
+        }
+        node = node.parentNode;
+      }
+    }
+    document.addEventListener("selectionchange", onSelectionChange);
+    return () => document.removeEventListener("selectionchange", onSelectionChange);
+  }, []);
+
+  // Ctrl+Shift+M: open comment input for the block under the cursor / selection.
+  // Works with a collapsed caret (single click to position cursor) or a text selection.
+  // Uses e.code so it's keyboard-layout independent.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyM") {
+        e.preventDefault();
+        const sel = window.getSelection();
+        // anchorNode is set for both a cursor position (collapsed) and a text selection
+        const anchor = sel?.anchorNode ?? null;
+        if (!anchor) return;
+        let node: Node | null = anchor;
+        while (node && node !== document.body) {
+          if (node instanceof HTMLElement && node.classList.contains("comment-block-wrapper")) {
+            node.querySelector<HTMLButtonElement>(".comment-plus-btn")?.click();
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 

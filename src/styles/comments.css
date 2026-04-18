@@ -167,6 +167,17 @@
   position: relative;
 }
 
+/* Transparent hover bridge: extends clickable zone left into the gutter so the
+   cursor doesn't leave the hover area when moving from text to the + button. */
+.comment-block-wrapper::before {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+}
+
 /* Gutter button strip — absolutely positioned to the left of the block */
 .comment-margin-wrapper {
   position: absolute;
@@ -200,24 +211,67 @@
   background: var(--color-tab-hover);
 }
 
-/* Show + button when hovering the block wrapper */
-.comment-block-wrapper:hover .comment-plus-btn {
+/* Show + button when: hovering, text is selected inside the block, or block is focused */
+.comment-block-wrapper:hover .comment-plus-btn,
+.comment-block-wrapper.has-selection .comment-plus-btn,
+.comment-block-wrapper:focus-within .comment-plus-btn {
   display: flex;
 }
 
+/* Professional comment bubble indicator — replaces blue dot */
 .comment-margin-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  width: 18px;
+  height: 18px;
   border: none;
+  background: transparent;
   cursor: pointer;
   flex-shrink: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comment-margin-indicator:hover {
+  opacity: 0.75;
 }
 
 .comment-margin-indicator-resolved {
-  background: var(--color-muted);
   opacity: 0.5;
+}
+
+/* Context menu */
+.comment-ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.comment-ctx-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 140px;
+  overflow: hidden;
+}
+
+.comment-ctx-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.comment-ctx-item:hover {
+  background: var(--color-tab-hover);
 }
 
 .comment-edit {
