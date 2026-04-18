@@ -81,9 +81,17 @@ jobs:
       - name: Upload installer to release
         shell: bash
         run: |
+          TAG="${{ needs.create-release.outputs.tag }}"
           file=$(ls -t ${{ matrix.artifact_glob }} 2>/dev/null | head -1)
           [ -z "$file" ] && { echo "No artifact found for ${{ matrix.artifact_glob }}"; exit 1; }
-          gh release upload "${{ needs.create-release.outputs.tag }}" "$file"
+          # Delete any stale .exe/.dmg assets first — prevents duplicates on re-runs
+          # and cleans up assets left over from app renames.
+          gh release view "$TAG" --json assets \
+            --jq '.assets[] | select(.name | test("\\.(exe|dmg)$")) | .name' \
+            | while IFS= read -r name; do
+                gh release delete-asset "$TAG" "$name" --yes 2>/dev/null || true
+              done
+          gh release upload "$TAG" "$file"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

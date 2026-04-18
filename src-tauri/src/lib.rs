@@ -41,7 +41,7 @@ pub fn run() {
         builder.build()
     };
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(log_plugin)
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -98,43 +98,7 @@ pub fn run() {
             let state: LaunchArgsState = Arc::new(Mutex::new(Some(launch_args)));
             app.manage(state);
 
-            // macOS: register Apple Event open_file handler
-            #[cfg(target_os = "macos")]
-            {
-                let app_handle = app.handle().clone();
-                app.on_url_open(move |urls| {
-                    let mut files = Vec::new();
-                    let mut folders = Vec::new();
-                    for url in &urls {
-                        if let Some(path) = url.to_file_path().ok() {
-                            let path_str = path.to_string_lossy().into_owned();
-                            match std::fs::metadata(&path_str) {
-                                Ok(meta) if meta.is_dir() => folders.push(path_str),
-                                Ok(_) => files.push(path_str),
-                                Err(_) => {}
-                            }
-                        }
-                    }
-                    if files.is_empty() && folders.is_empty() {
-                        return;
-                    }
-                    // If window is already running, emit event; otherwise update state
-                    let state = app_handle.state::<LaunchArgsState>();
-                    let mut guard = state.lock().unwrap();
-                    if guard.is_none() {
-                        // Window already running — emit args-received event
-                        drop(guard);
-                        let payload = serde_json::json!({ "files": files, "folders": folders });
-                        if let Some(window) = app_handle.get_webview_window("main") {
-                            let _ = window.emit("args-received", payload);
-                        }
-                    } else {
-                        *guard = Some(commands::LaunchArgs { files, folders });
-                    }
-                });
-            }
-
-            Ok(())
+                Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::read_dir,
@@ -144,6 +108,40 @@ pub fn run() {
             commands::get_launch_args,
             commands::get_log_path,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    // macOS / iOS: handle "Open With" file URLs via RunEvent::Opened.
+    // on_url_open() was removed in Tauri 2.x; RunEvent::Opened is the replacement.
+    app.run(|app_handle, event| {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let tauri::RunEvent::Opened { urls } = &event {
+            let mut files = Vec::new();
+            let mut folders = Vec::new();
+            for url in urls {
+                if let Ok(path) = url.to_file_path() {
+                    let path_str = path.to_string_lossy().into_owned();
+                    match std::fs::metadata(&path_str) {
+                        Ok(meta) if meta.is_dir() => folders.push(path_str),
+                        Ok(_) => files.push(path_str),
+                        Err(_) => {}
+                    }
+                }
+            }
+            if !files.is_empty() || !folders.is_empty() {
+                let state = app_handle.state::<LaunchArgsState>();
+                let mut guard = state.lock().unwrap();
+                if guard.is_none() {
+                    drop(guard);
+                    let payload = serde_json::json!({ "files": files, "folders": folders });
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.emit("args-received", payload);
+                    }
+                } else {
+                    *guard = Some(commands::LaunchArgs { files, folders });
+                }
+            }
+        }
+        let _ = (app_handle, event);
+    });
 }
