@@ -1,0 +1,175 @@
+use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
+use tauri::{Manager, State};
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DirEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LaunchArgs {
+    pub files: Vec<String>,
+    pub folders: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewComment {
+    pub id: String,
+    #[serde(rename = "blockHash")]
+    pub block_hash: String,
+    #[serde(rename = "headingContext")]
+    pub heading_context: Option<String>,
+    #[serde(rename = "fallbackLine")]
+    pub fallback_line: u32,
+    pub text: String,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    pub resolved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewComments {
+    pub version: u32,
+    pub comments: Vec<ReviewComment>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LegacyReviewComments {
+    pub version: Option<u32>,
+    pub comments: Vec<ReviewComment>,
+}
+
+pub type LaunchArgsState = Arc<Mutex<Option<LaunchArgs>>>;
+
+// ── Commands ───────────────────────────────────────────────────────────────
+
+/// Read directory entries, rejecting path traversal via `..`.
+#[tauri::command]
+pub fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    if path.contains("..") {
+        return Err("path traversal not allowed".into());
+    }
+    let entries = std::fs::read_dir(&path).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })?;
+
+    let mut result = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| {
+            tracing::error!("[rust] command error: {}", e);
+            e.to_string()
+        })?;
+        let meta = entry.metadata().map_err(|e| {
+            tracing::error!("[rust] command error: {}", e);
+            e.to_string()
+        })?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let path = entry.path().to_string_lossy().into_owned();
+        result.push(DirEntry {
+            name,
+            path,
+            is_dir: meta.is_dir(),
+        });
+    }
+    result.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    });
+    Ok(result)
+}
+
+/// Read a text file, rejecting binary files and files >10 MB.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    let meta = std::fs::metadata(&path).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })?;
+
+    const MAX_SIZE: u64 = 10 * 1024 * 1024;
+    if meta.len() > MAX_SIZE {
+        return Err("file_too_large".into());
+    }
+
+    let bytes = std::fs::read(&path).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })?;
+
+    // Detect binary by scanning first 512 bytes for null bytes
+    let scan_len = bytes.len().min(512);
+    if bytes[..scan_len].contains(&0u8) {
+        return Err("binary_file".into());
+    }
+
+    String::from_utf8(bytes).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        "binary_file".into()
+    })
+}
+
+/// Save review comments sidecar file.
+#[tauri::command]
+pub fn save_review_comments(file_path: String, comments: Vec<ReviewComment>) -> Result<(), String> {
+    let sidecar_path = format!("{}.review.json", file_path);
+    let payload = ReviewComments {
+        version: 1,
+        comments,
+    };
+    let json = serde_json::to_string_pretty(&payload).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })?;
+    std::fs::write(&sidecar_path, json).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })?;
+    Ok(())
+}
+
+/// Load review comments sidecar file; returns null if no sidecar exists.
+#[tauri::command]
+pub fn load_review_comments(file_path: String) -> Result<Option<ReviewComments>, String> {
+    let sidecar_path = format!("{}.review.json", file_path);
+    match std::fs::read_to_string(&sidecar_path) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => {
+            tracing::error!("[rust] command error: {}", e);
+            Err(e.to_string())
+        }
+        Ok(content) => {
+            let legacy: LegacyReviewComments = serde_json::from_str(&content).map_err(|e| {
+                tracing::error!("[rust] command error: {}", e);
+                e.to_string()
+            })?;
+            Ok(Some(ReviewComments {
+                version: legacy.version.unwrap_or(0),
+                comments: legacy.comments,
+            }))
+        }
+    }
+}
+
+/// Get (and clear) launch args stored during setup.
+#[tauri::command]
+pub fn get_launch_args(state: State<LaunchArgsState>) -> LaunchArgs {
+    let mut guard = state.lock().unwrap();
+    guard.take().unwrap_or_default()
+}
+
+/// Get the log file path for display in the About dialog.
+#[tauri::command]
+pub fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
+    let log_dir = app
+        .path()
+        .app_log_dir()
+        .map_err(|e| e.to_string())?;
+    Ok(log_dir.join("markdown-review.log").to_string_lossy().into_owned())
+}

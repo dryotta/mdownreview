@@ -1,0 +1,13 @@
+{
+  "comments": [
+    {
+      "id": "legacy-c1",
+      "blockHash": "aabbccdd",
+      "headingContext": null,
+      "fallbackLine": 5,
+      "text": "This is a legacy comment without version field",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "resolved": false
+    }
+  ]
+}

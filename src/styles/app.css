@@ -1,0 +1,153 @@
+/* ── CSS Custom Properties ─────────────────────────────────────────── */
+
+:root,
+[data-theme="light"] {
+  --color-bg: #ffffff;
+  --color-text: #24292f;
+  --color-surface: #f6f8fa;
+  --color-border: #d0d7de;
+  --color-accent: #0969da;
+  --color-accent-hover: #0860ca;
+  --color-muted: #6e7781;
+  --color-tab-active: #ffffff;
+  --color-tab-hover: #f0f0f0;
+  --color-drag-handle: #d0d7de;
+  --color-drag-handle-hover: #0969da;
+  --color-toolbar: #f6f8fa;
+  --color-toolbar-border: #d0d7de;
+  --color-code-bg: #f6f8fa;
+  --color-blockquote-border: #d0d7de;
+  --color-badge: #cf222e;
+  --color-badge-text: #ffffff;
+}
+
+[data-theme="dark"] {
+  --color-bg: #0d1117;
+  --color-text: #c9d1d9;
+  --color-surface: #161b22;
+  --color-border: #30363d;
+  --color-accent: #58a6ff;
+  --color-accent-hover: #79b8ff;
+  --color-muted: #8b949e;
+  --color-tab-active: #0d1117;
+  --color-tab-hover: #21262d;
+  --color-drag-handle: #30363d;
+  --color-drag-handle-hover: #58a6ff;
+  --color-toolbar: #161b22;
+  --color-toolbar-border: #30363d;
+  --color-code-bg: #161b22;
+  --color-blockquote-border: #30363d;
+  --color-badge: #f85149;
+  --color-badge-text: #ffffff;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+/* ── App layout ────────────────────────────────────────────────────── */
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: var(--color-toolbar);
+  border-bottom: 1px solid var(--color-toolbar-border);
+  flex-shrink: 0;
+  height: 36px;
+}
+
+.app-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.toolbar-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.toolbar-btn:hover {
+  background: var(--color-surface);
+}
+
+.main-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Drag handle ───────────────────────────────────────────────────── */
+
+.drag-handle {
+  width: 4px;
+  background: var(--color-drag-handle);
+  cursor: col-resize;
+  flex-shrink: 0;
+}
+
+.drag-handle:hover {
+  background: var(--color-drag-handle-hover);
+}
+
+/* ── Viewer area ───────────────────────────────────────────────────── */
+
+.viewer-area {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+/* ── Error boundary ────────────────────────────────────────────────── */
+
+.error-boundary {
+  padding: 20px;
+  color: var(--color-badge);
+}

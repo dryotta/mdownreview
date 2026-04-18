@@ -1,0 +1,103 @@
+.folder-tree {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  user-select: none;
+}
+
+.folder-tree-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.folder-tree-toolbar button {
+  padding: 2px 6px;
+  font-size: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.folder-tree-toolbar button:hover {
+  background: var(--color-tab-hover);
+}
+
+.folder-tree-filter {
+  flex: 1;
+  padding: 2px 6px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.folder-tree-filter:focus {
+  outline: 1px solid var(--color-accent);
+}
+
+.folder-tree-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.tree-entry {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  padding-right: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+}
+
+.tree-entry:hover {
+  background: var(--color-tab-hover);
+}
+
+.tree-entry:focus {
+  background: var(--color-tab-hover);
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.tree-entry.active {
+  background: var(--color-accent);
+  color: white;
+}
+
+.tree-indent {
+  display: inline-block;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.tree-icon {
+  margin-right: 4px;
+  font-size: 12px;
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tree-name {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-tree-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 12px;
+}

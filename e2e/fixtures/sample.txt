@@ -1,0 +1,9 @@
+This is a plain text file for testing.
+
+It contains multiple lines of text without any special formatting.
+
+The source viewer should display this with syntax highlighting appropriate for plain text.
+
+Line 1
+Line 2
+Line 3

@@ -1,0 +1,204 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useStore } from "@/store";
+import { readDir, type DirEntry } from "@/lib/tauri-commands";
+import { open } from "@tauri-apps/plugin-dialog";
+import "@/styles/folder-tree.css";
+
+interface FolderTreeProps {
+  onFileOpen: (path: string) => void;
+}
+
+const MAX_EXPAND_DEPTH = 3;
+
+export function FolderTree({ onFileOpen }: FolderTreeProps) {
+  const { root, setRoot, expandedFolders, setFolderExpanded, collapseAll, toggleFolderPane, activeTabPath } = useStore();
+  const [childrenCache, setChildrenCache] = useState<Record<string, DirEntry[]>>({});
+  const [filter, setFilter] = useState("");
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const loadChildren = useCallback(
+    async (path: string) => {
+      if (childrenCache[path]) return;
+      try {
+        const entries = await readDir(path);
+        setChildrenCache((prev) => ({ ...prev, [path]: entries }));
+      } catch {
+        // ignore
+      }
+    },
+    [childrenCache]
+  );
+
+  useEffect(() => {
+    if (root) loadChildren(root);
+  }, [root, loadChildren]);
+
+  const handleOpenFolder = async () => {
+    const selected = await open({ directory: true, multiple: false });
+    if (typeof selected === "string") {
+      setRoot(selected);
+      setChildrenCache({});
+    }
+  };
+
+  const handleToggle = async (path: string, isDir: boolean) => {
+    if (!isDir) {
+      onFileOpen(path);
+      return;
+    }
+    const isExpanded = expandedFolders[path];
+    if (!isExpanded) {
+      await loadChildren(path);
+    }
+    setFolderExpanded(path, !isExpanded);
+  };
+
+  const handleExpandAll = async (parentPath: string, depth = 0) => {
+    if (depth >= MAX_EXPAND_DEPTH) return;
+    await loadChildren(parentPath);
+    setFolderExpanded(parentPath, true);
+    const entries = childrenCache[parentPath] ?? [];
+    for (const entry of entries) {
+      if (entry.is_dir) {
+        await handleExpandAll(entry.path, depth + 1);
+      }
+    }
+  };
+
+  // Build visible flat list for keyboard nav
+  function buildFlatList(
+    parentPath: string,
+    depth: number
+  ): { path: string; isDir: boolean; depth: number; name: string }[] {
+    const entries = childrenCache[parentPath] ?? [];
+    const result: { path: string; isDir: boolean; depth: number; name: string }[] = [];
+    for (const entry of entries) {
+      if (filter) {
+        const matchesSelf =
+          !entry.is_dir && entry.name.toLowerCase().includes(filter.toLowerCase());
+        const hasMatchingChild = entry.is_dir && hasMatch(entry.path);
+        if (!matchesSelf && !hasMatchingChild) continue;
+      }
+      result.push({ path: entry.path, isDir: entry.is_dir, depth, name: entry.name });
+      if (entry.is_dir && expandedFolders[entry.path]) {
+        result.push(...buildFlatList(entry.path, depth + 1));
+      }
+    }
+    return result;
+  }
+
+  function hasMatch(folderPath: string): boolean {
+    const entries = childrenCache[folderPath] ?? [];
+    return entries.some(
+      (e) =>
+        (!e.is_dir && e.name.toLowerCase().includes(filter.toLowerCase())) ||
+        (e.is_dir && hasMatch(e.path))
+    );
+  }
+
+  const flatList = root ? buildFlatList(root, 0) : [];
+
+  const handleKeyDown = (e: React.KeyboardEvent, path: string, isDir: boolean) => {
+    const idx = flatList.findIndex((n) => n.path === path);
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (idx < flatList.length - 1) setFocusedPath(flatList[idx + 1].path);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (idx > 0) setFocusedPath(flatList[idx - 1].path);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      if (isDir && !expandedFolders[path]) {
+        handleToggle(path, true);
+      } else if (isDir && expandedFolders[path]) {
+        const firstChild = flatList[idx + 1];
+        if (firstChild) setFocusedPath(firstChild.path);
+      }
+    } else if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (isDir && expandedFolders[path]) {
+        setFolderExpanded(path, false);
+      } else {
+        // find parent
+        const depth = flatList[idx].depth;
+        for (let i = idx - 1; i >= 0; i--) {
+          if (flatList[i].depth < depth) {
+            setFocusedPath(flatList[i].path);
+            break;
+          }
+        }
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (!isDir) onFileOpen(path);
+      else handleToggle(path, true);
+    }
+  };
+
+  useEffect(() => {
+    if (focusedPath) {
+      const el = containerRef.current?.querySelector<HTMLDivElement>(`[data-path="${CSS.escape(focusedPath)}"]`);
+      el?.focus();
+    }
+  }, [focusedPath]);
+
+  return (
+    <div className="folder-tree" style={{ width: useStore.getState().folderPaneWidth }}>
+      <div className="folder-tree-toolbar">
+        <button onClick={handleOpenFolder}>Open Folder…</button>
+        <button onClick={collapseAll}>Collapse All</button>
+        <button
+          onClick={() => {
+            if (root) handleExpandAll(root);
+          }}
+        >
+          Expand All
+        </button>
+        <button onClick={toggleFolderPane} title="Hide folder pane">×</button>
+      </div>
+      <div className="folder-tree-toolbar">
+        <input
+          className="folder-tree-filter"
+          type="text"
+          placeholder="Filter files…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </div>
+
+      <div className="folder-tree-scroll" ref={containerRef}>
+        {!root ? (
+          <div className="folder-tree-empty">No folder open</div>
+        ) : flatList.length === 0 ? (
+          <div className="folder-tree-empty">{filter ? "No matches" : "Empty folder"}</div>
+        ) : (
+          flatList.map(({ path, isDir, depth, name }) => {
+            const isActive = activeTabPath === path;
+            return (
+              <div
+                key={path}
+                data-path={path}
+                className={`tree-entry${isActive ? " active" : ""}`}
+                tabIndex={0}
+                role={isDir ? "treeitem" : "option"}
+                aria-selected={isActive}
+                aria-expanded={isDir ? expandedFolders[path] : undefined}
+                onClick={() => handleToggle(path, isDir)}
+                onKeyDown={(e) => handleKeyDown(e, path, isDir)}
+              >
+                {Array.from({ length: depth }, (_, i) => (
+                  <span key={i} className="tree-indent" />
+                ))}
+                <span className="tree-icon">
+                  {isDir ? (expandedFolders[path] ? "▾" : "▸") : "·"}
+                </span>
+                <span className="tree-name" title={path}>{name}</span>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}

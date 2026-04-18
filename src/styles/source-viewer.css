@@ -1,0 +1,43 @@
+.source-viewer {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+.source-plain {
+  padding: 16px;
+  font-size: 13px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.source-highlighted {
+  padding: 0;
+}
+
+.source-highlighted pre {
+  padding: 16px;
+  margin: 0;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.binary-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 8px;
+  color: var(--color-muted);
+}
+
+.binary-filename {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.binary-size {
+  font-size: 12px;
+}

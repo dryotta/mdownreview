@@ -1,0 +1,84 @@
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-width: 360px;
+  max-width: 500px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dialog-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dialog-close {
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-muted);
+  line-height: 1;
+}
+
+.dialog-close:hover {
+  color: var(--color-text);
+}
+
+.dialog-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialog-version {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.dialog-log-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.dialog-log-path {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dialog-log-path code {
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--color-text);
+  background: var(--color-surface);
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex: 1;
+}
