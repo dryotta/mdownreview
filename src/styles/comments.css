@@ -162,12 +162,21 @@
   background: var(--color-accent-hover);
 }
 
-/* Margin buttons */
-.comment-margin-wrapper {
+/* Commentable block wrapper */
+.comment-block-wrapper {
   position: relative;
-  display: inline-flex;
+}
+
+/* Gutter button strip — absolutely positioned to the left of the block */
+.comment-margin-wrapper {
+  position: absolute;
+  left: -26px;
+  top: 3px;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  vertical-align: middle;
+  gap: 2px;
+  width: 24px;
 }
 
 .comment-plus-btn {
@@ -181,10 +190,19 @@
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  margin-left: -22px;
-  margin-right: 4px;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.comment-plus-btn:hover {
+  background: var(--color-tab-hover);
+}
+
+/* Show + button when hovering the block wrapper */
+.comment-block-wrapper:hover .comment-plus-btn {
+  display: flex;
 }
 
 .comment-margin-indicator {
@@ -194,7 +212,7 @@
   background: var(--color-accent);
   border: none;
   cursor: pointer;
-  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .comment-margin-indicator-resolved {

@@ -32,32 +32,34 @@ export function CommentMargin({ filePath, anchor }: Props) {
   };
 
   return (
-    <span className="comment-margin-wrapper">
-      <button
-        className="comment-plus-btn"
-        aria-label="Add comment"
-        onClick={() => setShowInput((v) => !v)}
-      >
-        +
-      </button>
-      {unresolved.length > 0 && (
+    <>
+      <div className="comment-margin-wrapper">
         <button
-          className="comment-margin-indicator"
-          aria-label={`${unresolved.length} comment(s)`}
-          onClick={() => setExpanded((v) => !v)}
-        />
-      )}
-      {comments.filter((c) => c.resolved).length > 0 && (
-        <button
-          className="comment-margin-indicator comment-margin-indicator-resolved"
-          aria-label="Resolved comment"
-          onClick={() => setExpanded((v) => !v)}
-        />
-      )}
+          className="comment-plus-btn"
+          aria-label="Add comment"
+          onClick={() => setShowInput((v) => !v)}
+        >
+          +
+        </button>
+        {unresolved.length > 0 && (
+          <button
+            className="comment-margin-indicator"
+            aria-label={`${unresolved.length} comment(s)`}
+            onClick={() => setExpanded((v) => !v)}
+          />
+        )}
+        {comments.filter((c) => c.resolved).length > 0 && (
+          <button
+            className="comment-margin-indicator comment-margin-indicator-resolved"
+            aria-label="Resolved comment"
+            onClick={() => setExpanded((v) => !v)}
+          />
+        )}
+      </div>
       {showInput && (
         <CommentInput anchor={anchor} onSave={handleSave} onClose={() => setShowInput(false)} />
       )}
       {expanded && comments.map((c) => <CommentThread key={c.id} comment={c} />)}
-    </span>
+    </>
   );
 }

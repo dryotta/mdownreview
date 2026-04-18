@@ -16,6 +16,7 @@ import {
 import type { ExtraProps } from "react-markdown";
 import { FrontmatterBlock } from "./FrontmatterBlock";
 import { TableOfContents, extractHeadings } from "./TableOfContents";
+import { CommentMargin } from "@/components/comments/CommentMargin";
 import "@/styles/markdown.css";
 
 const SIZE_WARN_THRESHOLD = 500 * 1024;
@@ -46,6 +47,46 @@ function parseFrontmatter(content: string): {
   return { body, data };
 }
 
+// FNV-1a hash — 8 hex chars, same algorithm as the Rust side
+function fnv1a8(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+
+// Extract plain text from React nodes (for block hash computation)
+function extractText(node: ReactNode): string {
+  if (typeof node === "string") return node;
+  if (typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(extractText).join("");
+  if (isValidElement(node))
+    return extractText((node.props as { children?: ReactNode }).children);
+  return "";
+}
+
+// Build map: line number → nearest preceding heading slug
+function buildHeadingContextMap(content: string): Map<number, string | null> {
+  const lines = content.split("\n");
+  const map = new Map<number, string | null>();
+  let current: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^#{1,6}\s+(.+)$/.exec(lines[i]);
+    if (m) {
+      current = m[1]
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    }
+    map.set(i + 1, current);
+  }
+  return map;
+}
+
 let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 
 function getHighlighter() {
@@ -58,7 +99,6 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
-// Per-block async highlighting — avoids passing an async plugin to react-markdown's runSync pipeline
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   const [html, setHtml] = useState<string | null>(null);
 
@@ -85,8 +125,8 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   );
 }
 
-// MD_COMPONENTS at module scope — stable references, no per-render recreation
-const MD_COMPONENTS = {
+// Static components that don't need filePath or heading context — kept at module scope
+const MD_COMPONENTS_STATIC = {
   img: ({ src, alt, node: _node, ...props }: ComponentPropsWithoutRef<"img"> & ExtraProps) => {
     const resolvedSrc =
       src && !src.startsWith("http://") && !src.startsWith("https://") && !src.startsWith("data:")
@@ -127,9 +167,54 @@ const MD_COMPONENTS = {
   },
 };
 
-export function MarkdownViewer({ content, filePath: _filePath, fileSize }: Props) {
+// Build comment-aware block components, memoized by filePath + headingContextMap
+function useMarkdownComponents(
+  filePath: string,
+  headingContextMap: Map<number, string | null>
+) {
+  return useMemo(() => {
+    const makeAnchor = (children: ReactNode, startLine: number) => ({
+      blockHash: fnv1a8(extractText(children).replace(/\s+/g, " ").trim()),
+      headingContext: headingContextMap.get(startLine) ?? null,
+      fallbackLine: startLine,
+    });
+
+    type BlockTag = "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+
+    function makeBlock(Tag: BlockTag) {
+      return function BlockWithComment({
+        children,
+        node,
+        ...props
+      }: ComponentPropsWithoutRef<BlockTag> & ExtraProps) {
+        const line = node?.position?.start.line ?? 0;
+        return (
+          <div className="comment-block-wrapper">
+            <Tag {...(props as ComponentPropsWithoutRef<typeof Tag>)}>{children}</Tag>
+            <CommentMargin filePath={filePath} anchor={makeAnchor(children, line)} />
+          </div>
+        );
+      };
+    }
+
+    return {
+      ...MD_COMPONENTS_STATIC,
+      p: makeBlock("p"),
+      h1: makeBlock("h1"),
+      h2: makeBlock("h2"),
+      h3: makeBlock("h3"),
+      h4: makeBlock("h4"),
+      h5: makeBlock("h5"),
+      h6: makeBlock("h6"),
+    };
+  }, [filePath, headingContextMap]);
+}
+
+export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const { body, data } = useMemo(() => parseFrontmatter(content), [content]);
   const headings = useMemo(() => extractHeadings(body), [body]);
+  const headingContextMap = useMemo(() => buildHeadingContextMap(body), [body]);
+  const components = useMarkdownComponents(filePath, headingContextMap);
 
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 
@@ -146,7 +231,7 @@ export function MarkdownViewer({ content, filePath: _filePath, fileSize }: Props
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeSlug]}
-          components={MD_COMPONENTS as never}
+          components={components as never}
         >
           {body}
         </ReactMarkdown>
