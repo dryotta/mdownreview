@@ -22,7 +22,7 @@ jobs:
         run: |
           gh release create "${{ steps.tag.outputs.tag }}" \
             --draft \
-            --title "Markdown Review ${{ steps.tag.outputs.tag }}" \
+            --title "mDown reView ${{ steps.tag.outputs.tag }}" \
             --notes "Download the installer for your platform from the Assets section below."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -35,10 +35,13 @@ jobs:
         include:
           - os: windows-latest
             artifact_glob: src-tauri/target/release/bundle/nsis/*.exe
+            updater_glob: src-tauri/target/release/bundle/nsis/*.nsis.zip
           - os: macos-13
             artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
+            updater_glob: src-tauri/target/release/bundle/macos/*.app.tar.gz
           - os: macos-latest
             artifact_glob: src-tauri/target/release/bundle/dmg/*.dmg
+            updater_glob: src-tauri/target/release/bundle/macos/*.app.tar.gz
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -68,10 +71,10 @@ jobs:
       - name: Build Tauri app
         run: npm run tauri:build
         env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
-      - name: Upload artifact to release
+      - name: Upload installer to release
         shell: bash
         run: |
           file=$(ls ${{ matrix.artifact_glob }} 2>/dev/null | head -1)
@@ -80,8 +83,86 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  publish-release:
+      - name: Upload updater bundle to release
+        shell: bash
+        run: |
+          for f in ${{ matrix.updater_glob }} ${{ matrix.updater_glob }}.sig; do
+            [ -f "$f" ] && gh release upload "${{ needs.create-release.outputs.tag }}" "$f" || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-update-manifest:
     needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and upload latest.json
+        shell: bash
+        run: |
+          TAG="${{ needs.create-release.outputs.tag }}"
+          VERSION="${TAG#v}"
+          BASE_URL="https://github.com/dryotta/mDown-reView/releases/download/${TAG}"
+
+          # Helper: fetch a release asset by name pattern and return its content
+          fetch_sig() {
+            local pattern="$1"
+            gh release view "$TAG" --json assets \
+              --jq ".assets[] | select(.name | test(\"${pattern}\")) | .name" \
+              | head -1 \
+              | xargs -I{} gh release download "$TAG" --pattern "{}" --dir /tmp/sigs 2>/dev/null
+            local matched
+            matched=$(ls /tmp/sigs/ 2>/dev/null | grep -E "${pattern}" | head -1)
+            [ -n "$matched" ] && cat "/tmp/sigs/${matched}" || echo ""
+          }
+
+          mkdir -p /tmp/sigs
+
+          WIN_SIG=$(fetch_sig ".*\\.nsis\\.zip\\.sig$")
+          X64_SIG=$(fetch_sig ".*_x64\\.app\\.tar\\.gz\\.sig$")
+          ARM_SIG=$(fetch_sig ".*_aarch64\\.app\\.tar\\.gz\\.sig$")
+
+          WIN_ZIP=$(gh release view "$TAG" --json assets \
+            --jq '.assets[] | select(.name | test("\\.nsis\\.zip$")) | .name' | head -1)
+          X64_APP=$(gh release view "$TAG" --json assets \
+            --jq '.assets[] | select(.name | test("_x64\\.app\\.tar\\.gz$")) | .name' | head -1)
+          ARM_APP=$(gh release view "$TAG" --json assets \
+            --jq '.assets[] | select(.name | test("_aarch64\\.app\\.tar\\.gz$")) | .name' | head -1)
+
+          # URL-encode spaces in filenames (productName "mDown reView" produces spaces)
+          url_encode() { echo "$1" | sed 's/ /%20/g'; }
+
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > /tmp/latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "notes": "See release notes on GitHub.",
+            "pub_date": "${PUB_DATE}",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "${WIN_SIG}",
+                "url": "${BASE_URL}/$(url_encode "${WIN_ZIP}")"
+              },
+              "darwin-x86_64": {
+                "signature": "${X64_SIG}",
+                "url": "${BASE_URL}/$(url_encode "${X64_APP}")"
+              },
+              "darwin-aarch64": {
+                "signature": "${ARM_SIG}",
+                "url": "${BASE_URL}/$(url_encode "${ARM_APP}")"
+              }
+            }
+          }
+          EOF
+
+          gh release upload "$TAG" /tmp/latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-release:
+    needs: [create-release, build, publish-update-manifest]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
