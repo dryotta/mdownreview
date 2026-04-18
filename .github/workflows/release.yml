@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           for f in ${{ matrix.updater_glob }} ${{ matrix.updater_glob }}.sig; do
-            [ -f "$f" ] && gh release upload "${{ needs.create-release.outputs.tag }}" "$f" || true
+            [ -f "$f" ] && gh release upload "${{ needs.create-release.outputs.tag }}" "$f" --clobber || true
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -130,6 +130,10 @@ jobs:
           ARM_APP=$(gh release view "$TAG" --json assets \
             --jq '.assets[] | select(.name | test("_aarch64\\.app\\.tar\\.gz$")) | .name' | head -1)
 
+          [ -z "$WIN_ZIP" ] && { echo "::error::NSIS updater zip not found on release"; exit 1; }
+          [ -z "$X64_APP" ] && { echo "::error::x64 macOS updater bundle not found on release"; exit 1; }
+          [ -z "$ARM_APP" ] && { echo "::error::aarch64 macOS updater bundle not found on release"; exit 1; }
+
           # URL-encode spaces in filenames (productName "mDown reView" produces spaces)
           url_encode() { echo "$1" | sed 's/ /%20/g'; }
 
@@ -157,7 +161,7 @@ jobs:
           }
           EOF
 
-          gh release upload "$TAG" /tmp/latest.json
+          gh release upload "$TAG" /tmp/latest.json --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
