@@ -41,6 +41,10 @@ interface ReviewComment {
   lineNumber: number;
   lineHash: string;           // 8-char FNV-1a hex of normalized line text
 
+  // Context for robust re-anchoring after file modifications
+  contextBefore?: string;     // normalized text of 2 lines before (joined with \n)
+  contextAfter?: string;      // normalized text of 2 lines after (joined with \n)
+
   // Selection anchor (only when anchorType === "selection")
   selectedText?: string;      // exact selected text for re-anchoring
   selectionStartOffset?: number;  // char offset within lineNumber
@@ -51,6 +55,15 @@ interface ReviewComment {
   text: string;
   createdAt: string;
   resolved: boolean;
+
+  // Response tracking (for AI agent workflow)
+  responses?: CommentResponse[];
+}
+
+interface CommentResponse {
+  author: string;             // agent name or user identifier
+  text: string;
+  createdAt: string;
 }
 ```
 
@@ -72,16 +85,40 @@ interface ReviewComment {
 
 ## Comment Matching Algorithm
 
-Comments are matched to document content using a **primary + fallback** strategy:
+Comments are matched to document content using a **multi-strategy cascade** designed to survive significant file modifications (e.g., AI agents rewriting code around comments). The algorithm runs on file load and produces a `matchedLineNumber` for display.
 
-1. **Primary match**: `lineNumber` — the comment attaches to the exact line number
-2. **Validation**: check `lineHash` at `lineNumber`. If it matches, the comment is anchored
-3. **Fallback (re-anchor)**: if `lineHash` doesn't match at `lineNumber`, search nearby lines (±20) for a matching hash. If found, update `lineNumber` to the new position
-4. **Orphaned**: if no match found, mark as orphaned. Display at original `lineNumber` with visual warning
+### Strategy Cascade (in order, stop at first match)
 
-For selection comments, additionally:
-5. **Selection validation**: check if `selectedText` exists at the expected offsets within the file content. If not, search for `selectedText` as a substring within ±20 lines of the anchored line
-6. **Degraded selection**: if selection text not found, degrade to line comment display (show at line, no highlight)
+1. **Exact match**: `lineHash` matches at `lineNumber` → anchored. Confidence: high.
+2. **Nearby hash match**: `lineHash` found within ±30 lines of `lineNumber` → re-anchor. Confidence: high.
+3. **Context match**: `contextBefore` or `contextAfter` found near `lineNumber` (±30 lines) → anchor to the line adjacent to the matching context. Confidence: medium.
+4. **Global hash search**: `lineHash` found anywhere in the file → re-anchor to closest match. Confidence: medium-low.
+5. **Selected text search** (selection comments only): `selectedText` found as substring anywhere in file → re-anchor to the line containing it. Confidence: medium-low.
+6. **Orphaned**: no match found. Display at original `lineNumber` (clamped to file length) with orphan warning. Confidence: none.
+
+### Design for AI Agent Workflow
+
+The primary use case is: user adds comments → AI agent reads comments via scripts → AI modifies the file → user reopens the file and comments re-anchor.
+
+**Key robustness features:**
+- **Context lines** (`contextBefore`, `contextAfter`): 2 lines of surrounding context captured at comment creation time. Even if the commented line is completely rewritten, the context lines help locate the *neighborhood* where the comment belongs.
+- **Global fallback**: if the line moved far beyond ±30 lines (e.g., AI inserted a large block above), the global hash search and selectedText search still find it.
+- **Graceful degradation**: orphaned comments are displayed (not hidden) at the best-guess position. The user can see which comments lost their anchor and manually re-anchor or delete them.
+- **Re-anchor on save**: when comments are auto-saved, `lineNumber` is updated to the matched position so subsequent loads start from the correct location.
+
+### Context Capture
+
+When creating a comment at line N:
+- `contextBefore` = normalized text of lines N-2 and N-1 (joined with `\n`), or fewer if at file start
+- `contextAfter` = normalized text of lines N+1 and N+2 (joined with `\n`), or fewer if at file end
+- Context uses the same normalization as `lineHash` (trim, collapse whitespace)
+
+### Selection Comment Re-anchoring
+
+For selection comments, after finding the anchor line:
+1. Check if `selectedText` exists at the expected offsets → exact selection highlight
+2. Search for `selectedText` as substring within ±5 lines of anchor → adjusted highlight
+3. If not found, degrade to line comment display (no highlight, show at anchor line)
 
 ### Line Hash Normalization
 
@@ -162,7 +199,9 @@ EnhancedViewer
 - **Gutter indicators**: colored dot/icon for lines with comments. Blue = unresolved, green = resolved
 - **Inline threads**: clicking the gutter indicator expands the comment thread below the line
 - **Selection highlights**: semi-transparent yellow/orange background on the selected text range
-- **CommentsPanel**: right sidebar lists all comments sorted by line number, click to scroll
+- **CommentsPanel**: right sidebar lists all comments sorted by line number, click to navigate
+- **CommentsPanel click-to-scroll**: clicking a comment in the panel scrolls the viewer to the matching line, highlights the line/selection with a brief flash animation, and expands the inline comment thread. Works in both source and visual view — in visual view, scrolls to the nearest block element with matching `data-source-line`.
+- **Responses**: each comment can have responses (from AI agents or users). Responses are displayed below the comment text in the inline thread, each with author name and timestamp.
 
 ### Resolving / Deleting
 
@@ -205,18 +244,18 @@ The following are removed:
 
 **Kept**: `fnv1a8()` hash function — still used for `lineHash` computation on individual lines.
 
-## Shell Scripts
+## Scripts
 
-Scripts live in `scripts/` directory at the repo root. Both bash and PowerShell versions are provided. They parse `.review.json` sidecar files directly (JSON parsing via built-in tools — no external dependencies like `jq`).
+Scripts live in `scripts/` directory at the repo root. **Python** (cross-platform, has built-in `json` module) and **PowerShell** versions are provided. No external dependencies required.
 
-### scan-comments.sh / scan-comments.ps1
+### scan-comments.py / scan-comments.ps1
 
 Scans a directory (recursively) for `.review.json` sidecar files and displays all comments in a structured format.
 
 **Usage:**
 ```bash
-./scripts/scan-comments.sh [directory]        # defaults to current dir
-./scripts/scan-comments.ps1 [-Path directory]  # defaults to current dir
+python scripts/scan-comments.py [directory]          # defaults to current dir
+./scripts/scan-comments.ps1 [-Path directory]        # defaults to current dir
 ```
 
 **Output format (tab-separated for easy piping):**
@@ -238,7 +277,7 @@ src/old.md	1	orphaned	block	<n/a>	Legacy block comment
 **Flags:**
 - `--unresolved` / `-Unresolved` — show only unresolved comments
 - `--resolved` / `-Resolved` — show only resolved comments
-- `--json` / `-Json` — output as JSON array (for programmatic consumption)
+- `--json` / `-Json` — output as JSON array (for programmatic consumption / AI agent input)
 
 **Edge cases:**
 - Malformed JSON files: print warning to stderr, skip file, continue
@@ -246,13 +285,77 @@ src/old.md	1	orphaned	block	<n/a>	Legacy block comment
 - Output paths are relative to the scan directory
 - Exit code 0 on success (even if no comments found), 1 on fatal error
 
-### clean-comments.sh / clean-comments.ps1
+### respond-comments.py / respond-comments.ps1
+
+Adds a response to a specific comment by ID, or to all unresolved comments in a file. Designed for AI agents to programmatically respond to review comments.
+
+**Usage:**
+```bash
+# Respond to a specific comment by ID
+python scripts/respond-comments.py --file src/app.tsx --id ecv4rn81 --author "copilot" --text "Fixed the error handling"
+
+# Respond to all unresolved comments in a file (reads responses from stdin as JSON)
+python scripts/respond-comments.py --file src/app.tsx --author "copilot" --from-json responses.json
+```
+
+```powershell
+# Respond to a specific comment by ID
+./scripts/respond-comments.ps1 -File src/app.tsx -Id ecv4rn81 -Author "copilot" -Text "Fixed the error handling"
+
+# Respond to all unresolved comments from JSON input
+./scripts/respond-comments.ps1 -File src/app.tsx -Author "copilot" -FromJson responses.json
+```
+
+**JSON input format** (for batch responses):
+```json
+[
+  { "id": "ecv4rn81", "text": "Fixed the error handling in commit abc123" },
+  { "id": "xk9f2m3a", "text": "This is intentional, see docs/design.md" }
+]
+```
+
+**Behavior:**
+- Appends a `CommentResponse` to the comment's `responses` array
+- Creates the `responses` array if it doesn't exist
+- Preserves all other comment fields unchanged
+- Atomic write (temp + rename) matching the Rust sidecar save behavior
+- Exit code 0 on success, 1 if comment ID not found or file error
+
+### resolve-comments.py / resolve-comments.ps1
+
+Resolves comments by ID, by author response, or all unresolved comments in a file/directory.
+
+**Usage:**
+```bash
+# Resolve specific comments by ID
+python scripts/resolve-comments.py --file src/app.tsx --id ecv4rn81 --id xk9f2m3a
+
+# Resolve all comments that have a response from a specific agent
+python scripts/resolve-comments.py [directory] --responded-by "copilot"
+
+# Resolve all unresolved comments in a directory
+python scripts/resolve-comments.py [directory] --all
+```
+
+```powershell
+./scripts/resolve-comments.ps1 -File src/app.tsx -Id ecv4rn81,xk9f2m3a
+./scripts/resolve-comments.ps1 [-Path directory] -RespondedBy "copilot"
+./scripts/resolve-comments.ps1 [-Path directory] -All
+```
+
+**Behavior:**
+- Sets `resolved: true` on matching comments
+- `--responded-by` / `-RespondedBy`: resolves comments where `responses` array contains at least one response from the named author
+- Reports count of comments resolved per file
+- `--dry-run` / `-DryRun` shows what would be changed
+
+### clean-comments.py / clean-comments.ps1
 
 Deletes resolved comments or all comments from sidecar files.
 
 **Usage:**
 ```bash
-./scripts/clean-comments.sh [directory] [--all] [--dry-run]
+python scripts/clean-comments.py [directory] [--all] [--dry-run]
 ./scripts/clean-comments.ps1 [-Path directory] [-All] [-DryRun]
 ```
 
@@ -263,11 +366,12 @@ Deletes resolved comments or all comments from sidecar files.
 - Reports count of files modified / deleted to stdout
 - Empty sidecar files (no comments remaining) are deleted rather than left as `{"version":3,"comments":[]}`
 
-**Edge cases:**
+**Edge cases (all scripts):**
 - Malformed JSON files: print warning to stderr, skip file, continue
 - Supports sidecar versions 1, 2, and 3 (preserves version on rewrite)
-- Bash version uses Python one-liner for JSON parsing (`python3 -c ...`) since bash has no built-in JSON support
-- PowerShell version uses `ConvertFrom-Json` / `ConvertTo-Json` (built-in)
+- Python scripts use only stdlib (`json`, `os`, `sys`, `argparse`) — no pip dependencies
+- PowerShell scripts use `ConvertFrom-Json` / `ConvertTo-Json` (built-in)
+- Atomic writes: write to temp file, then rename (matches Rust behavior)
 - Exit code 0 on success, 1 on fatal error
 
 ## CSS Design
@@ -321,35 +425,64 @@ Positioned dynamically above or below the selection using `window.getSelection()
 
 ## Testing Strategy
 
-### Unit Tests (Vitest)
+### Unit Tests (Vitest) — Comment Matching Algorithm
 
-1. **Comment matching algorithm** — test primary match, re-anchoring, orphaning
-2. **Selection anchor creation** — test offset computation, multi-line selections
-3. **Sidecar migration** — test v1→v3, v2→v3, block comment orphaning
-4. **Store actions** — addComment, editComment, deleteComment, resolveComment with new model
-5. **Line hash computation** — test normalization and collision handling
-6. **CommentsPanel** — test sorting, filtering, click-to-scroll
+These tests are critical for the AI agent workflow. The matching algorithm must be thoroughly tested with realistic file modification scenarios.
+
+1. **Exact match** — comment at line 10, lineHash matches line 10 → anchored at 10
+2. **Nearby hash match** — line moved ±5 lines → re-anchored to new position
+3. **Context-based match** — commented line rewritten but surrounding lines unchanged → anchored via context
+4. **Global hash fallback** — line moved >30 lines (e.g., large block inserted above) → found globally
+5. **Selected text fallback** — selection comment, line hash doesn't match, but selectedText found nearby
+6. **Duplicate lines** — two identical lines, comment on line 10 → stays on 10, not duplicated to line 20
+7. **Orphaned gracefully** — commented line and all context deleted → orphaned at original lineNumber (clamped to file length)
+8. **File truncated** — file shortened, lineNumber beyond EOF → clamped to last line, shown as orphaned
+9. **File empty** — all content deleted → all comments orphaned at line 1
+10. **Multiple comments, mixed matching** — some exact, some re-anchored, some orphaned in same file
+11. **Re-anchor updates lineNumber** — after re-anchoring, saved lineNumber reflects new position
+12. **Context match disambiguates** — two identical lines, context lines differ → correct one matched
+13. **Selection degradation** — selectedText not found → degrades to line comment display
+
+### Unit Tests (Vitest) — Other
+
+14. **Selection anchor creation** — test offset computation, single-line and multi-line selections
+15. **Sidecar migration** — test v1→v3, v2→v3, block comment preservation as orphaned
+16. **Store actions** — addComment, editComment, deleteComment, resolveComment, addResponse with new model
+17. **Line hash computation** — normalization (trim, collapse whitespace), case sensitivity
+18. **Context capture** — correct 2-line before/after at file boundaries
+19. **CommentsPanel** — sorting by line number, filtering, click-to-scroll dispatch
+20. **Response model** — add response, display responses, resolve-by-respondent
 
 ### Component Tests (Vitest + RTL)
 
-1. **CommentInput** — test Ctrl+Enter save, Escape cancel, empty rejection
-2. **CommentThread** — test resolve/unresolve, edit, delete
-3. **SelectionToolbar** — test appearance on selection, disappearance on click-away
-4. **Gutter** — test `+` button hover, comment indicator rendering
-5. **Selection highlights** — test highlight rendering for selection comments
+21. **CommentInput** — Ctrl+Enter save, Escape cancel, empty rejection
+22. **CommentThread** — resolve/unresolve, edit, delete, display responses with author/timestamp
+23. **SelectionToolbar** — appearance on selection, disappearance on click-away/escape
+24. **Gutter** — `+` button hover, comment indicator rendering, click to expand thread
+25. **Selection highlights** — highlight rendering, resolved vs unresolved styling
+26. **CommentsPanel scroll-to** — clicking comment triggers scroll and flash animation in viewer
 
 ### E2E Tests (Playwright)
 
-1. **Add line comment** in source view → verify persisted in sidecar
-2. **Add selection comment** in source view → verify highlight + sidecar
-3. **Add line comment** in visual (markdown) view → verify source line mapping
-4. **Duplicate line handling** — two identical lines, comment on one → only one shows
-5. **Re-anchoring** — change file, reopen → comment re-anchors to moved line
-6. **CommentsPanel navigation** — click comment → scrolls to correct line
-7. **Resolve/delete** — verify UI update and sidecar persistence
+27. **Add line comment** in source view → verify persisted in sidecar
+28. **Add selection comment** in source view → verify highlight + sidecar
+29. **Add line comment** in visual (markdown) view → verify source line mapping
+30. **Duplicate line handling** — two identical lines, comment on one → only one shows
+31. **Re-anchoring** — modify file content, reopen → comment re-anchors to moved line
+32. **CommentsPanel navigation** — click comment → scrolls to correct line and highlights
+33. **Resolve/delete** — verify UI update and sidecar persistence
+34. **Response display** — comment with responses shows author and text
 
 ### Rust Integration Tests
 
-1. **Sidecar v3 round-trip** — save and load with new fields
-2. **v2 migration** — load v2 file, verify comments preserved
-3. **Atomic save** — verify temp+rename behavior
+35. **Sidecar v3 round-trip** — save and load with new fields (contextBefore, contextAfter, responses)
+36. **v2 migration** — load v2 file, verify comments preserved with all fields
+37. **Atomic save** — verify temp+rename behavior
+38. **New fields optional** — v3 sidecar without contextBefore/responses loads cleanly
+
+### Script Tests
+
+39. **scan-comments.py** — test with v1, v2, v3 sidecars, malformed JSON, empty dirs
+40. **respond-comments.py** — test single response, batch response, missing comment ID
+41. **resolve-comments.py** — test by ID, by respondent, --all, --dry-run
+42. **clean-comments.py** — test resolved-only cleanup, --all deletion, empty sidecar deletion
