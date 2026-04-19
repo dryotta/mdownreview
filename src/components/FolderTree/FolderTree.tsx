@@ -40,6 +40,7 @@ export function FolderTree({ onFileOpen }: FolderTreeProps) {
     if (root) loadChildren(root);
   }, [root, loadChildren]);
 
+
   const handleToggle = async (path: string, isDir: boolean) => {
     if (!isDir) {
       onFileOpen(path);

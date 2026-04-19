@@ -248,7 +248,7 @@ export default function App() {
       listen("menu-collapse-all", () => useStore.getState().collapseAll()),
     ];
     return () => {
-      pending.forEach((p) => p.then((fn) => fn()));
+      pending.forEach((p) => p.then((fn) => fn()).catch(() => {}));
     };
   }, [toggleFolderPane, toggleCommentsPane, setTheme, triggerUpdateCheck]);
 
