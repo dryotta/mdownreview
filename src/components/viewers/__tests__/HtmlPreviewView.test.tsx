@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { HtmlPreviewView } from "../HtmlPreviewView";
 
+vi.mock("@/lib/resolve-html-assets", () => ({
+  resolveLocalAssets: vi.fn((html: string) => Promise.resolve(html)),
+}));
+
 describe("HtmlPreviewView", () => {
   it("renders sandboxed iframe with content", () => {
     const { container } = render(<HtmlPreviewView content="<h1>Hello</h1>" />);

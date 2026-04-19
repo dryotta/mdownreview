@@ -75,7 +75,7 @@ function renderVisualView(
     case "csv":
       return <CsvTableView content={content} path={path} />;
     case "html":
-      return <HtmlPreviewView content={content} />;
+      return <HtmlPreviewView content={content} filePath={filePath} />;
     case "mermaid":
       return <MermaidView content={content} />;
     case "kql":
