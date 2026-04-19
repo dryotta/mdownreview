@@ -1,3 +1,12 @@
+## v0.2.2 — 2026-04-18
+
+### Fixes
+- fix: add createUpdaterArtifacts v1Compatible to produce updater bundles
+
+### Other
+- chore: update publish-release skill to sync package-lock.json on release
+- chore: sync package-lock.json version to 0.2.1
+
 ## v0.2.1 — 2026-04-18
 
 ### Features
