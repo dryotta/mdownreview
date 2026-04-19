@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 from io import StringIO
 
@@ -399,6 +400,66 @@ class TestHelpers(unittest.TestCase):
         rc = mdownreview.main([])
         sys.stdout, sys.stderr = old_stdout, old_stderr
         self.assertEqual(rc, 1)
+
+
+# ===== open =====
+
+class TestOpen(unittest.TestCase):
+
+    def test_find_app_binary_on_path(self):
+        """find_app_binary returns a PATH match when available."""
+        with unittest.mock.patch("shutil.which") as mock_which:
+            mock_which.side_effect = lambda name: (
+                "/usr/bin/mdown-review" if name == "mdown-review" else None
+            )
+            # Patch known paths to not exist
+            with unittest.mock.patch("os.path.isfile", return_value=False):
+                result = mdownreview.find_app_binary()
+        self.assertEqual(result, "/usr/bin/mdown-review")
+
+    def test_find_app_binary_none(self):
+        """find_app_binary returns None when nothing found."""
+        with unittest.mock.patch("shutil.which", return_value=None):
+            with unittest.mock.patch("os.path.isfile", return_value=False):
+                result = mdownreview.find_app_binary()
+        self.assertIsNone(result)
+
+    def test_open_not_found(self):
+        """cmd_open exits 1 when binary not found."""
+        with unittest.mock.patch.object(mdownreview, "find_app_binary", return_value=None):
+            old_stdout, old_stderr = sys.stdout, sys.stderr
+            sys.stdout = StringIO()
+            sys.stderr = buf_err = StringIO()
+            rc = mdownreview.main(["open"])
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+        self.assertEqual(rc, 1)
+        self.assertIn("not found", buf_err.getvalue())
+
+    def test_open_launches_app(self):
+        """cmd_open launches the binary and exits 0."""
+        with unittest.mock.patch.object(mdownreview, "find_app_binary", return_value="/fake/app"):
+            with unittest.mock.patch("subprocess.Popen") as mock_popen:
+                old_stdout = sys.stdout
+                sys.stdout = buf = StringIO()
+                rc = mdownreview.main(["open", "/some/project"])
+                sys.stdout = old_stdout
+        self.assertEqual(rc, 0)
+        mock_popen.assert_called_once()
+        call_args = mock_popen.call_args
+        self.assertEqual(call_args[0][0][0], "/fake/app")
+        self.assertIn("Launched", buf.getvalue())
+
+    def test_open_launch_failure(self):
+        """cmd_open exits 1 when Popen raises OSError."""
+        with unittest.mock.patch.object(mdownreview, "find_app_binary", return_value="/fake/app"):
+            with unittest.mock.patch("subprocess.Popen", side_effect=OSError("nope")):
+                old_stdout, old_stderr = sys.stdout, sys.stderr
+                sys.stdout = StringIO()
+                sys.stderr = buf_err = StringIO()
+                rc = mdownreview.main(["open", "/some/project"])
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+        self.assertEqual(rc, 1)
+        self.assertIn("failed to launch", buf_err.getvalue())
 
 
 if __name__ == "__main__":

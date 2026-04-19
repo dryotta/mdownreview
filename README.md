@@ -62,6 +62,8 @@ Skills are automatically available. Run `python scripts/mdownreview.py read` to 
 | `mdownreview-respond` | Record an agent response after addressing a comment |
 | `mdownreview-resolve` | Mark comments as resolved |
 | `mdownreview-cleanup` | Delete `.review.json` files where all comments are resolved |
+| `mdownreview-review` | Orchestrate the full cycle: read, fix, respond, resolve, clean up |
+| `mdownreview-open` | Find and launch the mDown reView desktop app |
 
 ### CLI Usage
 
@@ -70,6 +72,7 @@ python scripts/mdownreview.py read [path] [--format json|text] [--all]
 python scripts/mdownreview.py respond <file> <comment-id> "<text>"
 python scripts/mdownreview.py resolve <file> <comment-id> [--all]
 python scripts/mdownreview.py cleanup [path] [--dry-run]
+python scripts/mdownreview.py open [path]
 ```
 
 ## License

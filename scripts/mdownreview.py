@@ -6,12 +6,16 @@ Subcommands:
   respond  — add a response to a comment
   resolve  — mark comments as resolved
   cleanup  — delete fully-resolved sidecar files
+  open     — find and launch the mDown reView desktop app
 """
 
 import argparse
 import datetime
 import json
 import os
+import platform
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -250,6 +254,96 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# open
+# ---------------------------------------------------------------------------
+
+# Well-known install locations per platform
+_KNOWN_PATHS_WINDOWS = [
+    os.path.join(
+        os.environ.get("LOCALAPPDATA", ""),
+        "Programs", "mDown reView", "mDown reView.exe",
+    ),
+]
+
+_KNOWN_PATHS_MACOS = [
+    "/Applications/mDown reView.app/Contents/MacOS/mDown reView",
+    os.path.expanduser(
+        "~/Applications/mDown reView.app/Contents/MacOS/mDown reView"
+    ),
+]
+
+_PATH_NAMES = ["mDown reView", "mdown-review"]
+
+
+def find_app_binary() -> str | None:
+    """Locate the mDown reView binary.
+
+    Search order: well-known install paths, then PATH.
+    Returns the absolute path or ``None``.
+    """
+    system = platform.system()
+
+    known: list[str] = []
+    if system == "Windows":
+        known = _KNOWN_PATHS_WINDOWS
+    elif system == "Darwin":
+        known = _KNOWN_PATHS_MACOS
+
+    for p in known:
+        if p and os.path.isfile(p):
+            return p
+
+    for name in _PATH_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
+
+    return None
+
+
+def cmd_open(args: argparse.Namespace) -> int:
+    target = os.path.abspath(args.path or os.getcwd())
+    binary = find_app_binary()
+
+    if binary is None:
+        searched = []
+        system = platform.system()
+        if system == "Windows":
+            searched.extend(_KNOWN_PATHS_WINDOWS)
+        elif system == "Darwin":
+            searched.extend(_KNOWN_PATHS_MACOS)
+        searched.extend(f"(PATH) {n}" for n in _PATH_NAMES)
+        print("error: mDown reView not found", file=sys.stderr)
+        print("Searched:", file=sys.stderr)
+        for loc in searched:
+            print(f"  - {loc}", file=sys.stderr)
+        return 1
+
+    try:
+        if platform.system() == "Windows":
+            # DETACHED_PROCESS so the app doesn't block the terminal
+            subprocess.Popen(
+                [binary, target],
+                creationflags=subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+                | subprocess.CREATE_NEW_PROCESS_GROUP,  # type: ignore[attr-defined]
+                close_fds=True,
+            )
+        else:
+            subprocess.Popen(
+                [binary, target],
+                start_new_session=True,
+                close_fds=True,
+            )
+    except OSError as exc:
+        print(f"error: failed to launch: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Launched mDown reView: {binary}")
+    print(f"Opening: {target}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
@@ -286,6 +380,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_clean.add_argument("path", nargs="?", default=None, help="Root directory (default: cwd)")
     p_clean.add_argument("--dry-run", action="store_true", help="Preview without deleting")
     p_clean.set_defaults(func=cmd_cleanup)
+
+    # open
+    p_open = sub.add_parser("open", help="Launch mDown reView desktop app")
+    p_open.add_argument("path", nargs="?", default=None, help="Folder to open (default: cwd)")
+    p_open.set_defaults(func=cmd_open)
 
     return parser
 
