@@ -1,3 +1,18 @@
+## v0.2.3 — 2026-04-18
+
+### Features
+- feat: add native menu system covering all app functionalities (#1)
+- feat: unified top-level toolbar with Open File, Open Folder, and panel toggles (#2)
+
+### Fixes
+- fix: harden publish-release skill for Copilot CLI compatibility
+- fix: sync Cargo.lock version and update publish-release skill
+- fix: read app version dynamically in About dialog
+- fix: replace stale release assets before re-upload; deduplicate release assets
+
+### Other
+- ci: add workflow_dispatch trigger and skip release creation if already exists
+
 ## v0.2.2 — 2026-04-18
 
 ### Fixes
