@@ -155,17 +155,26 @@ python scripts/mdownreview.py read [path] [--format json|text] [--all]
 ```
 .claude/
   skills/
-    mdownreview-read/SKILL.md
-    mdownreview-respond/SKILL.md
-    mdownreview-resolve/SKILL.md
-    mdownreview-cleanup/SKILL.md
-    publish-release/SKILL.md          ← existing, updated
+    publish-release/SKILL.md          ← internal only, NOT published
+
+skills/                                ← published via marketplace
+  mdownreview-read/SKILL.md
+  mdownreview-respond/SKILL.md
+  mdownreview-resolve/SKILL.md
+  mdownreview-cleanup/SKILL.md
+
 .claude-plugin/
   marketplace.json                     ← NEW: marketplace catalog
   plugin.json                          ← NEW: plugin metadata
+
 scripts/
   mdownreview.py                       ← NEW: Python CLI
 ```
+
+### Skill Location Convention
+
+- **`.claude/skills/`** — project-internal skills, auto-discovered when working in this repo, NOT published to the marketplace (e.g., `publish-release`)
+- **`skills/`** (root level) — marketplace skills, discovered when the plugin is installed in other projects, also available locally
 
 ## Marketplace Configuration
 
