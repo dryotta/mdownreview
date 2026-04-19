@@ -218,6 +218,12 @@
   background: none;
 }
 
+/* In visual mode, line-comment-section doesn't need source-view's 82px left indent */
+.md-comment-popover .line-comment-section {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
 /* Inline comment gutter for visual (markdown) mode */
 .md-commentable-block {
   /* Wrapper div — no special positioning so ::before positions relative to .markdown-body */
