@@ -36,7 +36,7 @@ export function CommentsPanel({ filePath, onScrollToBlock }: Props) {
             <div
               key={comment.id}
               className="comment-panel-item"
-              onClick={() => onScrollToBlock?.(comment.blockHash)}
+              onClick={() => comment.blockHash && onScrollToBlock?.(comment.blockHash)}
             >
               <CommentThread comment={comment} />
             </div>

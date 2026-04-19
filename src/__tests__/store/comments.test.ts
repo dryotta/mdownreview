@@ -6,6 +6,7 @@ const initialState = useStore.getState();
 
 // Minimal anchor that satisfies addComment's second argument type
 const baseAnchor: Omit<CommentWithOrphan, "id" | "createdAt" | "resolved" | "text" | "isOrphaned"> = {
+  anchorType: "block" as const,
   blockHash: "abc123",
   headingContext: "## Section",
   fallbackLine: 5,
@@ -41,6 +42,7 @@ describe("comments slice – addComment", () => {
   it("copies anchor fields onto the new comment", () => {
     useStore.getState().addComment(FILE, baseAnchor, "check");
     const [comment] = useStore.getState().commentsByFile[FILE];
+    expect(comment.anchorType).toBe("block");
     expect(comment.blockHash).toBe("abc123");
     expect(comment.headingContext).toBe("## Section");
     expect(comment.fallbackLine).toBe(5);
@@ -174,6 +176,7 @@ describe("comments slice – orphaned flag preservation", () => {
     // Seed a comment with isOrphaned=true via setFileComments
     const orphaned: CommentWithOrphan = {
       id: "orph-1",
+      anchorType: "block" as const,
       blockHash: "deadbeef",
       headingContext: null,
       fallbackLine: 1,
@@ -193,6 +196,7 @@ describe("comments slice – orphaned flag preservation", () => {
   it("resolving a comment preserves the isOrphaned flag", () => {
     const orphaned: CommentWithOrphan = {
       id: "orph-2",
+      anchorType: "block" as const,
       blockHash: "deadbeef",
       headingContext: null,
       fallbackLine: 1,
@@ -232,3 +236,40 @@ describe("useUnresolvedCount selector", () => {
     expect(count).toBe(0);
   });
 });
+
+describe("comment v2 compatibility", () => {
+  it("handles v1 comments (block-only, no anchorType)", () => {
+    const v1Comment = {
+      id: "abc",
+      blockHash: "12345678",
+      headingContext: null,
+      fallbackLine: 5,
+      text: "old comment",
+      createdAt: "2026-01-01T00:00:00Z",
+      resolved: false,
+    };
+    useStore.getState().setFileComments("/test.md", [v1Comment as any]);
+    const comments = useStore.getState().commentsByFile["/test.md"];
+    expect(comments).toHaveLength(1);
+    expect(comments[0].text).toBe("old comment");
+  });
+
+  it("stores line comments with anchorType", () => {
+    const lineComment = {
+      id: "def",
+      anchorType: "line" as const,
+      lineHash: "abcd1234",
+      lineNumber: 42,
+      text: "line comment",
+      createdAt: "2026-01-01T00:00:00Z",
+      resolved: false,
+    };
+    useStore.getState().setFileComments("/test.ts", [lineComment]);
+    const comments = useStore.getState().commentsByFile["/test.ts"];
+    expect(comments).toHaveLength(1);
+    expect(comments[0].anchorType).toBe("line");
+    expect(comments[0].lineHash).toBe("abcd1234");
+    expect(comments[0].lineNumber).toBe(42);
+  });
+});
+

@@ -20,16 +20,26 @@ pub struct LaunchArgs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewComment {
     pub id: String,
-    #[serde(rename = "blockHash")]
-    pub block_hash: String,
+    #[serde(rename = "anchorType", default = "default_anchor_type")]
+    pub anchor_type: String,
+    #[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+    pub block_hash: Option<String>,
+    #[serde(rename = "lineHash", skip_serializing_if = "Option::is_none")]
+    pub line_hash: Option<String>,
+    #[serde(rename = "lineNumber", skip_serializing_if = "Option::is_none")]
+    pub line_number: Option<u32>,
     #[serde(rename = "headingContext")]
     pub heading_context: Option<String>,
-    #[serde(rename = "fallbackLine")]
-    pub fallback_line: u32,
+    #[serde(rename = "fallbackLine", skip_serializing_if = "Option::is_none")]
+    pub fallback_line: Option<u32>,
     pub text: String,
     #[serde(rename = "createdAt")]
     pub created_at: String,
     pub resolved: bool,
+}
+
+fn default_anchor_type() -> String {
+    "block".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,7 +153,7 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
 pub fn save_review_comments(file_path: String, comments: Vec<ReviewComment>) -> Result<(), String> {
     let sidecar_path = std::path::PathBuf::from(format!("{}.review.json", file_path));
     let payload = ReviewComments {
-        version: 1,
+        version: 2,
         comments,
     };
     let json = serde_json::to_string_pretty(&payload).map_err(|e| {

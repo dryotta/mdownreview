@@ -8,6 +8,7 @@ interface Anchor {
   blockHash: string;
   headingContext: string | null;
   fallbackLine: number;
+  anchorType?: "block" | "line";
 }
 
 interface Props {

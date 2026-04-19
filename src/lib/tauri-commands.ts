@@ -16,9 +16,12 @@ export interface LaunchArgs {
 
 export interface ReviewComment {
   id: string;
-  blockHash: string;
-  headingContext: string | null;
-  fallbackLine: number;
+  anchorType: "block" | "line";
+  blockHash?: string;
+  lineHash?: string;
+  lineNumber?: number;
+  headingContext?: string | null;
+  fallbackLine?: number;
   text: string;
   createdAt: string;
   resolved: boolean;

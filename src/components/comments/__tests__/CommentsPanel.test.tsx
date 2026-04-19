@@ -16,6 +16,7 @@ function makeComment(
 ): CommentWithOrphan {
   return {
     id,
+    anchorType: "block" as const,
     blockHash: `hash-${id}`,
     headingContext: null,
     fallbackLine: 1,

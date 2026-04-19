@@ -44,9 +44,12 @@ fn read_text_file_rejects_too_large() {
 fn make_comment(id: &str) -> ReviewComment {
     ReviewComment {
         id: id.to_string(),
-        block_hash: "abc12345".to_string(),
+        anchor_type: "block".to_string(),
+        block_hash: Some("abc12345".to_string()),
+        line_hash: None,
+        line_number: None,
         heading_context: None,
-        fallback_line: 1,
+        fallback_line: Some(1),
         text: "Test comment".to_string(),
         created_at: "2024-01-01T00:00:00Z".to_string(),
         resolved: false,
@@ -64,12 +67,12 @@ fn save_and_load_review_comments() {
     // Check JSON structure
     let sidecar = std::fs::read_to_string(format!("{}.review.json", file_path)).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&sidecar).unwrap();
-    assert_eq!(parsed["version"], 1);
+    assert_eq!(parsed["version"], 2);
     assert_eq!(parsed["comments"].as_array().unwrap().len(), 2);
 
     // Round-trip
     let loaded = load_review_comments(file_path).unwrap().unwrap();
-    assert_eq!(loaded.version, 1);
+    assert_eq!(loaded.version, 2);
     assert_eq!(loaded.comments.len(), 2);
     assert_eq!(loaded.comments[0].id, "c1");
 }
@@ -96,11 +99,23 @@ fn load_legacy_sidecar_without_version() {
     assert_eq!(loaded.version, 0);
     assert_eq!(loaded.comments.len(), 1);
 
-    // Save re-migrates to version 1
+    // Save re-migrates to version 2
     save_review_comments(file_path.clone(), loaded.comments).unwrap();
     let saved = std::fs::read_to_string(sidecar_path).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&saved).unwrap();
-    assert_eq!(parsed["version"], 1);
+    assert_eq!(parsed["version"], 2);
+}
+
+#[test]
+fn load_v1_comments_defaults_anchor_type_to_block() {
+    let dir = tempfile::tempdir().unwrap();
+    let file_path = dir.path().join("test.md");
+    std::fs::write(&file_path, "# hello").unwrap();
+    let sidecar = dir.path().join("test.md.review.json");
+    std::fs::write(&sidecar, r#"{"version":1,"comments":[{"id":"a","blockHash":"12345678","headingContext":null,"fallbackLine":1,"text":"hello","createdAt":"2026-01-01T00:00:00Z","resolved":false}]}"#).unwrap();
+
+    let result = load_review_comments(file_path.to_string_lossy().into_owned()).unwrap().unwrap();
+    assert_eq!(result.comments[0].anchor_type, "block");
 }
 
 // ── get_launch_args ────────────────────────────────────────────────────────

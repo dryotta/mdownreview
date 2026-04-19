@@ -16,6 +16,7 @@ beforeEach(() => {
 function makeComment(overrides: Partial<CommentWithOrphan> = {}): CommentWithOrphan {
   return {
     id: "comment-1",
+    anchorType: "block" as const,
     blockHash: "abc123",
     headingContext: null,
     fallbackLine: 1,
