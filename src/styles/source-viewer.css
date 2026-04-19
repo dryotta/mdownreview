@@ -202,3 +202,12 @@
 .source-fold-placeholder:hover {
   background: var(--color-hover);
 }
+
+/* Selection highlight for active selection comments */
+.source-line.selection-active {
+  background: rgba(255, 213, 79, 0.2);
+}
+
+.source-line.selection-active .source-line-gutter {
+  background: rgba(255, 213, 79, 0.2);
+}

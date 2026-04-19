@@ -83,6 +83,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     selectionEndLine: number;
     selectionEndOffset: number;
   } | null>(null);
+  const [highlightedSelectionLines, setHighlightedSelectionLines] = useState<Set<number>>(new Set());
   const { query, setQuery, matches, currentIndex, next, prev } = useSearch(content);
 
   const setFileComments = useStore((s) => s.setFileComments);
@@ -326,6 +327,13 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
       selectionEndOffset: endOffset,
     });
 
+    // Highlight selected lines
+    const startLine = lineNumber;
+    const endLineNum = endLine ?? lineNumber;
+    const highlighted = new Set<number>();
+    for (let i = startLine; i <= endLineNum; i++) highlighted.add(i);
+    setHighlightedSelectionLines(highlighted);
+
     setSelectionToolbar(null);
     setCommentingLine(lineNumber);
   };
@@ -361,7 +369,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
 
             elements.push(
               <div key={idx}>
-                <div className="source-line" data-line-idx={idx}>
+                <div className={`source-line${highlightedSelectionLines.has(lineNum) ? " selection-active" : ""}`} data-line-idx={idx}>
                   <span className="source-line-gutter">
                     <span className="source-line-comment-zone">
                       <button
@@ -417,13 +425,14 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     matchedComments={lineComments}
                     showInput={commentingLine === lineNum}
                     forceExpanded={expandedLine === lineNum}
-                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); setPendingSelectionAnchor(null); }}
+                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); setPendingSelectionAnchor(null); setHighlightedSelectionLines(new Set()); }}
                     onRequestInput={() => setCommentingLine(lineNum)}
                     onSaveComment={
                       pendingSelectionAnchor && commentingLine === lineNum
                         ? (text: string) => {
                             addComment(filePath, pendingSelectionAnchor, text);
                             setPendingSelectionAnchor(null);
+                            setHighlightedSelectionLines(new Set());
                           }
                         : undefined
                     }

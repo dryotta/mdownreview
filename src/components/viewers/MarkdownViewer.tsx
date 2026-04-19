@@ -22,7 +22,9 @@ import { FrontmatterBlock } from "./FrontmatterBlock";
 import { TableOfContents, extractHeadings } from "./TableOfContents";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { CommentThread } from "@/components/comments/CommentThread";
+import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
 import { matchComments } from "@/lib/comment-matching";
+import { computeLineHash, captureContext } from "@/lib/comment-anchors";
 import { useStore } from "@/store";
 import type { CommentWithOrphan } from "@/store";
 import { loadReviewComments, saveReviewComments } from "@/lib/tauri-commands";
@@ -108,12 +110,10 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
 
 // Context for inline comment gutters in markdown blocks
 interface MdCommentContextValue {
-  onClickLine: (line: number) => void;
   commentCountByLine: Map<number, number>;
 }
 
 const MdCommentContext = createContext<MdCommentContextValue>({
-  onClickLine: () => {},
   commentCountByLine: new Map(),
 });
 
@@ -121,16 +121,15 @@ const MdCommentContext = createContext<MdCommentContextValue>({
 function makeCommentableBlock(Tag: string) {
   return function CommentableBlock({ children, node, ...props }: ComponentPropsWithoutRef<any> & ExtraProps) {
     const line = node?.position?.start.line ?? 0;
-    const { onClickLine, commentCountByLine } = useContext(MdCommentContext);
+    const { commentCountByLine } = useContext(MdCommentContext);
     const count = commentCountByLine.get(line) ?? 0;
 
     return (
-      <div className="md-commentable-block" data-source-line={line}>
-        <span className="md-block-gutter" onClick={(e) => { e.stopPropagation(); onClickLine(line); }}>
-          <span className={`md-gutter-btn${count > 0 ? " has-comments" : ""}`}>
-            {count > 0 ? count : "+"}
-          </span>
-        </span>
+      <div
+        className={`md-commentable-block${count > 0 ? " has-comments" : ""}`}
+        data-source-line={line}
+        data-comment-count={count > 0 ? count : undefined}
+      >
         <Tag {...props}>{children}</Tag>
       </div>
     );
@@ -139,16 +138,16 @@ function makeCommentableBlock(Tag: string) {
 
 function CommentableLi({ children, node, ...props }: ComponentPropsWithoutRef<"li"> & ExtraProps) {
   const line = node?.position?.start.line ?? 0;
-  const { onClickLine, commentCountByLine } = useContext(MdCommentContext);
+  const { commentCountByLine } = useContext(MdCommentContext);
   const count = commentCountByLine.get(line) ?? 0;
 
   return (
-    <li {...props} data-source-line={line} className="md-commentable-li">
-      <span className="md-block-gutter" onClick={(e) => { e.stopPropagation(); onClickLine(line); }}>
-        <span className={`md-gutter-btn${count > 0 ? " has-comments" : ""}`}>
-          {count > 0 ? count : "+"}
-        </span>
-      </span>
+    <li
+      {...props}
+      data-source-line={line}
+      data-comment-count={count > 0 ? count : undefined}
+      className={`md-commentable-li${count > 0 ? " has-comments" : ""}`}
+    >
       {children}
     </li>
   );
@@ -203,10 +202,17 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);
+  const [selectionToolbar, setSelectionToolbar] = useState<{
+    position: { top: number; left: number };
+    lineNumber: number;
+    selectedText: string;
+  } | null>(null);
+  const [pendingSelectionAnchor, setPendingSelectionAnchor] = useState<Record<string, unknown> | null>(null);
 
   const lines = useMemo(() => body.split("\n"), [body]);
 
   const setFileComments = useStore((s) => s.setFileComments);
+  const addComment = useStore((s) => s.addComment);
   const comments = useStore((s) => s.commentsByFile[filePath]);
   const loadedRef = useRef<string | null>(null);
 
@@ -307,9 +313,75 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   }, [commentsByLine, expandedLine, commentingLine]);
 
   const contextValue = useMemo(() => ({
-    onClickLine: handleLineClick,
     commentCountByLine,
-  }), [handleLineClick, commentCountByLine]);
+  }), [commentCountByLine]);
+
+  const handleGutterClick = useCallback((e: React.MouseEvent) => {
+    const container = bodyRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const relativeX = e.clientX - containerRect.left;
+
+    // Only handle clicks in the gutter zone (left 28px)
+    if (relativeX > 28) return;
+
+    const target = (e.target as HTMLElement).closest("[data-source-line]");
+    if (!target) return;
+    const line = Number(target.getAttribute("data-source-line"));
+    if (line <= 0) return;
+
+    e.stopPropagation();
+    handleLineClick(line);
+  }, [handleLineClick]);
+
+  const handleMouseUp = useCallback(() => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) { setSelectionToolbar(null); return; }
+    const range = sel.getRangeAt(0);
+    const selectedText = sel.toString().trim();
+    if (!selectedText) { setSelectionToolbar(null); return; }
+
+    const startNode = range.startContainer;
+    const startElement = startNode.nodeType === Node.TEXT_NODE ? startNode.parentElement : startNode as HTMLElement;
+    const lineElement = startElement?.closest("[data-source-line]");
+    if (!lineElement) { setSelectionToolbar(null); return; }
+
+    const lineNumber = Number(lineElement.getAttribute("data-source-line"));
+    if (!lineNumber) { setSelectionToolbar(null); return; }
+
+    const rects = range.getClientRects();
+    const lastRect = rects[rects.length - 1] || range.getBoundingClientRect();
+
+    const toolbarHeight = 36;
+    const toolbarWidth = 120;
+    let top = lastRect.top - toolbarHeight - 4;
+    let left = lastRect.left + (lastRect.width / 2) - (toolbarWidth / 2);
+
+    if (top < 4) top = lastRect.bottom + 4;
+    left = Math.max(4, Math.min(left, window.innerWidth - toolbarWidth - 4));
+
+    setSelectionToolbar({ position: { top, left }, lineNumber, selectedText });
+  }, []);
+
+  const handleAddSelectionComment = useCallback(() => {
+    if (!selectionToolbar) return;
+    const { lineNumber, selectedText } = selectionToolbar;
+    const idx = lineNumber - 1;
+    const ctx = captureContext(lines, idx);
+
+    setPendingSelectionAnchor({
+      anchorType: "selection",
+      lineHash: computeLineHash(lines[idx] ?? ""),
+      lineNumber,
+      contextBefore: ctx.contextBefore,
+      contextAfter: ctx.contextAfter,
+      selectedText,
+    });
+
+    setSelectionToolbar(null);
+    setCommentingLine(lineNumber);
+    setExpandedLine(null);
+  }, [selectionToolbar, lines]);
 
   return (
     <div className="markdown-viewer">
@@ -324,6 +396,8 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
         <div
           className="markdown-body"
           ref={bodyRef}
+          onClick={handleGutterClick}
+          onMouseUp={handleMouseUp}
           style={{ position: "relative" }}
         >
           <ReactMarkdown
@@ -365,7 +439,15 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
                     fileLines={lines}
                     matchedComments={[]}
                     showInput={true}
-                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); }}
+                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); setPendingSelectionAnchor(null); }}
+                    onSaveComment={
+                      pendingSelectionAnchor
+                        ? (text: string) => {
+                            addComment(filePath, pendingSelectionAnchor as any, text);
+                            setPendingSelectionAnchor(null);
+                          }
+                        : undefined
+                    }
                   />
                 ) : (
                   <button
@@ -381,6 +463,13 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
           })()}
         </div>
       </MdCommentContext.Provider>
+      {selectionToolbar && (
+        <SelectionToolbar
+          position={selectionToolbar.position}
+          onAddComment={handleAddSelectionComment}
+          onDismiss={() => setSelectionToolbar(null)}
+        />
+      )}
     </div>
   );
 }
