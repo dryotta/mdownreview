@@ -21,6 +21,7 @@ import { CommentMargin } from "@/components/comments/CommentMargin";
 import { useStore } from "@/store";
 import { loadReviewComments, saveReviewComments } from "@/lib/tauri-commands";
 import { dirname } from "@/lib/path-utils";
+import { fnv1a8 } from "@/lib/fnv1a";
 import "@/styles/markdown.css";
 
 const SIZE_WARN_THRESHOLD = 500 * 1024;
@@ -49,16 +50,6 @@ function parseFrontmatter(content: string): {
     if (key) data[key] = value;
   }
   return { body, data };
-}
-
-// FNV-1a hash — 8 hex chars, same algorithm as the Rust side
-function fnv1a8(text: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return h.toString(16).padStart(8, "0");
 }
 
 // Extract plain text from React nodes (for block hash computation)
