@@ -197,19 +197,9 @@
   opacity: 1;
 }
 
-/* Floating comment button in visual mode */
-.md-comment-overlay {
-  pointer-events: auto;
-}
-
-.md-comment-btn-visible {
-  opacity: 1 !important;
-}
+/* Floating comment button in visual mode — DEPRECATED, replaced by inline gutter */
 
 .md-comment-popover {
-  position: absolute;
-  top: 0;
-  left: 32px;
   min-width: 280px;
   max-width: 400px;
   z-index: 20;
@@ -218,6 +208,74 @@
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
   padding: 8px;
+}
+
+/* Inline comment gutter for visual (markdown) mode */
+.md-commentable-block {
+  position: relative;
+  padding-left: 24px;
+  margin-left: -24px;
+}
+
+.md-commentable-li {
+  position: relative;
+}
+
+.md-block-gutter {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.md-commentable-li > .md-block-gutter {
+  left: -24px;
+}
+
+.md-gutter-btn {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent, #0969da);
+  opacity: 0;
+  transition: opacity 0.1s;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+/* Show on hover — like source view */
+.md-commentable-block:hover .md-gutter-btn,
+.md-commentable-li:hover > .md-block-gutter .md-gutter-btn {
+  opacity: 0.6;
+}
+
+.md-gutter-btn:hover {
+  opacity: 1 !important;
+  background: var(--color-tab-hover);
+}
+
+/* Always show count badge for lines with comments */
+.md-gutter-btn.has-comments {
+  opacity: 0.8;
+  background: var(--color-accent, #0969da);
+  color: white;
+  border-color: transparent;
+  font-size: 11px;
+}
+
+.md-comment-threads {
+  margin-bottom: 4px;
 }
 
 .comment-edit {

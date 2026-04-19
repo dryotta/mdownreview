@@ -15,10 +15,12 @@ interface Props {
   showInput?: boolean;
   onCloseInput?: () => void;
   onSaveComment?: (text: string) => void;
+  forceExpanded?: boolean;
+  onRequestInput?: () => void;
 }
 
 export function LineCommentMargin({
-  filePath, lineNumber, lineText, fileLines, matchedComments, showInput, onCloseInput, onSaveComment,
+  filePath, lineNumber, lineText, fileLines, matchedComments, showInput, onCloseInput, onSaveComment, forceExpanded, onRequestInput,
 }: Props) {
   const { addComment } = useStore();
   const [expanded, setExpanded] = useState(false);
@@ -47,6 +49,8 @@ export function LineCommentMargin({
     setExpanded(true);
   };
 
+  const shouldExpand = expanded || forceExpanded;
+
   if (!showInput && matchedComments.length === 0) return null;
 
   return (
@@ -54,10 +58,15 @@ export function LineCommentMargin({
       {showInput && (
         <CommentInput onSave={handleSave} onClose={() => onCloseInput?.()} />
       )}
-      {expanded && matchedComments.map((c) => <CommentThread key={c.id} comment={c} />)}
-      {!expanded && unresolved.length > 0 && (
+      {shouldExpand && matchedComments.map((c) => <CommentThread key={c.id} comment={c} />)}
+      {!shouldExpand && unresolved.length > 0 && (
         <button className="line-comment-count" onClick={() => setExpanded(true)}>
           {unresolved.length} comment{unresolved.length > 1 ? "s" : ""}
+        </button>
+      )}
+      {shouldExpand && !showInput && matchedComments.length > 0 && onRequestInput && (
+        <button className="comment-btn" onClick={onRequestInput} style={{ marginTop: 4 }}>
+          Add comment
         </button>
       )}
     </div>

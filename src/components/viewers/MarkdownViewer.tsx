@@ -10,6 +10,9 @@ import {
   useRef,
   isValidElement,
   useMemo,
+  createContext,
+  useContext,
+  useCallback,
   type ComponentPropsWithoutRef,
   type ReactElement,
   type ReactNode,
@@ -18,6 +21,7 @@ import type { ExtraProps } from "react-markdown";
 import { FrontmatterBlock } from "./FrontmatterBlock";
 import { TableOfContents, extractHeadings } from "./TableOfContents";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
+import { CommentThread } from "@/components/comments/CommentThread";
 import { matchComments } from "@/lib/comment-matching";
 import { useStore } from "@/store";
 import type { CommentWithOrphan } from "@/store";
@@ -102,17 +106,52 @@ function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   );
 }
 
-// Simple line-tracking components: add data-source-line to rendered elements
-function makeSourceLineBlock(Tag: string) {
-  return function SourceLineBlock({ children, node, ...props }: ComponentPropsWithoutRef<any> & ExtraProps) {
+// Context for inline comment gutters in markdown blocks
+interface MdCommentContextValue {
+  onClickLine: (line: number) => void;
+  commentCountByLine: Map<number, number>;
+}
+
+const MdCommentContext = createContext<MdCommentContextValue>({
+  onClickLine: () => {},
+  commentCountByLine: new Map(),
+});
+
+// Inline gutter component for commentable markdown blocks
+function makeCommentableBlock(Tag: string) {
+  return function CommentableBlock({ children, node, ...props }: ComponentPropsWithoutRef<any> & ExtraProps) {
     const line = node?.position?.start.line ?? 0;
-    return <Tag {...props} data-source-line={line}>{children}</Tag>;
+    const { onClickLine, commentCountByLine } = useContext(MdCommentContext);
+    const count = commentCountByLine.get(line) ?? 0;
+
+    return (
+      <div className="md-commentable-block" data-source-line={line}>
+        <span className="md-block-gutter" onClick={(e) => { e.stopPropagation(); onClickLine(line); }}>
+          <span className={`md-gutter-btn${count > 0 ? " has-comments" : ""}`}>
+            {count > 0 ? count : "+"}
+          </span>
+        </span>
+        <Tag {...props}>{children}</Tag>
+      </div>
+    );
   };
 }
 
-function SourceLineLi({ children, node, ...props }: ComponentPropsWithoutRef<"li"> & ExtraProps) {
+function CommentableLi({ children, node, ...props }: ComponentPropsWithoutRef<"li"> & ExtraProps) {
   const line = node?.position?.start.line ?? 0;
-  return <li {...props} data-source-line={line}>{children}</li>;
+  const { onClickLine, commentCountByLine } = useContext(MdCommentContext);
+  const count = commentCountByLine.get(line) ?? 0;
+
+  return (
+    <li {...props} data-source-line={line} className="md-commentable-li">
+      <span className="md-block-gutter" onClick={(e) => { e.stopPropagation(); onClickLine(line); }}>
+        <span className={`md-gutter-btn${count > 0 ? " has-comments" : ""}`}>
+          {count > 0 ? count : "+"}
+        </span>
+      </span>
+      {children}
+    </li>
+  );
 }
 
 // Module-scope components — no dependency on filePath or per-render state
@@ -148,14 +187,14 @@ const MD_COMPONENTS: Record<string, unknown> = {
     }
     return <pre {...props}>{children}</pre>;
   },
-  p: makeSourceLineBlock("p"),
-  h1: makeSourceLineBlock("h1"),
-  h2: makeSourceLineBlock("h2"),
-  h3: makeSourceLineBlock("h3"),
-  h4: makeSourceLineBlock("h4"),
-  h5: makeSourceLineBlock("h5"),
-  h6: makeSourceLineBlock("h6"),
-  li: SourceLineLi,
+  p: makeCommentableBlock("p"),
+  h1: makeCommentableBlock("h1"),
+  h2: makeCommentableBlock("h2"),
+  h3: makeCommentableBlock("h3"),
+  h4: makeCommentableBlock("h4"),
+  h5: makeCommentableBlock("h5"),
+  h6: makeCommentableBlock("h6"),
+  li: CommentableLi,
 };
 
 export function MarkdownViewer({ content, filePath, fileSize }: Props) {
@@ -163,8 +202,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const headings = useMemo(() => extractHeadings(body), [body]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
-  const [blockPositions, setBlockPositions] = useState<{ line: number; top: number }[]>([]);
-  const [hoveredLine, setHoveredLine] = useState<number | null>(null);
+  const [expandedLine, setExpandedLine] = useState<number | null>(null);
 
   const lines = useMemo(() => body.split("\n"), [body]);
 
@@ -240,50 +278,38 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
         el.classList.add("comment-flash");
         setTimeout(() => el.classList.remove("comment-flash"), 1500);
       }
+      setExpandedLine(line);
+      setCommentingLine(null);
     };
     window.addEventListener("scroll-to-line", handler);
     return () => window.removeEventListener("scroll-to-line", handler);
   }, []);
 
-  // Measure block positions after render
-  useEffect(() => {
-    function measure() {
-      if (!bodyRef.current) return;
-      const container = bodyRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const elements = container.querySelectorAll<HTMLElement>("[data-source-line]");
-      const result: { line: number; top: number }[] = [];
-      const seen = new Set<number>();
-      elements.forEach((el) => {
-        const line = Number(el.getAttribute("data-source-line"));
-        if (line > 0 && !seen.has(line)) {
-          seen.add(line);
-          const rect = el.getBoundingClientRect();
-          result.push({ line, top: rect.top - containerRect.top });
-        }
-      });
-      setBlockPositions(result);
-    }
-    if (!bodyRef.current) return;
-    const observer = new MutationObserver(() => measure());
-    observer.observe(bodyRef.current, { childList: true, subtree: true });
-    measure();
-    return () => observer.disconnect();
-  }, [body]);
-
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const target = (e.target as HTMLElement).closest("[data-source-line]");
-    if (target) {
-      const line = Number(target.getAttribute("data-source-line"));
-      if (line > 0) setHoveredLine(line);
-    } else {
-      setHoveredLine(null);
+  const commentCountByLine = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const [ln, cmts] of commentsByLine) {
+      map.set(ln, cmts.filter(c => !c.resolved).length);
     }
-  };
+    return map;
+  }, [commentsByLine]);
 
-  const handleMouseLeave = () => setHoveredLine(null);
+  const handleLineClick = useCallback((line: number) => {
+    const lineComments = commentsByLine.get(line) ?? [];
+    if (lineComments.length > 0) {
+      setExpandedLine(expandedLine === line ? null : line);
+      setCommentingLine(null);
+    } else {
+      setCommentingLine(commentingLine === line ? null : line);
+      setExpandedLine(null);
+    }
+  }, [commentsByLine, expandedLine, commentingLine]);
+
+  const contextValue = useMemo(() => ({
+    onClickLine: handleLineClick,
+    commentCountByLine,
+  }), [handleLineClick, commentCountByLine]);
 
   return (
     <div className="markdown-viewer">
@@ -294,63 +320,67 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
       )}
       {data && <FrontmatterBlock data={data} />}
       <TableOfContents headings={headings} />
-      <div
-        className="markdown-body"
-        ref={bodyRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{ position: "relative" }}
-      >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeSlug]}
-          components={components as never}
+      <MdCommentContext.Provider value={contextValue}>
+        <div
+          className="markdown-body"
+          ref={bodyRef}
+          style={{ position: "relative" }}
         >
-          {body}
-        </ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeSlug]}
+            components={components as never}
+          >
+            {body}
+          </ReactMarkdown>
 
-        {/* Floating comment overlay */}
-        {blockPositions.map(({ line, top }) => {
-          const lineComments = commentsByLine.get(line) ?? [];
-          const isHovered = hoveredLine === line;
-          const hasComments = lineComments.length > 0;
+          {/* Comment popover for expanded/commenting line */}
+          {(expandedLine !== null || commentingLine !== null) && (() => {
+            const activeLine = expandedLine ?? commentingLine;
+            if (!activeLine) return null;
+            const el = bodyRef.current?.querySelector(`[data-source-line="${activeLine}"]`);
+            if (!el) return null;
+            const rect = el.getBoundingClientRect();
+            const containerRect = bodyRef.current!.getBoundingClientRect();
+            const lineComments = commentsByLine.get(activeLine) ?? [];
 
-          if (!isHovered && !hasComments && commentingLine !== line) return null;
+            return (
+              <div className="md-comment-popover" style={{
+                position: "absolute",
+                top: rect.top - containerRect.top + rect.height,
+                left: 24,
+                zIndex: 20,
+              }}>
+                {lineComments.length > 0 && (
+                  <div className="md-comment-threads">
+                    {lineComments.map(c => <CommentThread key={c.id} comment={c} />)}
+                  </div>
+                )}
 
-          return (
-            <div key={`comment-${line}`} className="md-comment-overlay" style={{
-              position: "absolute",
-              top,
-              left: -32,
-              zIndex: 10,
-            }}>
-              {(isHovered || hasComments) && (
-                <button
-                  className="comment-plus-btn md-comment-btn-visible"
-                  aria-label="Add comment"
-                  onClick={() => setCommentingLine(commentingLine === line ? null : line)}
-                >
-                  {hasComments ? `${lineComments.filter(c => !c.resolved).length}` : "+"}
-                </button>
-              )}
-
-              {commentingLine === line && (
-                <div className="md-comment-popover">
+                {commentingLine === activeLine ? (
                   <LineCommentMargin
                     filePath={filePath}
-                    lineNumber={line}
-                    lineText={lines[line - 1] ?? ""}
+                    lineNumber={activeLine}
+                    lineText={lines[activeLine - 1] ?? ""}
                     fileLines={lines}
-                    matchedComments={lineComments}
+                    matchedComments={[]}
                     showInput={true}
-                    onCloseInput={() => setCommentingLine(null)}
+                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); }}
                   />
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                ) : (
+                  <button
+                    className="comment-btn comment-btn-primary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setCommentingLine(activeLine)}
+                  >
+                    Add comment
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </MdCommentContext.Provider>
     </div>
   );
 }

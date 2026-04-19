@@ -61,6 +61,7 @@ function extractInnerCode(html: string): string {
 export function SourceView({ content, path, filePath, fileSize, wordWrap }: Props) {
   const [highlightedLines, setHighlightedLines] = useState<string[]>([]);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
+  const [expandedLine, setExpandedLine] = useState<number | null>(null);
   const [collapsedLines, setCollapsedLines] = useState<Set<number>>(new Set());
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectionToolbar, setSelectionToolbar] = useState<{
@@ -209,6 +210,8 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
         el.classList.add("comment-flash");
         setTimeout(() => el.classList.remove("comment-flash"), 1500);
       }
+      setExpandedLine(line);
+      setCommentingLine(null);
     };
     window.addEventListener("scroll-to-line", handler);
     return () => window.removeEventListener("scroll-to-line", handler);
@@ -365,10 +368,17 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                         className="comment-plus-btn"
                         aria-label="Add comment"
                         onClick={() => {
-                          setPendingSelectionAnchor(null);
-                          setCommentingLine(
-                            commentingLine === lineNum ? null : lineNum
-                          );
+                          const lineComments = commentsByLine.get(lineNum) ?? [];
+                          if (lineComments.length > 0 && expandedLine !== lineNum) {
+                            setExpandedLine(lineNum);
+                            setCommentingLine(null);
+                            setPendingSelectionAnchor(null);
+                          } else {
+                            setPendingSelectionAnchor(null);
+                            setCommentingLine(
+                              commentingLine === lineNum ? null : lineNum
+                            );
+                          }
                         }}
                       >
                         +
@@ -398,7 +408,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     }}
                   />
                 </div>
-                {(commentingLine === lineNum || lineComments.length > 0) && (
+                {(commentingLine === lineNum || expandedLine === lineNum || lineComments.length > 0) && (
                   <LineCommentMargin
                     filePath={filePath}
                     lineNumber={lineNum}
@@ -406,7 +416,9 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     fileLines={lines}
                     matchedComments={lineComments}
                     showInput={commentingLine === lineNum}
-                    onCloseInput={() => { setCommentingLine(null); setPendingSelectionAnchor(null); }}
+                    forceExpanded={expandedLine === lineNum}
+                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); setPendingSelectionAnchor(null); }}
+                    onRequestInput={() => setCommentingLine(lineNum)}
                     onSaveComment={
                       pendingSelectionAnchor && commentingLine === lineNum
                         ? (text: string) => {
