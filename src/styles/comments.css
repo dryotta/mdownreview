@@ -197,29 +197,27 @@
   opacity: 1;
 }
 
-.markdown-body-with-gutter:hover .comment-plus-btn {
-  opacity: 0.5;
+/* Floating comment button in visual mode */
+.md-comment-overlay {
+  pointer-events: auto;
 }
 
-.markdown-body-with-gutter .comment-plus-btn:hover {
-  opacity: 1;
+.md-comment-btn-visible {
+  opacity: 1 !important;
 }
 
-/* Gutter layout */
-.markdown-body-with-gutter {
-  display: flex;
-  position: relative;
-}
-
-.markdown-comment-gutter {
-  width: 28px;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.markdown-body-with-gutter .markdown-body {
-  flex: 1;
-  min-width: 0;
+.md-comment-popover {
+  position: absolute;
+  top: 0;
+  left: 32px;
+  min-width: 280px;
+  max-width: 400px;
+  z-index: 20;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  padding: 8px;
 }
 
 .comment-edit {

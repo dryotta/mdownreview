@@ -164,6 +164,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
   const [blockPositions, setBlockPositions] = useState<{ line: number; top: number }[]>([]);
+  const [hoveredLine, setHoveredLine] = useState<number | null>(null);
 
   const lines = useMemo(() => body.split("\n"), [body]);
 
@@ -272,6 +273,18 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
 
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const target = (e.target as HTMLElement).closest("[data-source-line]");
+    if (target) {
+      const line = Number(target.getAttribute("data-source-line"));
+      if (line > 0) setHoveredLine(line);
+    } else {
+      setHoveredLine(null);
+    }
+  };
+
+  const handleMouseLeave = () => setHoveredLine(null);
+
   return (
     <div className="markdown-viewer">
       {showSizeWarning && (
@@ -281,43 +294,62 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
       )}
       {data && <FrontmatterBlock data={data} />}
       <TableOfContents headings={headings} />
-      <div className="markdown-body-with-gutter">
-        <div className="markdown-comment-gutter" style={{ position: "relative" }}>
-          {blockPositions.map(({ line, top }) => {
-            const lineComments = commentsByLine.get(line) ?? [];
-            return (
-              <div key={line} style={{ position: "absolute", top, left: 0 }}>
+      <div
+        className="markdown-body"
+        ref={bodyRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{ position: "relative" }}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSlug]}
+          components={components as never}
+        >
+          {body}
+        </ReactMarkdown>
+
+        {/* Floating comment overlay */}
+        {blockPositions.map(({ line, top }) => {
+          const lineComments = commentsByLine.get(line) ?? [];
+          const isHovered = hoveredLine === line;
+          const hasComments = lineComments.length > 0;
+
+          if (!isHovered && !hasComments && commentingLine !== line) return null;
+
+          return (
+            <div key={`comment-${line}`} className="md-comment-overlay" style={{
+              position: "absolute",
+              top,
+              left: -32,
+              zIndex: 10,
+            }}>
+              {(isHovered || hasComments) && (
                 <button
-                  className="comment-plus-btn"
+                  className="comment-plus-btn md-comment-btn-visible"
                   aria-label="Add comment"
                   onClick={() => setCommentingLine(commentingLine === line ? null : line)}
                 >
-                  +
+                  {hasComments ? `${lineComments.filter(c => !c.resolved).length}` : "+"}
                 </button>
-                {(commentingLine === line || lineComments.length > 0) && (
+              )}
+
+              {commentingLine === line && (
+                <div className="md-comment-popover">
                   <LineCommentMargin
                     filePath={filePath}
                     lineNumber={line}
                     lineText={lines[line - 1] ?? ""}
                     fileLines={lines}
                     matchedComments={lineComments}
-                    showInput={commentingLine === line}
+                    showInput={true}
                     onCloseInput={() => setCommentingLine(null)}
                   />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="markdown-body" ref={bodyRef}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeSlug]}
-            components={components as never}
-          >
-            {body}
-          </ReactMarkdown>
-        </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -71,6 +71,17 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     endLine: number;
     endOffset: number;
   } | null>(null);
+  const [pendingSelectionAnchor, setPendingSelectionAnchor] = useState<{
+    anchorType: "selection";
+    lineHash: string;
+    lineNumber: number;
+    contextBefore?: string;
+    contextAfter?: string;
+    selectedText: string;
+    selectionStartOffset: number;
+    selectionEndLine: number;
+    selectionEndOffset: number;
+  } | null>(null);
   const { query, setQuery, matches, currentIndex, next, prev } = useSearch(content);
 
   const setFileComments = useStore((s) => s.setFileComments);
@@ -117,7 +128,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
   }, [filePath, setFileComments]);
 
   // Reset folds when file changes
-  useEffect(() => { setCollapsedLines(new Set()); }, [filePath]);
+  useEffect(() => { setCollapsedLines(new Set()); setPendingSelectionAnchor(null); }, [filePath]);
 
   // Auto-save comments
   useEffect(() => {
@@ -264,10 +275,27 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
 
     const startIdx = Number(startEl.getAttribute("data-line-idx"));
     const endIdx = Number(endEl.getAttribute("data-line-idx"));
-    const rect = range.getBoundingClientRect();
+
+    // Use last client rect for positioning near selection end
+    const rects = range.getClientRects();
+    const lastRect = rects[rects.length - 1] || range.getBoundingClientRect();
+
+    // Position above selection, clamped to viewport
+    const toolbarHeight = 36;
+    const toolbarWidth = 120;
+    let top = lastRect.top - toolbarHeight - 4;
+    let left = lastRect.left + (lastRect.width / 2) - (toolbarWidth / 2);
+
+    // Flip below if no room above
+    if (top < 4) {
+      top = lastRect.bottom + 4;
+    }
+
+    // Clamp horizontal
+    left = Math.max(4, Math.min(left, window.innerWidth - toolbarWidth - 4));
 
     setSelectionToolbar({
-      position: { top: rect.top - 40, left: rect.left },
+      position: { top, left },
       lineNumber: startIdx + 1,
       selectedText,
       startOffset: range.startOffset,
@@ -281,7 +309,9 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     const { lineNumber, selectedText, startOffset, endLine, endOffset } = selectionToolbar;
     const idx = lineNumber - 1;
     const ctx = captureContext(lines, idx);
-    addComment(filePath, {
+
+    // Store anchor info — don't create comment yet
+    setPendingSelectionAnchor({
       anchorType: "selection",
       lineHash: computeLineHash(lines[idx] ?? ""),
       lineNumber,
@@ -291,7 +321,8 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
       selectionStartOffset: startOffset,
       selectionEndLine: endLine,
       selectionEndOffset: endOffset,
-    }, "");
+    });
+
     setSelectionToolbar(null);
     setCommentingLine(lineNumber);
   };
@@ -333,9 +364,12 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                       <button
                         className="comment-plus-btn"
                         aria-label="Add comment"
-                        onClick={() => setCommentingLine(
-                          commentingLine === lineNum ? null : lineNum
-                        )}
+                        onClick={() => {
+                          setPendingSelectionAnchor(null);
+                          setCommentingLine(
+                            commentingLine === lineNum ? null : lineNum
+                          );
+                        }}
                       >
                         +
                       </button>
@@ -372,7 +406,15 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     fileLines={lines}
                     matchedComments={lineComments}
                     showInput={commentingLine === lineNum}
-                    onCloseInput={() => setCommentingLine(null)}
+                    onCloseInput={() => { setCommentingLine(null); setPendingSelectionAnchor(null); }}
+                    onSaveComment={
+                      pendingSelectionAnchor && commentingLine === lineNum
+                        ? (text: string) => {
+                            addComment(filePath, pendingSelectionAnchor, text);
+                            setPendingSelectionAnchor(null);
+                          }
+                        : undefined
+                    }
                   />
                 )}
               </div>

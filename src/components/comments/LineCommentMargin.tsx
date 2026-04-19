@@ -14,10 +14,11 @@ interface Props {
   matchedComments: CommentWithOrphan[];
   showInput?: boolean;
   onCloseInput?: () => void;
+  onSaveComment?: (text: string) => void;
 }
 
 export function LineCommentMargin({
-  filePath, lineNumber, lineText, fileLines, matchedComments, showInput, onCloseInput,
+  filePath, lineNumber, lineText, fileLines, matchedComments, showInput, onCloseInput, onSaveComment,
 }: Props) {
   const { addComment } = useStore();
   const [expanded, setExpanded] = useState(false);
@@ -25,19 +26,23 @@ export function LineCommentMargin({
   const unresolved = matchedComments.filter((c) => !c.resolved);
 
   const handleSave = (text: string) => {
-    const idx = lineNumber - 1;
-    const ctx = captureContext(fileLines, idx);
-    addComment(
-      filePath,
-      {
-        anchorType: "line",
-        lineHash: computeLineHash(lineText),
-        lineNumber,
-        contextBefore: ctx.contextBefore,
-        contextAfter: ctx.contextAfter,
-      },
-      text
-    );
+    if (onSaveComment) {
+      onSaveComment(text);
+    } else {
+      const idx = lineNumber - 1;
+      const ctx = captureContext(fileLines, idx);
+      addComment(
+        filePath,
+        {
+          anchorType: "line",
+          lineHash: computeLineHash(lineText),
+          lineNumber,
+          contextBefore: ctx.contextBefore,
+          contextAfter: ctx.contextAfter,
+        },
+        text
+      );
+    }
     onCloseInput?.();
     setExpanded(true);
   };
