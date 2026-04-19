@@ -1,6 +1,6 @@
 use mdown_review_lib::commands::{
     get_launch_args, load_review_comments, read_binary_file, read_text_file, save_review_comments,
-    LaunchArgs, LaunchArgsState, ReviewComment,
+    CommentResponse, LaunchArgs, LaunchArgsState, ReviewComment,
 };
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -48,11 +48,18 @@ fn make_comment(id: &str) -> ReviewComment {
         block_hash: Some("abc12345".to_string()),
         line_hash: None,
         line_number: None,
+        context_before: None,
+        context_after: None,
+        selected_text: None,
+        selection_start_offset: None,
+        selection_end_line: None,
+        selection_end_offset: None,
         heading_context: None,
         fallback_line: Some(1),
         text: "Test comment".to_string(),
         created_at: "2024-01-01T00:00:00Z".to_string(),
         resolved: false,
+        responses: None,
     }
 }
 
@@ -67,12 +74,12 @@ fn save_and_load_review_comments() {
     // Check JSON structure
     let sidecar = std::fs::read_to_string(format!("{}.review.json", file_path)).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&sidecar).unwrap();
-    assert_eq!(parsed["version"], 2);
+    assert_eq!(parsed["version"], 3);
     assert_eq!(parsed["comments"].as_array().unwrap().len(), 2);
 
     // Round-trip
     let loaded = load_review_comments(file_path).unwrap().unwrap();
-    assert_eq!(loaded.version, 2);
+    assert_eq!(loaded.version, 3);
     assert_eq!(loaded.comments.len(), 2);
     assert_eq!(loaded.comments[0].id, "c1");
 }
@@ -99,11 +106,11 @@ fn load_legacy_sidecar_without_version() {
     assert_eq!(loaded.version, 0);
     assert_eq!(loaded.comments.len(), 1);
 
-    // Save re-migrates to version 2
+    // Save re-migrates to version 3
     save_review_comments(file_path.clone(), loaded.comments).unwrap();
     let saved = std::fs::read_to_string(sidecar_path).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&saved).unwrap();
-    assert_eq!(parsed["version"], 2);
+    assert_eq!(parsed["version"], 3);
 }
 
 #[test]
@@ -116,6 +123,73 @@ fn load_v1_comments_defaults_anchor_type_to_block() {
 
     let result = load_review_comments(file_path.to_string_lossy().into_owned()).unwrap().unwrap();
     assert_eq!(result.comments[0].anchor_type, "block");
+}
+
+#[test]
+fn save_and_load_v3_comment_with_new_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("test.md");
+    std::fs::write(&file, "test content").unwrap();
+    let file_str = file.to_str().unwrap().to_string();
+
+    let comment = ReviewComment {
+        id: "v3test".into(),
+        anchor_type: "line".into(),
+        line_hash: Some("abcd1234".into()),
+        line_number: Some(5),
+        context_before: Some("line3\nline4".into()),
+        context_after: Some("line6\nline7".into()),
+        selected_text: None,
+        selection_start_offset: None,
+        selection_end_line: None,
+        selection_end_offset: None,
+        block_hash: None,
+        heading_context: None,
+        fallback_line: None,
+        text: "v3 comment".into(),
+        created_at: "2026-01-01T00:00:00Z".into(),
+        resolved: false,
+        responses: Some(vec![CommentResponse {
+            author: "copilot".into(),
+            text: "Fixed it".into(),
+            created_at: "2026-01-01T01:00:00Z".into(),
+        }]),
+    };
+
+    save_review_comments(file_str.clone(), vec![comment]).unwrap();
+    let loaded = load_review_comments(file_str).unwrap().unwrap();
+    assert_eq!(loaded.version, 3);
+    assert_eq!(loaded.comments.len(), 1);
+    assert_eq!(loaded.comments[0].context_before, Some("line3\nline4".into()));
+    assert_eq!(loaded.comments[0].responses.as_ref().unwrap().len(), 1);
+    assert_eq!(loaded.comments[0].responses.as_ref().unwrap()[0].author, "copilot");
+}
+
+#[test]
+fn load_v2_sidecar_preserves_all_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("test.md");
+    std::fs::write(&file, "").unwrap();
+    let sidecar = dir.path().join("test.md.review.json");
+    std::fs::write(&sidecar, r#"{"version":2,"comments":[{"id":"old","anchorType":"block","blockHash":"aabb","headingContext":null,"fallbackLine":3,"text":"old comment","createdAt":"2025-01-01T00:00:00Z","resolved":false}]}"#).unwrap();
+
+    let loaded = load_review_comments(file.to_str().unwrap().to_string()).unwrap().unwrap();
+    assert_eq!(loaded.comments[0].anchor_type, "block");
+    assert_eq!(loaded.comments[0].block_hash, Some("aabb".into()));
+    assert_eq!(loaded.comments[0].fallback_line, Some(3));
+}
+
+#[test]
+fn v3_without_optional_fields_loads_cleanly() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("test.md");
+    std::fs::write(&file, "").unwrap();
+    let sidecar = dir.path().join("test.md.review.json");
+    std::fs::write(&sidecar, r#"{"version":3,"comments":[{"id":"min","anchorType":"line","lineHash":"1234","lineNumber":1,"text":"minimal","createdAt":"2026-01-01T00:00:00Z","resolved":false}]}"#).unwrap();
+
+    let loaded = load_review_comments(file.to_str().unwrap().to_string()).unwrap().unwrap();
+    assert_eq!(loaded.comments[0].context_before, None);
+    assert_eq!(loaded.comments[0].responses, None);
 }
 
 // ── get_launch_args ────────────────────────────────────────────────────────

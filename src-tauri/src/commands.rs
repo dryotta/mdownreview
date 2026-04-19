@@ -17,25 +17,53 @@ pub struct LaunchArgs {
     pub folders: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommentResponse {
+    pub author: String,
+    pub text: String,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewComment {
     pub id: String,
     #[serde(rename = "anchorType", default = "default_anchor_type")]
     pub anchor_type: String,
-    #[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
-    pub block_hash: Option<String>,
+    // Line anchor fields
     #[serde(rename = "lineHash", skip_serializing_if = "Option::is_none")]
     pub line_hash: Option<String>,
     #[serde(rename = "lineNumber", skip_serializing_if = "Option::is_none")]
     pub line_number: Option<u32>,
-    #[serde(rename = "headingContext")]
+    // Context for re-anchoring
+    #[serde(rename = "contextBefore", skip_serializing_if = "Option::is_none")]
+    pub context_before: Option<String>,
+    #[serde(rename = "contextAfter", skip_serializing_if = "Option::is_none")]
+    pub context_after: Option<String>,
+    // Selection fields
+    #[serde(rename = "selectedText", skip_serializing_if = "Option::is_none")]
+    pub selected_text: Option<String>,
+    #[serde(rename = "selectionStartOffset", skip_serializing_if = "Option::is_none")]
+    pub selection_start_offset: Option<u32>,
+    #[serde(rename = "selectionEndLine", skip_serializing_if = "Option::is_none")]
+    pub selection_end_line: Option<u32>,
+    #[serde(rename = "selectionEndOffset", skip_serializing_if = "Option::is_none")]
+    pub selection_end_offset: Option<u32>,
+    // Legacy block fields (preserved for migration)
+    #[serde(rename = "blockHash", skip_serializing_if = "Option::is_none")]
+    pub block_hash: Option<String>,
+    #[serde(rename = "headingContext", skip_serializing_if = "Option::is_none")]
     pub heading_context: Option<String>,
     #[serde(rename = "fallbackLine", skip_serializing_if = "Option::is_none")]
     pub fallback_line: Option<u32>,
+    // Content
     pub text: String,
     #[serde(rename = "createdAt")]
     pub created_at: String,
     pub resolved: bool,
+    // Responses
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub responses: Option<Vec<CommentResponse>>,
 }
 
 fn default_anchor_type() -> String {
@@ -153,7 +181,7 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
 pub fn save_review_comments(file_path: String, comments: Vec<ReviewComment>) -> Result<(), String> {
     let sidecar_path = std::path::PathBuf::from(format!("{}.review.json", file_path));
     let payload = ReviewComments {
-        version: 2,
+        version: 3,
         comments,
     };
     let json = serde_json::to_string_pretty(&payload).map_err(|e| {
