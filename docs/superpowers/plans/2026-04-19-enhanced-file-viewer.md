@@ -563,12 +563,19 @@ fn load_v1_comments_defaults_anchor_type_to_block() {
 }
 ```
 
-- [ ] **Step 5: Run all tests**
+- [ ] **Step 5: Update all comment consumers for v2 compatibility**
+
+Update existing components that reference `ReviewComment` to handle optional v2 fields:
+- `CommentsPanel.tsx` — add null-safe access for `blockHash` (now optional), group display by `anchorType`
+- `CommentMargin.tsx` — filter only `anchorType === "block"` comments (existing behavior preserved)
+- Any existing store tests — update mock comment factories to include `anchorType: "block"` explicitly
+
+- [ ] **Step 6: Run all tests**
 
 Run: `cd src-tauri && cargo test` and `npx vitest run`
 Expected: All PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/lib/tauri-commands.ts src-tauri/src/commands.rs src/store/index.ts src/__tests__/store/comments.test.ts src-tauri/tests/commands_integration.rs
@@ -868,7 +875,8 @@ export function LineCommentMargin({ filePath, lineNumber, lineHash, showInput, o
   const [expanded, setExpanded] = useState(false);
 
   const comments = (commentsByFile[filePath] ?? []).filter(
-    (c) => c.anchorType === "line" && c.lineHash === lineHash
+    (c) => c.anchorType === "line" &&
+      (c.lineHash === lineHash || (c.lineHash && c.lineNumber === lineNumber))
   );
   const unresolved = comments.filter((c) => !c.resolved);
 
@@ -1152,6 +1160,18 @@ describe("JsonTreeView", () => {
     expect(screen.getByText(/invalid json/i)).toBeInTheDocument();
   });
 
+  it("handles JSONC with comments and trailing commas", () => {
+    const jsonc = `{
+      // line comment
+      "key": "value",
+      /* block comment */
+      "arr": [1, 2, 3,],
+    }`;
+    render(<JsonTreeView content={jsonc} />);
+    expect(screen.getByText(/2 keys/)).toBeInTheDocument();
+    expect(screen.getByText(/"value"/)).toBeInTheDocument();
+  });
+
   it("handles empty object", () => {
     render(<JsonTreeView content='{}' />);
     expect(screen.getByText(/0 keys/)).toBeInTheDocument();
@@ -1167,6 +1187,7 @@ Expected: FAIL
 - [ ] **Step 3: Implement JsonTreeView**
 
 Create `src/components/viewers/JsonTreeView.tsx` — a recursive React component with:
+- `stripJsonComments(text)` helper: strips `//` and `/* */` comments, trailing commas before `}` or `]` — used to support `.jsonc` files. Applied before `JSON.parse`.
 - `JsonNode` subcomponent for each value type (string/number/boolean/null/object/array)
 - Expand/collapse toggle buttons (`▼`/`▶`)
 - Key counts for objects, item counts for arrays
@@ -1392,6 +1413,12 @@ describe("parseKqlPipeline", () => {
   it("handles empty input", () => {
     expect(parseKqlPipeline("")).toEqual([]);
   });
+
+  it("ignores pipes inside string literals", () => {
+    const result = parseKqlPipeline(`T | where Name == "a|b" | count`);
+    expect(result).toHaveLength(3);
+    expect(result[1]).toMatchObject({ operator: "where", details: expect.stringContaining("a|b") });
+  });
 });
 
 describe("formatKql", () => {
@@ -1412,7 +1439,7 @@ describe("formatKql", () => {
 - [ ] **Step 2: Implement kql-parser.ts**
 
 Create `src/lib/kql-parser.ts` with:
-- `parseKqlPipeline(input)` — splits on `|`, identifies operators vs source table, returns step/operator/details
+- `parseKqlPipeline(input)` — tokenizes input respecting string literals (`"..."` and `'...'`) and comments (`//`), then splits on top-level `|`. Identifies operators vs source table, returns step/operator/details.
 - `formatKql(input)` — adds line breaks at pipe boundaries for readable display
 - KQL_OPERATORS set for all known operators
 
@@ -1675,8 +1702,16 @@ Create `src/components/viewers/EnhancedViewer.tsx` with:
 - `ViewerToolbar` (hidden when no visualization)
 - View mode from store (`viewModeByTab`) with fallback to default
 - Source mode → `SourceView`
-- Visual mode → dispatch to appropriate sub-view based on category
+- Visual mode → dispatch to appropriate sub-view based on category:
+  - `markdown` → existing `MarkdownViewer` (refactored as `MarkdownRenderedView` — extract from current `MarkdownViewer.tsx` by moving the component body into a new file that only does rendering + block comments; `EnhancedViewer` owns the Source/Visual toggle and comment load/save coordination)
+  - `json` → `JsonTreeView`
+  - `csv` → `CsvTableView`
+  - `html` → `HtmlPreviewView`
+  - `mermaid` → `MermaidView`
+  - `kql` → `KqlPlanView`
 - Lazy load `MermaidView`, `CsvTableView`, `KqlPlanView` via `React.lazy` + `Suspense`
+
+**Important:** The `MarkdownRenderedView` extraction is done in this task. The existing `MarkdownViewer.tsx` is split: the rendering logic (react-markdown pipeline, block comments, `MD_COMPONENTS`) moves to `MarkdownRenderedView.tsx`. The old `MarkdownViewer.tsx` becomes a thin wrapper or is replaced entirely by `EnhancedViewer`. This avoids duplicate comment load/save side effects.
 
 - [ ] **Step 3: Run tests**
 
