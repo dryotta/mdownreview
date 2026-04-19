@@ -6,6 +6,8 @@ import { useStore } from "@/store";
 import { loadReviewComments, saveReviewComments } from "@/lib/tauri-commands";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { computeFoldRegions, type FoldRegion } from "@/lib/fold-regions";
+import { useSearch } from "@/hooks/useSearch";
+import { SearchBar } from "./SearchBar";
 import kqlGrammar from "@/lib/kql.tmLanguage.json";
 import "@/styles/source-viewer.css";
 
@@ -58,6 +60,8 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
   const [highlightedLines, setHighlightedLines] = useState<string[]>([]);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
   const [collapsedLines, setCollapsedLines] = useState<Set<number>>(new Set());
+  const [searchOpen, setSearchOpen] = useState(false);
+  const { query, setQuery, matches, currentIndex, next, prev } = useSearch(content);
 
   const setFileComments = useStore((s) => s.setFileComments);
   const comments = useStore((s) => s.commentsByFile[filePath]);
@@ -125,6 +129,53 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     return () => observer.disconnect();
   }, []);
 
+  // Ctrl+F keyboard handler
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Search match lookup by line
+  const matchesByLine = useMemo(() => {
+    const map = new Map<number, { startCol: number; endCol: number; isCurrent: boolean }[]>();
+    matches.forEach((m, i) => {
+      const arr = map.get(m.lineIndex) ?? [];
+      arr.push({ startCol: m.startCol, endCol: m.endCol, isCurrent: i === currentIndex });
+      map.set(m.lineIndex, arr);
+    });
+    return map;
+  }, [matches, currentIndex]);
+
+  // Auto-scroll to current match
+  useEffect(() => {
+    if (currentIndex < 0 || !matches[currentIndex]) return;
+    const lineIdx = matches[currentIndex].lineIndex;
+    const lineEl = document.querySelector(`[data-line-idx="${lineIdx}"]`);
+    lineEl?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [currentIndex, matches]);
+
+  function highlightSearchInLine(lineIdx: number): string {
+    const lineMatches = matchesByLine.get(lineIdx);
+    if (!lineMatches) return escapeHtml(lines[lineIdx]);
+    const line = lines[lineIdx];
+    const parts: string[] = [];
+    let last = 0;
+    for (const { startCol, endCol, isCurrent } of lineMatches) {
+      parts.push(escapeHtml(line.slice(last, startCol)));
+      const cls = isCurrent ? "search-match-current" : "search-match";
+      parts.push(`<mark class="${cls}">${escapeHtml(line.slice(startCol, endCol))}</mark>`);
+      last = endCol;
+    }
+    parts.push(escapeHtml(line.slice(last)));
+    return parts.join("");
+  }
+
   // Syntax highlighting per line
   useEffect(() => {
     const theme = currentTheme === "dark" ? "github-dark" : "github-light";
@@ -158,7 +209,18 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 
   return (
-    <div className={`source-view${wordWrap ? " wrap-enabled" : ""}`}>
+    <div className={`source-view${wordWrap ? " wrap-enabled" : ""}`} style={{ position: "relative" }}>
+      {searchOpen && (
+        <SearchBar
+          query={query}
+          matchCount={matches.length}
+          currentIndex={currentIndex}
+          onQueryChange={setQuery}
+          onNext={next}
+          onPrev={prev}
+          onClose={() => { setSearchOpen(false); setQuery(""); }}
+        />
+      )}
       {showSizeWarning && (
         <div className="size-warning" role="alert">
           This file is large ({Math.round((fileSize ?? 0) / 1024)} KB) — rendering may be slow
@@ -180,7 +242,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
 
             elements.push(
               <div key={idx}>
-                <div className="source-line">
+                <div className="source-line" data-line-idx={idx}>
                   <span className="source-line-gutter">
                     <span className="source-line-comment-zone">
                       <button
@@ -209,9 +271,11 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                   <span
                     className="source-line-content"
                     dangerouslySetInnerHTML={{
-                      __html: highlightedLines[idx]
-                        ? extractInnerCode(highlightedLines[idx])
-                        : escapeHtml(line),
+                      __html: (query && matchesByLine.has(idx))
+                        ? highlightSearchInLine(idx)
+                        : highlightedLines[idx]
+                          ? extractInnerCode(highlightedLines[idx])
+                          : escapeHtml(line),
                     }}
                   />
                 </div>
