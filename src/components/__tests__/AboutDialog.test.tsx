@@ -5,13 +5,15 @@ import { AboutDialog } from "../AboutDialog";
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
 
-// Mock tauri-commands to control getLogPath
+// Mock tauri-commands to control getLogPath and getAppVersion
 vi.mock("@/lib/tauri-commands", () => ({
   getLogPath: vi.fn(),
+  getAppVersion: vi.fn(),
 }));
 
-import { getLogPath } from "@/lib/tauri-commands";
+import { getLogPath, getAppVersion } from "@/lib/tauri-commands";
 const mockGetLogPath = getLogPath as ReturnType<typeof vi.fn>;
+const mockGetAppVersion = getAppVersion as ReturnType<typeof vi.fn>;
 
 // Mock clipboard plugin
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
@@ -26,6 +28,7 @@ const LOG_PATH = "/home/user/.local/share/mdown-review/app.log";
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetLogPath.mockResolvedValue(LOG_PATH);
+  mockGetAppVersion.mockResolvedValue("0.2.2");
 });
 
 // ─── 14.4: AboutDialog ───────────────────────────────────────────────────────
@@ -35,7 +38,7 @@ describe("14.4 – AboutDialog", () => {
     await act(async () => {
       render(<AboutDialog onClose={vi.fn()} />);
     });
-    expect(screen.getByText(/Version 0\.1\.0/)).toBeInTheDocument();
+    expect(screen.getByText(/Version 0\.2\.2/)).toBeInTheDocument();
   });
 
   it("renders log path from mocked getLogPath", async () => {
@@ -47,8 +50,9 @@ describe("14.4 – AboutDialog", () => {
   });
 
   it("shows 'Loading…' before log path resolves", () => {
-    // Return a promise that never resolves in this test
+    // Return promises that never resolve in this test
     mockGetLogPath.mockReturnValue(new Promise(() => {}));
+    mockGetAppVersion.mockReturnValue(new Promise(() => {}));
 
     render(<AboutDialog onClose={vi.fn()} />);
     expect(screen.getByText("Loading…")).toBeInTheDocument();
@@ -92,6 +96,7 @@ describe("14.4 – AboutDialog", () => {
 
   it("'Copy path' button is disabled when logPath is empty", () => {
     mockGetLogPath.mockReturnValue(new Promise(() => {}));
+    mockGetAppVersion.mockReturnValue(new Promise(() => {}));
 
     render(<AboutDialog onClose={vi.fn()} />);
 

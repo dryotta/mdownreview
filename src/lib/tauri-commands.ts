@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 
 // ── Shared interfaces ──────────────────────────────────────────────────────
 
@@ -50,3 +51,5 @@ export const saveReviewComments = (
 
 export const loadReviewComments = (filePath: string): Promise<ReviewComments | null> =>
   invoke<ReviewComments | null>("load_review_comments", { filePath: filePath });
+
+export const getAppVersion = (): Promise<string> => getVersion();

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { getLogPath } from "@/lib/tauri-commands";
+import { getAppVersion, getLogPath } from "@/lib/tauri-commands";
 import "@/styles/about-dialog.css";
 
 interface Props {
@@ -8,10 +8,14 @@ interface Props {
 }
 
 export function AboutDialog({ onClose }: Props) {
+  const [version, setVersion] = useState<string>("");
   const [logPath, setLogPath] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    getAppVersion()
+      .then((v) => setVersion(v))
+      .catch(() => setVersion("unknown"));
     getLogPath()
       .then((path) => setLogPath(path))
       .catch(() => setLogPath("Unavailable"));
@@ -31,7 +35,7 @@ export function AboutDialog({ onClose }: Props) {
           <button className="dialog-close" onClick={onClose}>×</button>
         </div>
         <div className="dialog-body">
-          <p className="dialog-version">Version 0.1.0</p>
+          <p className="dialog-version">Version {version || "…"}</p>
           <div className="dialog-log-section">
             <label className="dialog-label">Log file</label>
             <div className="dialog-log-path">
