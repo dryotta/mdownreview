@@ -237,6 +237,126 @@ describe("useUnresolvedCount selector", () => {
   });
 });
 
+// ── v3 line anchor ──────────────────────────────────────────────────────────
+const lineAnchor: Omit<CommentWithOrphan, "id" | "createdAt" | "resolved" | "text" | "isOrphaned"> = {
+  anchorType: "line" as const,
+  lineNumber: 42,
+  lineHash: "abcd1234",
+  contextBefore: "previous line",
+  contextAfter: "next line",
+};
+
+const selectionAnchor: Omit<CommentWithOrphan, "id" | "createdAt" | "resolved" | "text" | "isOrphaned"> = {
+  anchorType: "selection" as const,
+  lineNumber: 10,
+  lineHash: "sel12345",
+  selectedText: "some text",
+  selectionStartOffset: 5,
+  selectionEndLine: 12,
+  selectionEndOffset: 3,
+};
+
+describe("comments slice – v3 line anchoring", () => {
+  it("stores line-based comment with v3 fields", () => {
+    useStore.getState().addComment(FILE, lineAnchor, "line comment");
+    const [comment] = useStore.getState().commentsByFile[FILE];
+    expect(comment.anchorType).toBe("line");
+    expect(comment.lineNumber).toBe(42);
+    expect(comment.lineHash).toBe("abcd1234");
+    expect(comment.contextBefore).toBe("previous line");
+    expect(comment.contextAfter).toBe("next line");
+  });
+
+  it("stores selection-based comment with v3 fields", () => {
+    useStore.getState().addComment(FILE, selectionAnchor, "selection comment");
+    const [comment] = useStore.getState().commentsByFile[FILE];
+    expect(comment.anchorType).toBe("selection");
+    expect(comment.lineNumber).toBe(10);
+    expect(comment.lineHash).toBe("sel12345");
+    expect(comment.selectedText).toBe("some text");
+    expect(comment.selectionStartOffset).toBe(5);
+    expect(comment.selectionEndLine).toBe(12);
+    expect(comment.selectionEndOffset).toBe(3);
+  });
+
+  it("line comment gets unique id and ISO timestamp", () => {
+    useStore.getState().addComment(FILE, lineAnchor, "ts check");
+    const [comment] = useStore.getState().commentsByFile[FILE];
+    expect(comment.id).toBeTruthy();
+    expect(isNaN(new Date(comment.createdAt).getTime())).toBe(false);
+  });
+});
+
+describe("comments slice – addResponse", () => {
+  it("appends a response to the correct comment", () => {
+    useStore.getState().addComment(FILE, lineAnchor, "needs reply");
+    const [comment] = useStore.getState().commentsByFile[FILE];
+    useStore.getState().addResponse(comment.id, "test-agent", "Fixed it");
+    const [updated] = useStore.getState().commentsByFile[FILE];
+    expect(updated.responses).toHaveLength(1);
+    expect(updated.responses![0].author).toBe("test-agent");
+    expect(updated.responses![0].text).toBe("Fixed it");
+  });
+
+  it("appends multiple responses in order", () => {
+    useStore.getState().addComment(FILE, lineAnchor, "discuss");
+    const [comment] = useStore.getState().commentsByFile[FILE];
+    useStore.getState().addResponse(comment.id, "agent-1", "First reply");
+    useStore.getState().addResponse(comment.id, "agent-2", "Second reply");
+    const [updated] = useStore.getState().commentsByFile[FILE];
+    expect(updated.responses).toHaveLength(2);
+    expect(updated.responses![0].author).toBe("agent-1");
+    expect(updated.responses![1].author).toBe("agent-2");
+  });
+
+  it("does not affect other comments when adding a response", () => {
+    useStore.getState().addComment(FILE, lineAnchor, "target");
+    useStore.getState().addComment(FILE, lineAnchor, "bystander");
+    const [target] = useStore.getState().commentsByFile[FILE];
+    useStore.getState().addResponse(target.id, "agent", "reply");
+    const [, bystander] = useStore.getState().commentsByFile[FILE];
+    expect(bystander.responses ?? []).toHaveLength(0);
+  });
+});
+
+describe("comments slice – matchedLineNumber preservation", () => {
+  it("matchedLineNumber persists through edit operations", () => {
+    const comment: CommentWithOrphan = {
+      id: "ml-1",
+      anchorType: "line" as const,
+      lineNumber: 42,
+      lineHash: "abcd1234",
+      text: "original",
+      createdAt: new Date().toISOString(),
+      resolved: false,
+      matchedLineNumber: 45,
+    };
+    useStore.getState().setFileComments(FILE, [comment]);
+    useStore.getState().editComment("ml-1", "updated text");
+    const [updated] = useStore.getState().commentsByFile[FILE];
+    expect(updated.matchedLineNumber).toBe(45);
+    expect(updated.text).toBe("updated text");
+  });
+
+  it("matchedLineNumber persists through resolve operations", () => {
+    const comment: CommentWithOrphan = {
+      id: "ml-2",
+      anchorType: "line" as const,
+      lineNumber: 10,
+      lineHash: "sel12345",
+      text: "resolve me",
+      createdAt: new Date().toISOString(),
+      resolved: false,
+      matchedLineNumber: 15,
+    };
+    useStore.getState().setFileComments(FILE, [comment]);
+    useStore.getState().resolveComment("ml-2");
+    const [updated] = useStore.getState().commentsByFile[FILE];
+    expect(updated.matchedLineNumber).toBe(15);
+    expect(updated.resolved).toBe(true);
+  });
+});
+
 describe("comment v2 compatibility", () => {
   it("handles v1 comments (block-only, no anchorType)", () => {
     const v1Comment = {

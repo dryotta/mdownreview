@@ -118,3 +118,30 @@ describe("14.2 – CommentThread", () => {
     expect(screen.queryByText("⚠")).not.toBeInTheDocument();
   });
 });
+
+// ─── v3: Response display ─────────────────────────────────────────────────────
+
+describe("CommentThread – response display", () => {
+  it("renders responses when present", () => {
+    render(<CommentThread comment={makeComment({
+      responses: [
+        { author: "agent-1", text: "Acknowledged", createdAt: "2026-01-01T00:00:00Z" },
+        { author: "agent-2", text: "Fixed", createdAt: "2026-01-02T00:00:00Z" },
+      ]
+    })} />);
+    expect(screen.getByText("agent-1")).toBeInTheDocument();
+    expect(screen.getByText("Acknowledged")).toBeInTheDocument();
+    expect(screen.getByText("agent-2")).toBeInTheDocument();
+    expect(screen.getByText("Fixed")).toBeInTheDocument();
+  });
+
+  it("does not render response section when no responses", () => {
+    render(<CommentThread comment={makeComment()} />);
+    expect(document.querySelector(".comment-responses")).not.toBeInTheDocument();
+  });
+
+  it("does not render response section when responses is empty array", () => {
+    render(<CommentThread comment={makeComment({ responses: [] })} />);
+    expect(document.querySelector(".comment-responses")).not.toBeInTheDocument();
+  });
+});
