@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.2.2)'
+        required: true
 
 permissions:
   contents: write
@@ -17,9 +22,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Get tag name
         id: tag
-        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
       - name: Create draft release
         run: |
+          # Skip creation if release already exists (re-run scenario)
+          gh release view "${{ steps.tag.outputs.tag }}" &>/dev/null || \
           gh release create "${{ steps.tag.outputs.tag }}" \
             --draft \
             --title "mDown reView ${{ steps.tag.outputs.tag }}" \
