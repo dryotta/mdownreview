@@ -1,49 +1,55 @@
 import { useState } from "react";
 import { useStore } from "@/store";
+import { computeLineHash, captureContext } from "@/lib/comment-anchors";
 import { CommentInput } from "./CommentInput";
 import { CommentThread } from "./CommentThread";
+import type { CommentWithOrphan } from "@/store";
 import "@/styles/comments.css";
 
 interface Props {
   filePath: string;
   lineNumber: number;
-  lineHash: string;
+  lineText: string;
+  fileLines: string[];
+  matchedComments: CommentWithOrphan[];
   showInput?: boolean;
   onCloseInput?: () => void;
 }
 
-export function LineCommentMargin({ filePath, lineNumber, lineHash, showInput, onCloseInput }: Props) {
-  const { commentsByFile, addComment } = useStore();
+export function LineCommentMargin({
+  filePath, lineNumber, lineText, fileLines, matchedComments, showInput, onCloseInput,
+}: Props) {
+  const { addComment } = useStore();
   const [expanded, setExpanded] = useState(false);
 
-  const comments = (commentsByFile[filePath] ?? []).filter(
-    (c) => c.anchorType === "line" &&
-      (c.lineHash === lineHash || (c.lineHash && c.lineNumber === lineNumber))
-  );
-  const unresolved = comments.filter((c) => !c.resolved);
+  const unresolved = matchedComments.filter((c) => !c.resolved);
 
   const handleSave = (text: string) => {
+    const idx = lineNumber - 1;
+    const ctx = captureContext(fileLines, idx);
     addComment(
       filePath,
-      { anchorType: "line", lineHash, lineNumber },
+      {
+        anchorType: "line",
+        lineHash: computeLineHash(lineText),
+        lineNumber,
+        contextBefore: ctx.contextBefore,
+        contextAfter: ctx.contextAfter,
+      },
       text
     );
     onCloseInput?.();
     setExpanded(true);
   };
 
-  if (!showInput && comments.length === 0) return null;
+  if (!showInput && matchedComments.length === 0) return null;
 
   return (
     <div className="line-comment-section">
       {showInput && (
-        <CommentInput
-          anchor={{ blockHash: lineHash, headingContext: null, fallbackLine: lineNumber }}
-          onSave={handleSave}
-          onClose={() => onCloseInput?.()}
-        />
+        <CommentInput onSave={handleSave} onClose={() => onCloseInput?.()} />
       )}
-      {expanded && comments.map((c) => <CommentThread key={c.id} comment={c} />)}
+      {expanded && matchedComments.map((c) => <CommentThread key={c.id} comment={c} />)}
       {!expanded && unresolved.length > 0 && (
         <button className="line-comment-count" onClick={() => setExpanded(true)}>
           {unresolved.length} comment{unresolved.length > 1 ? "s" : ""}

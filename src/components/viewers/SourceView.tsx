@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { createHighlighter, type Highlighter } from "shiki";
 import { extname } from "@/lib/path-utils";
-import { fnv1a8 } from "@/lib/fnv1a";
+import { matchComments } from "@/lib/comment-matching";
+import { computeLineHash, captureContext } from "@/lib/comment-anchors";
 import { useStore } from "@/store";
 import { loadReviewComments, saveReviewComments } from "@/lib/tauri-commands";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
@@ -152,6 +153,22 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     return map;
   }, [matches, currentIndex]);
 
+  const matchedComments = useMemo(() => {
+    if (!comments || comments.length === 0) return [];
+    return matchComments(comments, lines);
+  }, [comments, lines]);
+
+  const commentsByLine = useMemo(() => {
+    const map = new Map<number, typeof matchedComments>();
+    for (const c of matchedComments) {
+      const ln = c.matchedLineNumber ?? c.lineNumber ?? 1;
+      const arr = map.get(ln) ?? [];
+      arr.push(c);
+      map.set(ln, arr);
+    }
+    return map;
+  }, [matchedComments]);
+
   // Auto-scroll to current match
   useEffect(() => {
     if (currentIndex < 0 || !matches[currentIndex]) return;
@@ -233,10 +250,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
           while (idx < lines.length) {
             const lineNum = idx + 1;
             const line = lines[idx];
-            const lineHash = fnv1a8(line.trim());
-            const lineComments = (comments ?? []).filter(
-              (c) => c.anchorType === "line" && c.lineHash === lineHash
-            );
+            const lineComments = commentsByLine.get(lineNum) ?? [];
             const foldRegion = foldStartMap.get(lineNum);
             const isCollapsed = foldRegion !== undefined && collapsedLines.has(lineNum);
 
@@ -283,7 +297,9 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                   <LineCommentMargin
                     filePath={filePath}
                     lineNumber={lineNum}
-                    lineHash={lineHash}
+                    lineText={line}
+                    fileLines={lines}
+                    matchedComments={lineComments}
                     showInput={commentingLine === lineNum}
                     onCloseInput={() => setCommentingLine(null)}
                   />
