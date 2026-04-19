@@ -67,8 +67,8 @@
 .source-line-gutter {
   display: flex;
   align-items: flex-start;
-  width: 60px;
-  min-width: 60px;
+  width: 74px;
+  min-width: 74px;
   color: var(--color-muted);
   user-select: none;
   position: sticky;
@@ -134,7 +134,7 @@
 }
 
 .line-comment-section {
-  padding: 4px 12px 4px 68px;
+  padding: 4px 12px 4px 82px;
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
@@ -151,4 +151,53 @@
 
 .line-comment-count:hover {
   text-decoration: underline;
+}
+
+/* ── Code folding ──────────────────────────────────────────────── */
+
+.source-line-fold-zone {
+  width: 14px;
+  min-width: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.source-line-fold-toggle {
+  font-size: 10px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  margin-top: 3px;
+}
+
+.source-line-fold-toggle:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.source-fold-placeholder {
+  display: flex;
+  min-height: 20px;
+  line-height: 20px;
+  padding-left: 82px;
+  color: var(--color-muted);
+  background: var(--color-surface);
+  border-top: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--color-border);
+  font-size: 12px;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.source-fold-placeholder:hover {
+  background: var(--color-hover);
 }
