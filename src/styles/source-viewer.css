@@ -41,3 +41,83 @@
 .binary-size {
   font-size: 12px;
 }
+
+/* ── SourceView line-based layout ────────────────────────────────── */
+
+.source-view {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-bg);
+}
+
+.source-lines {
+  font-size: 13px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.source-line {
+  display: flex;
+  min-height: 20px;
+  line-height: 20px;
+}
+
+.source-line:hover {
+  background: var(--color-hover);
+}
+
+.source-line-gutter {
+  display: flex;
+  align-items: center;
+  width: 60px;
+  min-width: 60px;
+  padding-right: 8px;
+  justify-content: flex-end;
+  color: var(--color-muted);
+  user-select: none;
+  position: relative;
+}
+
+.source-line-number {
+  font-size: 12px;
+}
+
+.source-line-add-comment {
+  position: absolute;
+  left: 4px;
+  font-size: 14px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  line-height: 18px;
+}
+
+.source-line-content {
+  flex: 1;
+  padding: 0 8px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.source-line-content code {
+  font-family: inherit;
+}
+
+.line-comment-section {
+  padding: 4px 12px 4px 68px;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.line-comment-count {
+  font-size: 12px;
+  color: var(--color-accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.line-comment-count:hover {
+  text-decoration: underline;
+}
