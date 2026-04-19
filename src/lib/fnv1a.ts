@@ -6,3 +6,7 @@ export function fnv1a8(text: string): string {
   }
   return h.toString(16).padStart(8, "0");
 }
+
+export function normalizeLine(line: string): string {
+  return line.trim().replace(/\s+/g, " ");
+}

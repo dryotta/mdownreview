@@ -14,17 +14,35 @@ export interface LaunchArgs {
   folders: string[];
 }
 
+export interface CommentResponse {
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface ReviewComment {
   id: string;
-  anchorType: "block" | "line";
-  blockHash?: string;
-  lineHash?: string;
+  anchorType: "line" | "selection" | "block"; // block kept for legacy read
+  // Line anchor (always present for line/selection)
   lineNumber?: number;
+  lineHash?: string;
+  // Context for re-anchoring
+  contextBefore?: string;
+  contextAfter?: string;
+  // Selection fields
+  selectedText?: string;
+  selectionStartOffset?: number;
+  selectionEndLine?: number;
+  selectionEndOffset?: number;
+  // Legacy block fields (read-only, not created by new code)
+  blockHash?: string;
   headingContext?: string | null;
   fallbackLine?: number;
+  // Content
   text: string;
   createdAt: string;
   resolved: boolean;
+  responses?: CommentResponse[];
 }
 
 export interface ReviewComments {

@@ -37,6 +37,7 @@ interface TabsSlice {
 
 export interface CommentWithOrphan extends ReviewComment {
   isOrphaned?: boolean;
+  matchedLineNumber?: number; // resolved position after matching algorithm
 }
 
 interface CommentsSlice {
@@ -47,6 +48,7 @@ interface CommentsSlice {
   deleteComment: (id: string) => void;
   resolveComment: (id: string) => void;
   unresolveComment: (id: string) => void;
+  addResponse: (commentId: string, author: string, text: string) => void;
 }
 
 // ── UI slice ──────────────────────────────────────────────────────────────
@@ -191,6 +193,25 @@ export const useStore = create<Store>()(
             Object.entries(s.commentsByFile).map(([fp, comments]) => [
               fp,
               comments.map((c) => (c.id === id ? { ...c, resolved: false } : c)),
+            ])
+          ),
+        })),
+      addResponse: (commentId, author, text) =>
+        set((s) => ({
+          commentsByFile: Object.fromEntries(
+            Object.entries(s.commentsByFile).map(([fp, comments]) => [
+              fp,
+              comments.map((c) =>
+                c.id === commentId
+                  ? {
+                      ...c,
+                      responses: [
+                        ...(c.responses ?? []),
+                        { author, text, createdAt: new Date().toISOString() },
+                      ],
+                    }
+                  : c
+              ),
             ])
           ),
         })),
