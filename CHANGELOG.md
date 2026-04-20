@@ -1,3 +1,21 @@
+## v0.2.4 — 2026-04-19
+
+### Features
+- feat: enhanced file viewer with universal review comments (#3)
+- feat(scripts): add mdownreview.py CLI with read/respond/resolve/cleanup
+- feat: add marketplace skills for review comment operations
+- feat: add marketplace configuration for plugin discovery
+- feat: add mdownreview-open and mdownreview-review skills
+
+### Fixes
+- fix: add required owner field to marketplace.json
+
+### Other
+- docs: add design specs, implementation plans, and agent skills documentation
+- refactor: move skills and marketplace to dryotta/mdownreview-skills
+- ci: add path filters to CI and Pages workflows
+- chore: remove scripts folder, update publish-release skill, add Python gitignore
+
 ## v0.2.3 — 2026-04-18
 
 ### Features
