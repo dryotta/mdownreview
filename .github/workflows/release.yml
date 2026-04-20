@@ -31,7 +31,7 @@ jobs:
           gh release view "${{ steps.tag.outputs.tag }}" &>/dev/null || \
           gh release create "${{ steps.tag.outputs.tag }}" \
             --draft \
-            --title "mDown reView ${{ steps.tag.outputs.tag }}" \
+            --title "mdownreview ${{ steps.tag.outputs.tag }}" \
             --notes "Download the installer for your platform from the Assets section below."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -142,7 +142,7 @@ jobs:
           [ -z "$WIN_ZIP" ] && { echo "::error::NSIS updater zip not found on release"; exit 1; }
           [ -z "$ARM_APP" ] && { echo "::error::macOS updater bundle not found on release"; exit 1; }
 
-          # URL-encode spaces in filenames (productName "mDown reView" produces spaces)
+          # URL-encode spaces in filenames (productName "mdownreview" produces spaces)
           url_encode() { echo "$1" | sed 's/ /%20/g'; }
 
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

@@ -4,22 +4,22 @@
 
 Two workflow gaps remain in the agent review skills:
 
-1. **No way to launch the app** — agents can't open mDown reView for visual review
+1. **No way to launch the app** — agents can't open mdownreview for visual review
 2. **No orchestrated workflow** — agents must manually sequence read → fix → respond → resolve → cleanup
 
 ## New Skills
 
 ### mdownreview-open
 
-**Description:** Use to open the mDown reView desktop app on the current project folder for visual review of comments
+**Description:** Use to open the mdownreview desktop app on the current project folder for visual review of comments
 
 **CLI:** `python scripts/mdownreview.py open [path]`
 
 - Defaults to current directory
 - Searches for the installed app binary in this order:
-  1. **Windows:** `%LOCALAPPDATA%\Programs\mDown reView\mDown reView.exe`
-  2. **macOS:** `/Applications/mDown reView.app/Contents/MacOS/mDown reView`
-  3. **PATH fallback:** `mDown reView` or `mdown-review` on system PATH
+  1. **Windows:** `%LOCALAPPDATA%\Programs\mdownreview\mdownreview.exe`
+  2. **macOS:** `/Applications/mdownreview.app/Contents/MacOS/mdownreview`
+  3. **PATH fallback:** `mdownreview` or `mdown-review` on system PATH
 - Launches the app as a background process (does not block the agent)
 - Passes the target path as a CLI argument to open the folder
 - Exit 0 on successful launch, exit 1 if binary not found (with helpful error listing searched locations)

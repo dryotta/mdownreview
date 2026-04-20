@@ -1,4 +1,4 @@
-# AGENTS.md — mDown reView
+# AGENTS.md — mdownreview
 
 Context for AI agents working on this codebase.
 

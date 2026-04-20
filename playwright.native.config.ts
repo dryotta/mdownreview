@@ -5,7 +5,7 @@ import path from "path";
 const binaryPath = process.platform === "win32"
   ? path.join("src-tauri", "target", "release", "mdown-review.exe")
   : process.platform === "darwin"
-  ? path.join("src-tauri", "target", "release", "bundle", "macos", "mDown reView.app", "Contents", "MacOS", "mDown reView")
+  ? path.join("src-tauri", "target", "release", "bundle", "macos", "mdownreview.app", "Contents", "MacOS", "mdownreview")
   : path.join("src-tauri", "target", "release", "mdown-review");
 
 export default defineConfig({

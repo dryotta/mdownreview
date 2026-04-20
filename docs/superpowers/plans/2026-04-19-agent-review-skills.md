@@ -965,7 +965,7 @@ Add after the "Development" section, before "License":
 ```markdown
 ## Agent Skills
 
-mDown reView persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the bundled CLI and skills.
+mdownreview persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the bundled CLI and skills.
 
 ### Quick Start (agents in this repo)
 

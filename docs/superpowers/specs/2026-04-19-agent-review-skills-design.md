@@ -2,7 +2,7 @@
 
 ## Problem
 
-Coding agents (Claude, Copilot, Codex, etc.) working in repos that contain `.review.json` sidecar files from mDown reView have no way to read, respond to, resolve, or clean up those review comments. We need a set of lightweight, tool-agnostic skills and a CLI script that any agent can use.
+Coding agents (Claude, Copilot, Codex, etc.) working in repos that contain `.review.json` sidecar files from mdownreview have no way to read, respond to, resolve, or clean up those review comments. We need a set of lightweight, tool-agnostic skills and a CLI script that any agent can use.
 
 ## Approach
 

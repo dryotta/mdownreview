@@ -2,7 +2,7 @@
 
 ## Problem
 
-The current toolbar uses flat, unstyled text buttons scattered across the bar with a "mDown reView" title on the left. It looks unprofessional and lacks visual grouping of related actions.
+The current toolbar uses flat, unstyled text buttons scattered across the bar with a "mdownreview" title on the left. It looks unprofessional and lacks visual grouping of related actions.
 
 ## Design
 
@@ -19,7 +19,7 @@ Replace with a **segmented button group** layout (macOS-native style):
 
 ### Removed
 
-- "mDown reView" app title text from toolbar
+- "mdownreview" app title text from toolbar
 
 ### Active Toggle State
 

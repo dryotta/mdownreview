@@ -148,7 +148,7 @@ pub fn run() {
                 .build()?;
 
             // Help menu
-            let about_item = MenuItem::with_id(app, "about", "About mDown reView", true, None::<&str>)?;
+            let about_item = MenuItem::with_id(app, "about", "About mdownreview", true, None::<&str>)?;
             let check_updates = MenuItem::with_id(app, "check-updates", "Check for Updates…", true, None::<&str>)?;
             let help_menu = SubmenuBuilder::new(app, "Help")
                 .item(&about_item)

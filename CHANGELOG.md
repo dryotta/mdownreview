@@ -82,7 +82,7 @@
 - add the screenshot
 - docs: add GitHub Pages homepage link to README
 - docs: update tagline to "Markdown Viewer and Review App for AI-first Developers"
-- refactor: rename app to "mDown reView" everywhere
+- refactor: rename app to "mdownreview" everywhere
 - docs: migrate openspec to docs/specs/, add AGENTS.md, update GitHub URLs
 - ci: add GitHub Actions workflow to deploy site/ to GitHub Pages
 - chore: remove broken vite.svg favicon reference

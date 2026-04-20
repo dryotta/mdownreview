@@ -32,7 +32,7 @@ The Windows installer (NSIS and MSI) SHALL register `.md` and `.mdx` file extens
 
 ### Scenario: "Open With" lists the app
 - **WHEN** the user right-clicks a `.md` file and selects "Open With"
-- **THEN** "mDown reView" appears in the list of available programs
+- **THEN** "mdownreview" appears in the list of available programs
 
 ### Scenario: Association is per-user (no UAC prompt)
 - **WHEN** the installer runs without administrator privileges
@@ -50,7 +50,7 @@ The macOS app bundle SHALL declare document type handlers for `.md` and `.mdx` i
 
 ### Scenario: "Open With" lists the app in Finder
 - **WHEN** the user right-clicks a `.md` file in Finder and selects "Open With"
-- **THEN** "mDown reView" appears in the list
+- **THEN** "mdownreview" appears in the list
 
 ---
 

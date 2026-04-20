@@ -1541,7 +1541,7 @@ if __name__ == "__main__":
 `e2e/fixtures/sample.yaml`:
 ```yaml
 project:
-  name: mDown reView
+  name: mdownreview
   version: 1.0.0
   features:
     - markdown viewing

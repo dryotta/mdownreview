@@ -1,4 +1,4 @@
-# mDown reView
+# mdownreview
 
 > Review AI Agent's work
 
@@ -24,8 +24,8 @@ Get the latest release from the [Releases page](https://github.com/dryotta/mDown
 
 | Platform | Installer |
 |----------|-----------|
-| Windows  | `mDown reView_x.x.x_x64-setup.exe` |
-| macOS    | `mDown reView_x.x.x_x64.dmg` / `_aarch64.dmg` |
+| Windows  | `mdownreview_x.x.x_x64-setup.exe` |
+| macOS    | `mdownreview_x.x.x_x64.dmg` / `_aarch64.dmg` |
 
 ## Development
 
@@ -40,7 +40,7 @@ npm run test:e2e    # E2E tests (Playwright)
 
 ## Agent Skills
 
-mDown reView persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the skills and CLI in [mdownreview-skills](https://github.com/dryotta/mdownreview-skills).
+mdownreview persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the skills and CLI in [mdownreview-skills](https://github.com/dryotta/mdownreview-skills).
 
 ```
 /plugin marketplace add dryotta/mdownreview-skills

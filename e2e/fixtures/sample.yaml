@@ -1,5 +1,5 @@
 project:
-  name: mDown reView
+  name: mdownreview
   version: 1.0.0
   features:
     - markdown viewing

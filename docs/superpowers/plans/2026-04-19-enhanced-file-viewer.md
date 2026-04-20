@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend mDown reView to support reviewing, syntax-highlighting, and visualizing all common file types — not just markdown.
+**Goal:** Extend mdownreview to support reviewing, syntax-highlighting, and visualizing all common file types — not just markdown.
 
 **Architecture:** A unified `EnhancedViewer` wraps all text files with a shared Source/Visual toggle toolbar. Each file type gets a visualization sub-view (JSON tree, CSV table, HTML sandbox, Mermaid diagram, KQL plan). Line-level comments extend the existing block-level system for source views. Images get a dedicated read-only viewer.
 

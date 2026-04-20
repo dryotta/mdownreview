@@ -5,7 +5,7 @@
 
 ## Problem Statement
 
-mDown reView currently only provides rich viewing for `.md`/`.mdx` files (rendered markdown with block-level review comments). All other text files get a basic syntax-highlighted source view with no comment support, and binary files (including images) are rejected entirely.
+mdownreview currently only provides rich viewing for `.md`/`.mdx` files (rendered markdown with block-level review comments). All other text files get a basic syntax-highlighted source view with no comment support, and binary files (including images) are rejected entirely.
 
 Users who receive batches of AI-generated files need to review not just markdown but also code, configuration, data files, and diagrams — with commenting and visualization support appropriate to each file type.
 

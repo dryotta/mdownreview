@@ -1,11 +1,11 @@
 ---
 name: publish-release
-description: Use when publishing a new release of mDown reView. Bumps the version, updates the changelog, and creates a release tag that triggers the CI/CD build workflow.
+description: Use when publishing a new release of mdownreview. Bumps the version, updates the changelog, and creates a release tag that triggers the CI/CD build workflow.
 ---
 
 # Publish Release Skill
 
-You are implementing a release workflow for the mDown reView Tauri desktop application. This skill publishes a new version by bumping the version number, updating the changelog, and creating a release tag.
+You are implementing a release workflow for the mdownreview Tauri desktop application. This skill publishes a new version by bumping the version number, updating the changelog, and creating a release tag.
 
 **⚠️ CRITICAL: Do not skip the confirmation step.** Always show the user the proposed version and wait for their explicit approval before making any changes to files or git history.
 
