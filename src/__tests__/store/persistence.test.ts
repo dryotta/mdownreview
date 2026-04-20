@@ -42,6 +42,7 @@ describe("persistence partialize contract", () => {
       text: "test comment",
       createdAt: new Date().toISOString(),
       resolved: false,
+      anchorType: "line",
     };
     useStore.getState().setFileComments("/docs/file.md", [comment]);
 

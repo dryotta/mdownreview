@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type mermaidAPI from "mermaid";
+
 
 interface Props {
   content: string;

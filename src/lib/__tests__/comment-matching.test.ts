@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchComments, type MatchedComment } from "@/lib/comment-matching";
+import { matchComments } from "@/lib/comment-matching";
 import { computeLineHash, captureContext } from "@/lib/comment-anchors";
 import type { ReviewComment } from "@/lib/tauri-commands";
 

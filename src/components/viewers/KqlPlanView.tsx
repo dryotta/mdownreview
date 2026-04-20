@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { parseKqlPipeline, formatKql, KQL_OPERATORS } from "@/lib/kql-parser";
 import "@/styles/kql-plan.css";
 
@@ -22,7 +22,7 @@ export function KqlPlanView({ content }: KqlPlanViewProps) {
   const highlightKeywords = (text: string) => {
     const lines = text.split("\n");
     return lines.map((line, lineIndex) => {
-      const parts: JSX.Element[] = [];
+      const parts: React.ReactElement[] = [];
       const words = line.split(/(\s+|\||==|!=|>=|<=|>|<|\(|\)|,)/);
 
       words.forEach((word, wordIndex) => {

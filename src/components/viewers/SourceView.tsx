@@ -245,11 +245,10 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
           if (lang === "kql") {
             await hl.loadLanguage({
               name: "kql",
-              scopeName: "source.kql",
               ...kqlGrammar,
             }).catch(() => {});
           } else {
-            await hl.loadLanguage(lang).catch(() => {});
+            await hl.loadLanguage(lang as any).catch(() => {});
           }
         }
         const htmlLines = lines.map((line) => {

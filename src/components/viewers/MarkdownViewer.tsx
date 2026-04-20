@@ -1,3 +1,4 @@
+import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
@@ -130,7 +131,7 @@ function makeCommentableBlock(Tag: string) {
         data-source-line={line}
         data-comment-count={count > 0 ? count : undefined}
       >
-        <Tag {...props}>{children}</Tag>
+        {React.createElement(Tag, props, children)}
       </div>
     );
   };

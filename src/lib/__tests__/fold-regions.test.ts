@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeFoldRegions, type FoldRegion } from "@/lib/fold-regions";
+import { computeFoldRegions } from "@/lib/fold-regions";
 
 describe("computeFoldRegions — brace matching", () => {
   it("detects simple brace block", () => {
