@@ -1,3 +1,8 @@
+## v0.2.5 — 2026-04-19
+
+### Fixes
+- fix: resolve 11 TypeScript strict-mode errors breaking CI build
+
 ## v0.2.4 — 2026-04-19
 
 ### Features
