@@ -109,40 +109,51 @@
   <!-- ── Install ── -->
   <section id="install" class="section">
     <h2 class="section-title">Install</h2>
-    <p class="section-subtitle">Download for your platform — or use the install scripts.</p>
+    <p class="section-subtitle">Download for your platform, or install via script.</p>
 
-    <!-- Direct downloads -->
-    <div class="install-grid" id="download-grid">
-      <div class="install-card">
-        <div class="platform-icon">🪟</div>
-        <h3>Windows</h3>
-        <div class="arch">x64 (Intel/AMD)</div>
-        <a id="dl-win-x64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+    <div class="install-tabs">
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="download">Download</button>
+        <button class="tab-btn" data-tab="script">Script</button>
+        <button class="tab-btn" data-tab="releases">GitHub Releases</button>
       </div>
-      <div class="install-card">
-        <div class="platform-icon">🪟</div>
-        <h3>Windows</h3>
-        <div class="arch">ARM64</div>
-        <a id="dl-win-arm64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
-      </div>
-      <div class="install-card">
-        <div class="platform-icon">🍎</div>
-        <h3>macOS</h3>
-        <div class="arch">Apple Silicon (ARM64)</div>
-        <a id="dl-mac-arm64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
-      </div>
-    </div>
 
-    <!-- Script install -->
-    <div class="script-install">
-      <h3>Or install via script</h3>
-      <div class="platform-label">macOS</div>
-      <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
-      <div class="platform-label">Windows (PowerShell)</div>
-      <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
-      <div class="warning-box">
-        <span class="warning-icon">⚠️</span>
-        <p><strong>Note:</strong> Scripted installs pipe remote code into your shell. Your system administrator or corporate security policy may block this approach. If the script fails or is blocked, use the direct download above instead.</p>
+      <!-- Download tab -->
+      <div class="tab-panel" id="tab-download">
+        <div class="download-block">
+          <div>
+            <div class="download-platform" id="dl-platform-label">Detecting platform…</div>
+            <div class="download-arch" id="dl-arch-label"></div>
+          </div>
+          <a id="dl-btn" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+          <div class="other-platforms">
+            Not your platform? <a href="https://github.com/dryotta/mdownreview/releases/latest">View all releases on GitHub →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Script tab -->
+      <div class="tab-panel hidden" id="tab-script">
+        <div class="script-block" id="script-macos">
+          <div class="script-label">macOS</div>
+          <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
+        </div>
+        <div class="script-block" id="script-windows">
+          <div class="script-label">Windows (PowerShell)</div>
+          <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
+        </div>
+        <div class="warning-box">
+          <span class="warning-icon">⚠️</span>
+          <p><strong>Note:</strong> Scripted installs pipe remote code into your shell. If blocked by your security policy, use the direct download instead.</p>
+        </div>
+      </div>
+
+      <!-- GitHub Releases tab -->
+      <div class="tab-panel hidden" id="tab-releases">
+        <div class="releases-block">
+          <p>Browse all releases, download any version, or find builds for Linux and other platforms.</p>
+          <a href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-releases">View all releases on GitHub →</a>
+        </div>
       </div>
     </div>
   </section>
@@ -204,33 +215,83 @@
   </footer>
 
   <script>
-    // Resolve latest release download URLs from GitHub API
+    // ── Tab switching ──────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // ── Platform detection ─────────────────────────────────────────
+    function detectPlatform() {
+      const ua = navigator.userAgent.toLowerCase();
+      const pl = (navigator.platform ?? '').toLowerCase();
+      if (ua.includes('win')) {
+        return (ua.includes('arm') || pl.includes('arm')) ? 'win-arm64' : 'win-x64';
+      }
+      if (ua.includes('mac')) return 'mac-arm64';
+      return null;
+    }
+
+    const PLATFORM_LABELS = {
+      'win-x64':   { platform: 'Windows', arch: 'x64 (Intel/AMD)' },
+      'win-arm64': { platform: 'Windows', arch: 'ARM64' },
+      'mac-arm64': { platform: 'macOS',   arch: 'Apple Silicon (ARM64)' },
+    };
+
+    const detected = detectPlatform();
+
+    // If unknown platform, default to releases tab
+    if (!detected) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelector('[data-tab="releases"]').classList.add('active');
+      document.getElementById('tab-releases').classList.remove('hidden');
+    }
+
+    // Set platform label in Download tab
+    if (detected && PLATFORM_LABELS[detected]) {
+      document.getElementById('dl-platform-label').textContent = PLATFORM_LABELS[detected].platform;
+      document.getElementById('dl-arch-label').textContent = PLATFORM_LABELS[detected].arch;
+    }
+
+    // Show only matching script in Script tab
+    if (detected) {
+      const showMac = detected === 'mac-arm64';
+      document.getElementById('script-macos').style.display = showMac ? '' : 'none';
+      document.getElementById('script-windows').style.display = showMac ? 'none' : '';
+    }
+
+    // ── Resolve latest release download URL ────────────────────────
+    const ARTIFACT = {
+      'win-x64':   v => `mdownreview-${v}-windows-x64.zip`,
+      'win-arm64': v => `mdownreview-${v}-windows-arm64.zip`,
+      'mac-arm64': v => `mdownreview-${v}-macos-arm64.dmg`,
+    };
+
     fetch('https://api.github.com/repos/dryotta/mdownreview/releases/latest')
       .then(r => r.json())
       .then(release => {
         const tag = release.tag_name;
         const v = tag.replace(/^v/, '');
         const base = `https://github.com/dryotta/mdownreview/releases/download/${tag}`;
-        const links = {
-          'dl-win-x64':    { url: `${base}/mdownreview-${v}-windows-x64.zip`,   label: '↓ Download .zip' },
-          'dl-win-arm64':  { url: `${base}/mdownreview-${v}-windows-arm64.zip`, label: '↓ Download .zip' },
-          'dl-mac-arm64':  { url: `${base}/mdownreview-${v}-macos-arm64.dmg`,   label: '↓ Download .dmg' },
-        };
-        for (const [id, info] of Object.entries(links)) {
-          const el = document.getElementById(id);
-          if (el) {
-            el.href = info.url;
-            el.textContent = info.label;
-            el.classList.remove('loading');
-          }
+        const btn = document.getElementById('dl-btn');
+        if (detected && ARTIFACT[detected]) {
+          btn.href = `${base}/${ARTIFACT[detected](v)}`;
+          btn.textContent = '↓ Download';
+        } else {
+          btn.href = `https://github.com/dryotta/mdownreview/releases/latest`;
+          btn.textContent = '↓ Download';
         }
+        btn.classList.remove('loading');
       })
       .catch(() => {
-        // Fallback: buttons already link to releases page
-        document.querySelectorAll('.btn-download.loading').forEach(el => {
-          el.textContent = '↓ Download';
-          el.classList.remove('loading');
-        });
+        const btn = document.getElementById('dl-btn');
+        btn.textContent = '↓ Download';
+        btn.classList.remove('loading');
       });
   </script>
 
