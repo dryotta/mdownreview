@@ -222,7 +222,7 @@ nav {
 .workflow-steps {
   display: flex;
   flex-direction: column;
-  max-width: 620px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
@@ -230,7 +230,7 @@ nav {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 24px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -256,6 +256,11 @@ nav {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
+}
+
+.workflow-step > p,
+.workflow-step > .app-mock {
+  padding-left: 1.5rem;
 }
 
 .workflow-step > p {
@@ -423,15 +428,127 @@ nav {
 }
 
 /* ── Install Section ── */
-.install-tabs {
-  max-width: 580px;
+.install-steps {
+  max-width: 680px;
   margin: 0 auto;
+}
+
+.install-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.install-step:last-child { border-bottom: none; }
+
+.install-step-hdr {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.install-step-hdr h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.install-step-desc {
+  font-size: 0.87rem;
+  color: var(--muted);
+  padding-left: 1.5rem;
+}
+
+.install-step .install-tabs {
+  padding-left: 1.5rem;
+}
+
+.install-step .install-code {
+  margin-left: 1.5rem;
+}
+
+.install-code {
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
+  border-radius: 8px;
+  padding: 0.55rem 0.9rem;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  position: relative;
+}
+
+/* ── Copy button ── */
+.copy-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-family: var(--mono);
+  padding: 1px 7px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  line-height: 1.8;
+}
+
+.copy-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--text);
+}
+
+.copy-btn.copied {
+  color: var(--green);
+  border-color: rgba(74,222,128,0.3);
+  background: rgba(74,222,128,0.06);
+}
+
+.download-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+}
+
+.script-note {
+  font-size: 0.75rem;
+  color: var(--warning-text);
+}
+
+.install-step .script-block {
+  padding: 0.75rem;
+  gap: 0.4rem;
+}
+
+.install-step .releases-block {
+  padding: 1rem 1.25rem;
+  gap: 0.5rem;
+}
+
+.install-tabs {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.install-step .install-tabs {
+  max-width: none;
+  margin: 0;
 }
 
 .tab-bar {
   display: flex;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.75rem;
   gap: 0;
 }
 
@@ -519,6 +636,15 @@ nav {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.script-label .copy-btn {
+  position: static;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .script-block pre {

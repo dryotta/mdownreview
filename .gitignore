@@ -30,3 +30,5 @@ test-results/
 # Python
 __pycache__/
 *.pyc
+.superpowers/
+.claude/settings.local.json

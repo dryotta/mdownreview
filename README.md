@@ -1,14 +1,10 @@
-# mdownreview
+# [mdownreview - Review AI Agent's work](https://dryotta.github.io/mdownreview)
 
-> Review AI Agent's work
+> Markdown viewer and review app for Windows and Mac: Make inline comments for AI agents to fix.
 
 [![CI](https://github.com/dryotta/mdownreview/actions/workflows/ci.yml/badge.svg)](https://github.com/dryotta/mdownreview/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/dryotta/mdownreview)](https://github.com/dryotta/mdownreview/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-
-**[Homepage](https://dryotta.github.io/mdownreview)**
-
-A fast desktop app for browsing, reviewing and annotating markdown, code, and text files. Leave inline comments on your AI agent's output — then let the agent fix them.
 
 ## How It Works
 
