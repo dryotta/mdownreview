@@ -1,3 +1,12 @@
+## v0.3.0 — 2026-04-20
+
+### Features
+- MRSF v1.0 migration — review comments, file watcher, re-anchoring
+- folder/file opening UX refactoring
+
+### Fixes
+- MRSF v1.0 spec compliance and auto-save reliability
+
 ## v0.2.7 — 2026-04-20
 
 ### Features
