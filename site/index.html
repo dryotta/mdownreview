@@ -40,14 +40,14 @@
       <div class="workflow-step">
         <div class="step-header">
           <span class="step-num">1.</span>
-          <h3>Your AI agent writes code</h3>
+          <h3>Your AI agent writes a proposal</h3>
         </div>
       </div>
 
       <div class="workflow-step">
         <div class="step-header">
           <span class="step-num">2.</span>
-          <h3>Open in mdownreview with <code>/mdownreview:open</code></h3>
+          <h3>You review the proposal with <code>/mdownreview:open</code></h3>
         </div>
         <p>Browse the file tree, read rendered markdown, and leave inline review comments.</p>
         <div class="app-mock">
@@ -78,7 +78,7 @@
       <div class="workflow-step">
         <div class="step-header">
           <span class="step-num">3.</span>
-          <h3>Summarize with <code>/mdownreview:read</code></h3>
+          <h3>You ask agent to read comments with <code>/mdownreview:read</code></h3>
         </div>
         <p>Your agent scans all <code>.review.yaml</code> sidecars and lists every unresolved comment.</p>
       </div>
@@ -86,7 +86,7 @@
       <div class="workflow-step">
         <div class="step-header">
           <span class="step-num">4.</span>
-          <h3>Fix with <code>/mdownreview:review</code></h3>
+          <h3>You ask agent to address the comments with <code>/mdownreview:review</code></h3>
         </div>
         <p>Your agent reads comments, makes fixes, and marks them resolved.</p>
       </div>
@@ -94,7 +94,7 @@
       <div class="workflow-step">
         <div class="step-header">
           <span class="step-num">5.</span>
-          <h3>Clean up with <code>/mdownreview:cleanup</code></h3>
+          <h3>You clean up with <code>/mdownreview:cleanup</code></h3>
         </div>
         <p>Removes <code>.review.yaml</code> sidecar files once all comments are resolved.</p>
       </div>
