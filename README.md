@@ -14,9 +14,9 @@ A fast desktop app for browsing, reviewing and annotating markdown, code, and te
 
 1. **Your AI agent writes code** — ask it to build a feature, fix a bug, or refactor
 2. **Open in mdownreview** (`mdownreview:open`) — browse the file tree, read rendered markdown, leave inline review comments
-3. **Summarize** (`mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
-4. **Fix** (`mdownreview:review`) — the agent reads your comments, makes fixes, and marks them resolved
-5. **Clean up** (`mdownreview:cleanup`) — removes sidecar files where all comments are resolved
+3. **Summarize** (`/mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
+4. **Fix** (`/mdownreview:review`) — the agent reads your comments, makes fixes, and marks them resolved
+5. **Clean up** (`/mdownreview:cleanup`) — removes sidecar files where all comments are resolved
 
 ## Install
 
@@ -44,7 +44,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview
 
 ## Agent Skills
 
-Install the Copilot skills to let your AI agent read and act on review comments:
+Install the agent skills to let your AI agent read and act on review comments:
 
 ```
 /plugin marketplace add dryotta/mdownreview-skills
