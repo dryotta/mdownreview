@@ -15,6 +15,7 @@
 }
 
 .welcome-logo {
+  color: var(--color-brand);
   margin-bottom: 8px;
 }
 
