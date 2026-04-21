@@ -60,6 +60,13 @@ nav {
   font-family: var(--mono);
 }
 
+.logo-m, .logo-re {
+  color: var(--accent-1);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-1);
+  text-underline-offset: 4px;
+}
+
 .nav-links { display: flex; gap: 1.5rem; align-items: center; }
 .nav-links a { color: var(--muted); font-size: 0.9rem; font-weight: 500; }
 .nav-links a:hover { color: var(--text); }

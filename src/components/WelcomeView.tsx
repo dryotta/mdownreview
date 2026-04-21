@@ -68,8 +68,16 @@ export function WelcomeView({ onOpenFile, onOpenFolder }: WelcomeViewProps) {
   return (
     <div className="welcome-view">
       <div className="welcome-content">
-        <div className="welcome-logo">📂</div>
-        <h1 className="welcome-title">mdownreview</h1>
+        <div className="welcome-logo">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48" aria-hidden="true">
+            <rect width="100" height="100" rx="20" fill="#18181b"/>
+            <rect x="1.5" y="1.5" width="97" height="97" rx="18.5" fill="none" stroke="#6366f1" strokeWidth="3"/>
+            <text x="50" y="70" textAnchor="middle" fontFamily="'JetBrains Mono', 'Cascadia Code', 'Courier New', monospace" fontSize="62" fontWeight="700" fill="#6366f1">m</text>
+          </svg>
+        </div>
+        <h1 className="welcome-title">
+          <span className="logo-m">m</span>down<span className="logo-re">re</span>view
+        </h1>
 
         <div className="welcome-actions">
           <button className="welcome-action" onClick={onOpenFile}>

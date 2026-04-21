@@ -26,6 +26,13 @@
   margin-bottom: 32px;
 }
 
+.logo-m, .logo-re {
+  color: #6366f1;
+  text-decoration: underline;
+  text-decoration-color: #6366f1;
+  text-underline-offset: 3px;
+}
+
 .welcome-actions {
   display: flex;
   flex-direction: column;
