@@ -183,21 +183,6 @@ nav {
   color: var(--text);
 }
 
-/* ── Screenshot ── */
-.screenshot {
-  max-width: 1000px;
-  margin: 2rem auto 0;
-  padding: 0 2rem;
-}
-
-.screenshot img {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  display: block;
-  box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 40px var(--accent-glow);
-}
-
 /* ── Sections ── */
 .section {
   max-width: 900px;
