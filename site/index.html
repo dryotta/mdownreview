@@ -272,22 +272,21 @@
       });
 
     // ── Scroll reveal ──────────────────────────────────────────────
-    const observer = new IntersectionObserver(
-      entries => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add('visible');
-          observer.unobserve(e.target);
+    function revealVisible() {
+      const navH = document.querySelector('nav').offsetHeight;
+      document.querySelectorAll('.reveal:not(.visible)').forEach(el => {
+        const { top, bottom } = el.getBoundingClientRect();
+        if (top < window.innerHeight - 10 && bottom > navH) {
+          el.classList.add('visible');
         }
-      }),
-      { threshold: 0.08 }
-    );
-    document.querySelectorAll('.reveal').forEach(el => {
-      if (el.getBoundingClientRect().top < window.innerHeight) {
-        el.classList.add('visible');
-      } else {
-        observer.observe(el);
-      }
-    });
+      });
+    }
+    document.addEventListener('scrollend', revealVisible, { passive: true });
+    document.addEventListener('scroll', () => {
+      clearTimeout(window._rt);
+      window._rt = setTimeout(revealVisible, 120);
+    }, { passive: true });
+    revealVisible();
   </script>
 
 </body>

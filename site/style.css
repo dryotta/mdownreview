@@ -813,15 +813,12 @@ footer .footer-links a:hover { color: var(--text); }
 
 /* ── Scroll Reveal ── */
 .reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s,
-              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
+  transform: translateY(36px) scale(0.97);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .reveal { opacity: 1; transform: none; transition: none; }
+  .reveal { transform: none; transition: none; }
 }
