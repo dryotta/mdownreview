@@ -19,10 +19,7 @@
   --terminal-bg: #0c0c0e;
   --terminal-border: rgba(255,255,255,0.08);
   --green: #4ade80;
-  --blue: #60a5fa;
   --purple: #c084fc;
-  --amber: #fbbf24;
-  --red: #f87171;
   --cyan: #22d3ee;
   --mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
 }
@@ -277,59 +274,6 @@ nav {
   border-radius: 4px;
   color: var(--purple);
 }
-
-/* ── Terminal ── */
-.terminal {
-  background: var(--terminal-bg);
-  border: 1px solid var(--terminal-border);
-  border-radius: 12px;
-  overflow: hidden;
-  font-family: var(--mono);
-  font-size: 0.82rem;
-  line-height: 1.7;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
-
-.terminal-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0.75rem 1rem;
-  background: rgba(255,255,255,0.02);
-  border-bottom: 1px solid var(--terminal-border);
-}
-
-.terminal-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-}
-.terminal-dot.r { background: #ff5f57; }
-.terminal-dot.y { background: #febc2e; }
-.terminal-dot.g { background: #28c840; }
-
-.terminal-title {
-  margin-left: 0.5rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-}
-
-.terminal-body {
-  padding: 1rem 1.25rem;
-  overflow-x: auto;
-}
-
-.terminal-body .line { display: block; white-space: pre; }
-.terminal-body .prompt { color: var(--green); }
-.terminal-body .cmd { color: var(--text); }
-.terminal-body .flag { color: var(--blue); }
-.terminal-body .dim { color: var(--muted); }
-.terminal-body .grn { color: var(--green); }
-.terminal-body .blu { color: var(--blue); }
-.terminal-body .pur { color: var(--purple); }
-.terminal-body .amb { color: var(--amber); }
-.terminal-body .red { color: var(--red); }
-.terminal-body .cyn { color: var(--cyan); }
-.terminal-body .bld { font-weight: 600; }
 
 /* ── App Mockup ── */
 .app-mock {
@@ -765,11 +709,8 @@ footer .footer-links a:hover { color: var(--text); }
 @media (max-width: 768px) {
   .hero { padding: 4rem 1.5rem 2rem; }
   nav { padding: 1rem 1.5rem; }
-  .workflow-step { grid-template-columns: 1fr; gap: 1.5rem; }
-  .workflow-step:nth-child(even) { direction: ltr; }
   .app-mock { grid-template-columns: 1fr; }
   .app-sidebar { display: none; }
-  .install-grid { grid-template-columns: 1fr; }
   .update-grid { grid-template-columns: 1fr; }
   .section, .section-wide { padding: 3rem 1.5rem; }
 }
