@@ -72,10 +72,6 @@ nav {
   max-width: 900px;
   margin: 0 auto;
   position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
 }
 
 .hero::before {
