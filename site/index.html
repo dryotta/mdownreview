@@ -3,81 +3,325 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Review AI Agent's work">
-  <title>mdownreview</title>
+  <meta name="description" content="Review AI Agent's work — a fast desktop app for browsing and reviewing markdown, code, and text files with inline comments">
+  <title>mdownreview — Review AI Agent's Work</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <nav>
     <span class="logo">mdownreview</span>
-    <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+    <div class="nav-links">
+      <a href="#how-it-works">How It Works</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+    </div>
   </nav>
 
+  <!-- ── Hero ── -->
   <section class="hero">
-    <h1>Review AI Agent's work</h1>
-    <p>A slim and fast desktop app written in Rust and React for browsing, viewing and reviewing markdown, code and other text files on Windows and macOS.</p>
+    <div class="badge"><span class="dot"></span> Open Source &middot; MIT Licensed</div>
+    <h1>Review <span class="gradient-text">AI Agent's</span> Work</h1>
+    <p class="subtitle">A fast desktop app for browsing, reviewing and annotating markdown, code, and text files. Leave inline comments. Let your AI agent fix them.</p>
     <div class="cta">
-      <a href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-primary">Download</a>
+      <a href="#install" class="btn-primary">↓ Download</a>
       <a href="https://github.com/dryotta/mdownreview" class="btn-secondary">View on GitHub</a>
     </div>
   </section>
 
   <section class="screenshot">
-    <img src="screenshot.png" alt="mdownreview showing a file tree and rendered markdown document">
+    <img src="screenshot.png" alt="mdownreview app showing a file tree, rendered markdown, and inline review comments">
   </section>
 
-  <section class="features">
-    <h2>Features</h2>
-    <div class="feature-grid">
-      <div class="feature">
-        <h3>File Tree</h3>
-        <p>Browse your entire documentation folder with native folder navigation.</p>
+  <hr class="divider">
+
+  <!-- ── How It Works ── -->
+  <section id="how-it-works" class="section-wide">
+    <h2 class="section-title">How It Works</h2>
+    <p class="section-subtitle">Review your AI agent's output in five steps — using Copilot skills that automate the entire loop.</p>
+
+    <div class="workflow-steps">
+
+      <!-- Step 1: AI does work -->
+      <div class="workflow-step">
+        <div class="step-info">
+          <h3><span class="step-number">1</span> Your AI agent writes code</h3>
+          <p>Ask your coding agent to build a feature, fix a bug, or refactor. It produces files — you need to review them.</p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">Copilot CLI</span>
+          </div>
+          <div class="terminal-body">
+            <span class="line"><span class="prompt">$</span> <span class="cmd">Build the auth module with JWT tokens</span></span>
+            <span class="line"><span class="dim">Creating src/auth/validate.ts...</span></span>
+            <span class="line"><span class="dim">Creating src/auth/refresh.ts...</span></span>
+            <span class="line"><span class="dim">Creating src/auth/middleware.ts...</span></span>
+            <span class="line"><span class="grn">✓ Created 3 files</span></span>
+          </div>
+        </div>
       </div>
-      <div class="feature">
-        <h3>Tabbed Viewer</h3>
-        <p>Open multiple files side by side in a clean tabbed interface.</p>
+
+      <!-- Step 2: Open in mdownreview -->
+      <div class="workflow-step">
+        <div class="step-info">
+          <h3><span class="step-number">2</span> Open in mdownreview</h3>
+          <p>Use the <code>open</code> skill to launch the app with your project folder. Browse the file tree, read rendered markdown, and leave inline review comments.</p>
+        </div>
+        <div class="app-mock">
+          <div class="app-sidebar">
+            <div class="hdr">Files</div>
+            <div class="file active">📄 validate.ts <span class="badge-count">2</span></div>
+            <div class="file">📄 refresh.ts</div>
+            <div class="file">📄 middleware.ts <span class="badge-count">1</span></div>
+          </div>
+          <div class="app-content">
+            <div class="toolbar">
+              <span class="tab active">validate.ts</span>
+              <span class="tab">refresh.ts</span>
+            </div>
+            <div class="code-line"><span class="ln">1</span><span class="code"><span class="kw">import</span> { verify } <span class="kw">from</span> <span class="str">'jsonwebtoken'</span>;</span></div>
+            <div class="code-line"><span class="ln">2</span><span class="code"></span></div>
+            <div class="code-line highlighted"><span class="ln">3</span><span class="code"><span class="kw">export function</span> <span class="fn">validate</span>(token: string) {</span></div>
+            <div class="comment-bubble">
+              <div class="comment-header">
+                <span class="comment-author">You</span>
+                <span class="comment-type issue">issue</span>
+              </div>
+              <span class="comment-text">Missing null check — token could be undefined when called from middleware</span>
+            </div>
+            <div class="code-line"><span class="ln">4</span><span class="code">  <span class="kw">return</span> verify(token, SECRET);</span></div>
+            <div class="code-line"><span class="ln">5</span><span class="code">}</span></div>
+          </div>
+        </div>
       </div>
-      <div class="feature">
-        <h3>Syntax Highlighting</h3>
-        <p>Code blocks rendered with accurate syntax highlighting via Shiki.</p>
+
+      <!-- Step 3: Read comments -->
+      <div class="workflow-step">
+        <div class="step-info">
+          <h3><span class="step-number">3</span> Summarize with <code>read</code></h3>
+          <p>The <code>read</code> skill scans all <code>.review.yaml</code> sidecar files and gives your agent a summary of every unresolved comment.</p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">Copilot CLI</span>
+          </div>
+          <div class="terminal-body">
+            <span class="line"><span class="prompt">$</span> <span class="cmd">mdownreview:read</span></span>
+            <span class="line"></span>
+            <span class="line"><span class="bld amb">3 unresolved comments</span> in 2 files:</span>
+            <span class="line"></span>
+            <span class="line"><span class="blu">src/auth/validate.ts</span> <span class="dim">(2 comments)</span></span>
+            <span class="line">  <span class="red">issue</span>  L3: Missing null check — token could be undefined</span>
+            <span class="line">  <span class="blu">suggestion</span>  L4: Use try/catch around verify()</span>
+            <span class="line"></span>
+            <span class="line"><span class="blu">src/auth/middleware.ts</span> <span class="dim">(1 comment)</span></span>
+            <span class="line">  <span class="red">issue</span>  L12: No rate limiting on token refresh</span>
+          </div>
+        </div>
       </div>
-      <div class="feature">
-        <h3>.md &amp; .mdx Support</h3>
-        <p>First-class support for Markdown and MDX with OS file associations.</p>
+
+      <!-- Step 4: Review — agent fixes -->
+      <div class="workflow-step">
+        <div class="step-info">
+          <h3><span class="step-number">4</span> Fix with <code>review</code></h3>
+          <p>The <code>review</code> skill orchestrates the full cycle — it reads the comments, makes fixes, and marks them resolved. Your agent responds to every issue.</p>
+        </div>
+        <div class="app-mock">
+          <div class="app-sidebar">
+            <div class="hdr">Files</div>
+            <div class="file active">📄 validate.ts</div>
+            <div class="file">📄 refresh.ts</div>
+            <div class="file">📄 middleware.ts</div>
+          </div>
+          <div class="app-content">
+            <div class="toolbar">
+              <span class="tab active">validate.ts</span>
+            </div>
+            <div class="code-line"><span class="ln">3</span><span class="code"><span class="kw">export function</span> <span class="fn">validate</span>(token: string<span class="grn"> | undefined</span>) {</span></div>
+            <div class="comment-bubble resolved">
+              <div class="comment-header">
+                <span class="comment-author">You</span>
+                <span class="comment-type issue">issue</span>
+              </div>
+              <span class="comment-text">Missing null check — token could be undefined</span>
+            </div>
+            <div class="comment-bubble">
+              <div class="comment-header">
+                <span class="comment-author">Agent</span>
+                <span class="comment-type suggestion">reply</span>
+              </div>
+              <span class="comment-text">Added union type and early return guard at L4. Marked resolved. ✓</span>
+            </div>
+            <div class="code-line highlighted"><span class="ln">4</span><span class="code">  <span class="kw">if</span> (!token) <span class="kw">return</span> { valid: <span class="red">false</span>, error: <span class="str">'no token'</span> };</span></div>
+            <div class="code-line"><span class="ln">5</span><span class="code">  <span class="kw">try</span> { <span class="kw">return</span> { valid: <span class="grn">true</span>, payload: verify(token, SECRET) }; }</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: Cleanup -->
+      <div class="workflow-step">
+        <div class="step-info">
+          <h3><span class="step-number">5</span> Clean up with <code>cleanup</code></h3>
+          <p>Once all comments are resolved, the <code>cleanup</code> skill removes the <code>.review.yaml</code> sidecar files, leaving your project clean.</p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-header">
+            <span class="terminal-dot r"></span>
+            <span class="terminal-dot y"></span>
+            <span class="terminal-dot g"></span>
+            <span class="terminal-title">Copilot CLI</span>
+          </div>
+          <div class="terminal-body">
+            <span class="line"><span class="prompt">$</span> <span class="cmd">mdownreview:cleanup</span></span>
+            <span class="line"></span>
+            <span class="line"><span class="dim">Scanning for resolved review files...</span></span>
+            <span class="line"><span class="grn">✓</span> Removed <span class="bld">validate.ts.review.yaml</span> <span class="dim">(2/2 resolved)</span></span>
+            <span class="line"><span class="grn">✓</span> Removed <span class="bld">middleware.ts.review.yaml</span> <span class="dim">(1/1 resolved)</span></span>
+            <span class="line"></span>
+            <span class="line"><span class="grn bld">Done — 2 sidecar files cleaned up</span></span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- ── Install ── -->
+  <section id="install" class="section">
+    <h2 class="section-title">Install</h2>
+    <p class="section-subtitle">Download for your platform — or use the install scripts.</p>
+
+    <!-- Direct downloads -->
+    <div class="install-grid" id="download-grid">
+      <div class="install-card">
+        <div class="platform-icon">🪟</div>
+        <h3>Windows</h3>
+        <div class="arch">x64 (Intel/AMD)</div>
+        <a id="dl-win-x64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+      </div>
+      <div class="install-card">
+        <div class="platform-icon">🪟</div>
+        <h3>Windows</h3>
+        <div class="arch">ARM64</div>
+        <a id="dl-win-arm64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+      </div>
+      <div class="install-card">
+        <div class="platform-icon">🍎</div>
+        <h3>macOS</h3>
+        <div class="arch">Apple Silicon (ARM64)</div>
+        <a id="dl-mac-arm64" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+      </div>
+    </div>
+
+    <!-- Script install -->
+    <div class="script-install">
+      <h3>Or install via script</h3>
+      <div class="platform-label">macOS</div>
+      <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
+      <div class="platform-label">Windows (PowerShell)</div>
+      <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
+      <div class="warning-box">
+        <span class="warning-icon">⚠️</span>
+        <p><strong>Note:</strong> Scripted installs pipe remote code into your shell. Your system administrator or corporate security policy may block this approach. If the script fails or is blocked, use the direct download above instead.</p>
       </div>
     </div>
   </section>
 
-  <section class="install">
-    <h2>Quick Install</h2>
-    <p><strong>macOS</strong></p>
-    <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
-    <p><strong>Windows</strong></p>
-    <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
-    <p>Or download directly from <a href="https://github.com/dryotta/mdownreview/releases/latest">GitHub Releases</a>.</p>
+  <hr class="divider">
+
+  <!-- ── Agent Skills ── -->
+  <section id="skills" class="section">
+    <h2 class="section-title">Agent Skills</h2>
+    <p class="section-subtitle">Install the Copilot skills to let your AI agent read and act on review comments.</p>
+
+    <div class="skills-block">
+      <pre><code>/plugin marketplace add dryotta/mdownreview-skills
+/plugin install mdownreview@mdownreview-skills</code></pre>
+    </div>
+
+    <table class="skills-table">
+      <thead>
+        <tr><th>Skill</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>open</td><td>Find, install, and launch the mdownreview desktop app</td></tr>
+        <tr><td>read</td><td>Scan for review sidecars and list unresolved comments</td></tr>
+        <tr><td>review</td><td>Orchestrate the full cycle — read, fix, and clean up</td></tr>
+        <tr><td>cleanup</td><td>Delete sidecar files where all comments are resolved</td></tr>
+      </tbody>
+    </table>
   </section>
 
-  <section class="install">
-    <h2>Build from source</h2>
-    <pre><code>git clone https://github.com/dryotta/mdownreview
-cd mdownreview
-npm install
-npm run tauri</code></pre>
-    <p>Requires <a href="https://nodejs.org">Node.js LTS</a> and <a href="https://www.rust-lang.org">Rust stable</a>.</p>
+  <hr class="divider">
+
+  <!-- ── Updating ── -->
+  <section id="updating" class="section">
+    <h2 class="section-title">Updating</h2>
+    <p class="section-subtitle">Keep the app and skills up to date.</p>
+
+    <div class="update-grid">
+      <div class="update-card">
+        <h3>🔄 App</h3>
+        <p>mdownreview checks for updates automatically on launch and installs them in the background. No action needed.</p>
+      </div>
+      <div class="update-card">
+        <h3>🔌 Skills</h3>
+        <p>Update the Copilot skills to get the latest features:</p>
+        <pre><code>/plugin update mdownreview-skills</code></pre>
+      </div>
+    </div>
   </section>
 
-  <section class="install">
-    <h2>Agent Integration</h2>
-    <p>Review comments are stored as <code>.review.json</code> sidecar files. Coding agents can read and act on them with the bundled skills.</p>
-    <pre><code>/plugin marketplace add dryotta/mdownreview
-/plugin install mdownreview-skills@mdownreview</code></pre>
-    <p>Or use the CLI directly: <code>python scripts/mdownreview.py read</code></p>
-  </section>
-
+  <!-- ── Footer ── -->
   <footer>
-    <p>MIT License &middot; <a href="https://github.com/dryotta/mdownreview">GitHub</a></p>
+    <div class="footer-links">
+      <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+      <a href="https://github.com/dryotta/mdownreview/blob/main/README.md">README</a>
+      <a href="https://github.com/dryotta/mdownreview/blob/main/BUILDING.md">Build from Source</a>
+      <a href="https://github.com/dryotta/mdownreview/releases/latest">Releases</a>
+    </div>
+    <p>MIT License &middot; Built with Rust + React + Tauri</p>
   </footer>
+
+  <script>
+    // Resolve latest release download URLs from GitHub API
+    fetch('https://api.github.com/repos/dryotta/mdownreview/releases/latest')
+      .then(r => r.json())
+      .then(release => {
+        const tag = release.tag_name;
+        const v = tag.replace(/^v/, '');
+        const base = `https://github.com/dryotta/mdownreview/releases/download/${tag}`;
+        const links = {
+          'dl-win-x64':    { url: `${base}/mdownreview-${v}-windows-x64.zip`,   label: '↓ Download .zip' },
+          'dl-win-arm64':  { url: `${base}/mdownreview-${v}-windows-arm64.zip`, label: '↓ Download .zip' },
+          'dl-mac-arm64':  { url: `${base}/mdownreview-${v}-macos-arm64.dmg`,   label: '↓ Download .dmg' },
+        };
+        for (const [id, info] of Object.entries(links)) {
+          const el = document.getElementById(id);
+          if (el) {
+            el.href = info.url;
+            el.textContent = info.label;
+            el.classList.remove('loading');
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback: buttons already link to releases page
+        document.querySelectorAll('.btn-download.loading').forEach(el => {
+          el.textContent = '↓ Download';
+          el.classList.remove('loading');
+        });
+      });
+  </script>
 
 </body>
 </html>

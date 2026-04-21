@@ -8,44 +8,68 @@
 
 **[Homepage](https://dryotta.github.io/mdownreview)**
 
-A slim and fast desktop app written in Rust and React for browsing, viewing and reviewing markdown, code and other text files on Windows and macOS.
+A fast desktop app for browsing, reviewing and annotating markdown, code, and text files. Leave inline comments on your AI agent's output — then let the agent fix them.
 
-## Features
+## How It Works
 
-- **File tree** — browse your entire docs folder with native folder navigation
-- **Tabbed viewer** — open multiple files side by side
-- **Syntax highlighting** — code blocks rendered with Shiki
-- **File associations** — opens `.md` and `.mdx` files directly from your OS
-- **Comments** — annotate sections inline and persist them alongside your files
+1. **Your AI agent writes code** — ask it to build a feature, fix a bug, or refactor
+2. **Open in mdownreview** (`mdownreview:open`) — browse the file tree, read rendered markdown, leave inline review comments
+3. **Summarize** (`mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
+4. **Fix** (`mdownreview:review`) — the agent reads your comments, makes fixes, and marks them resolved
+5. **Clean up** (`mdownreview:cleanup`) — removes sidecar files where all comments are resolved
 
-## Download
+## Install
 
-Get the latest release from the [Releases page](https://github.com/dryotta/mdownreview/releases/latest).
+Download the latest release for your platform from the [Releases page](https://github.com/dryotta/mdownreview/releases/latest).
 
-| Platform | Installer |
-|----------|-----------|
-| Windows  | `mdownreview_x.x.x_x64-setup.exe` |
-| macOS    | `mdownreview_x.x.x_x64.dmg` / `_aarch64.dmg` |
+| Platform | Architecture | Artifact |
+|----------|-------------|----------|
+| Windows  | x64 (Intel/AMD) | `mdownreview-x.x.x-windows-x64.zip` |
+| Windows  | ARM64 | `mdownreview-x.x.x-windows-arm64.zip` |
+| macOS    | Apple Silicon | `mdownreview-x.x.x-macos-arm64.dmg` |
 
-## Development
+### Script install
 
-**Prerequisites:** [Node.js LTS](https://nodejs.org) · [Rust stable](https://rustup.rs)
-
-```bash
-npm install
-npm run tauri       # dev server with hot reload
-npm test            # unit tests (Vitest)
-npm run test:e2e    # E2E tests (Playwright)
+**macOS**
 ```
+curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh
+```
+
+**Windows (PowerShell)**
+```
+powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"
+```
+
+> ⚠️ **Note:** Scripted installs pipe remote code into your shell. Your system administrator or corporate security policy may block this approach. If the script fails or is blocked, use the direct download above instead.
 
 ## Agent Skills
 
-mdownreview persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the skills and CLI in [mdownreview-skills](https://github.com/dryotta/mdownreview-skills).
+Install the Copilot skills to let your AI agent read and act on review comments:
 
 ```
 /plugin marketplace add dryotta/mdownreview-skills
 /plugin install mdownreview@mdownreview-skills
 ```
+
+| Skill | Description |
+|-------|-------------|
+| `open` | Find, install, and launch the mdownreview desktop app |
+| `read` | Scan for review sidecars and list unresolved comments |
+| `review` | Orchestrate the full cycle — read, fix, and clean up |
+| `cleanup` | Delete sidecar files where all comments are resolved |
+
+## Updating
+
+**App** — mdownreview checks for updates automatically on launch and installs them in the background. No action needed.
+
+**Skills** — update to the latest version:
+```
+/plugin update mdownreview-skills
+```
+
+## Building from Source
+
+See [BUILDING.md](BUILDING.md).
 
 ## License
 
