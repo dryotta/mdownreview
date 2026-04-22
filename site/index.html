@@ -3,81 +3,291 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Review AI Agent's work">
-  <title>mdownreview</title>
+  <meta name="description" content="Review AI Agent's work — a fast desktop app for browsing and reviewing markdown, code, and text files with inline comments">
+  <title>mdownreview — Review AI Agent's Work</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <nav>
-    <span class="logo">mdownreview</span>
-    <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+    <div class="nav-inner">
+      <span class="logo"><span class="logo-m">m</span>down<span class="logo-re">re</span>view</span>
+      <div class="nav-links">
+        <a href="#how-it-works">How It Works</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+      </div>
+    </div>
   </nav>
 
+  <!-- ── Hero ── -->
   <section class="hero">
-    <h1>Review AI Agent's work</h1>
-    <p>A slim and fast desktop app written in Rust and React for browsing, viewing and reviewing markdown, code and other text files on Windows and macOS.</p>
+    <div class="badge"><span class="dot"></span> Open Source &middot; MIT Licensed</div>
+    <h1>Review <span class="gradient-text">AI Agent's</span> Work</h1>
+    <p class="subtitle">Markdown viewer and review app for Windows and Mac: Make inline comments for AI agents to fix.</p>
     <div class="cta">
-      <a href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-primary">Download</a>
+      <a href="#install" class="btn-primary">↓ Download</a>
       <a href="https://github.com/dryotta/mdownreview" class="btn-secondary">View on GitHub</a>
     </div>
   </section>
 
-  <section class="screenshot">
-    <img src="screenshot.png" alt="mdownreview showing a file tree and rendered markdown document">
-  </section>
+  <hr class="divider">
 
-  <section class="features">
-    <h2>Features</h2>
-    <div class="feature-grid">
-      <div class="feature">
-        <h3>File Tree</h3>
-        <p>Browse your entire documentation folder with native folder navigation.</p>
+  <!-- ── How It Works ── -->
+  <section id="how-it-works" class="section-wide reveal">
+    <h2 class="section-title">How It Works</h2>
+    <div class="workflow-steps">
+
+      <div class="workflow-step">
+        <div class="step-header">
+          <span class="step-num">1.</span>
+          <h3>Your AI agent writes a proposal</h3>
+        </div>
       </div>
-      <div class="feature">
-        <h3>Tabbed Viewer</h3>
-        <p>Open multiple files side by side in a clean tabbed interface.</p>
+
+      <div class="workflow-step">
+        <div class="step-header">
+          <span class="step-num">2.</span>
+          <h3>You review the proposal with <code>/mdownreview:open</code></h3>
+        </div>
+        <p>Browse the file tree, read rendered markdown, and leave inline review comments.</p>
+        <div class="app-mock">
+          <div class="app-sidebar">
+            <div class="hdr">Files</div>
+            <div class="file active">📄 PLAN.md <span class="badge-count">1</span></div>
+            <div class="file">📄 README.md</div>
+          </div>
+          <div class="app-content">
+            <div class="toolbar">
+              <span class="tab active">PLAN.md</span>
+            </div>
+            <div class="code-line"><span class="ln">1</span><span class="code"><span class="fn">##</span> Rollout Plan</span></div>
+            <div class="code-line"><span class="ln">2</span><span class="code"></span></div>
+            <div class="code-line highlighted"><span class="ln">3</span><span class="code">Ship to all users on Monday.</span></div>
+            <div class="comment-bubble">
+              <div class="comment-header">
+                <span class="comment-author">You</span>
+                <span class="comment-type issue">issue</span>
+              </div>
+              <span class="comment-text">Too risky — start with a 10% canary, not full rollout</span>
+            </div>
+            <div class="code-line"><span class="ln">4</span><span class="code">Monitor metrics for 48 hours.</span></div>
+          </div>
+        </div>
       </div>
-      <div class="feature">
-        <h3>Syntax Highlighting</h3>
-        <p>Code blocks rendered with accurate syntax highlighting via Shiki.</p>
+
+      <div class="workflow-step">
+        <div class="step-header">
+          <span class="step-num">3.</span>
+          <h3>You ask agent to read comments with <code>/mdownreview:read</code></h3>
+        </div>
+        <p>Your agent scans all <code>.review.yaml</code> sidecars and lists every unresolved comment.</p>
       </div>
-      <div class="feature">
-        <h3>.md &amp; .mdx Support</h3>
-        <p>First-class support for Markdown and MDX with OS file associations.</p>
+
+      <div class="workflow-step">
+        <div class="step-header">
+          <span class="step-num">4.</span>
+          <h3>You ask agent to address the comments with <code>/mdownreview:review</code></h3>
+        </div>
+        <p>Your agent reads comments, makes fixes, and marks them resolved.</p>
       </div>
+
+      <div class="workflow-step">
+        <div class="step-header">
+          <span class="step-num">5.</span>
+          <h3>You clean up with <code>/mdownreview:cleanup</code></h3>
+        </div>
+        <p>Removes <code>.review.yaml</code> sidecar files once all comments are resolved.</p>
+      </div>
+
     </div>
   </section>
 
-  <section class="install">
-    <h2>Quick Install</h2>
-    <p><strong>macOS</strong></p>
-    <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
-    <p><strong>Windows</strong></p>
-    <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
-    <p>Or download directly from <a href="https://github.com/dryotta/mdownreview/releases/latest">GitHub Releases</a>.</p>
+  <hr class="divider">
+
+  <!-- ── Download & Install ── -->
+  <section id="install" class="section reveal">
+    <h2 class="section-title">Download &amp; Install</h2>
+    <div class="install-steps">
+
+      <div class="install-step">
+        <div class="install-step-hdr">
+          <span class="step-num">1.</span>
+          <h3>Download the app</h3>
+        </div>
+        <div class="install-tabs">
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="download">Download</button>
+            <button class="tab-btn" data-tab="script">Script</button>
+          </div>
+
+          <div class="tab-panel" id="tab-download">
+            <div class="download-row">
+              <div>
+                <div class="download-platform" id="dl-platform-label">Detecting platform…</div>
+                <div class="download-arch" id="dl-arch-label"></div>
+              </div>
+              <a id="dl-btn" href="https://github.com/dryotta/mdownreview/releases/latest" class="btn-download loading">Loading…</a>
+            </div>
+            <div class="other-platforms">
+              Not your platform? <a href="https://github.com/dryotta/mdownreview/releases/latest">View all releases on GitHub →</a>
+            </div>
+          </div>
+
+          <div class="tab-panel hidden" id="tab-script">
+            <div class="script-block" id="script-macos">
+              <div class="script-label">macOS</div>
+              <pre><code>curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh</code></pre>
+              <p class="script-note">⚠️ Pipes remote code into your shell — use direct download if blocked by security policy.</p>
+            </div>
+            <div class="script-block" id="script-windows">
+              <div class="script-label">Windows (PowerShell)</div>
+              <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"</code></pre>
+              <p class="script-note">⚠️ Pipes remote code into your shell — use direct download if blocked by security policy.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="install-step">
+        <div class="install-step-hdr">
+          <span class="step-num">2.</span>
+          <h3>Install agent skills</h3>
+        </div>
+        <p class="install-step-desc">Install plugins for Claude, GitHub Copilot CLI and other coding agents</p>
+        <pre class="install-code"><code>/plugin marketplace add dryotta/mdownreview-skills
+/plugin install mdownreview@mdownreview-skills</code></pre>
+      </div>
+
+    </div>
   </section>
 
-  <section class="install">
-    <h2>Build from source</h2>
-    <pre><code>git clone https://github.com/dryotta/mdownreview
-cd mdownreview
-npm install
-npm run tauri</code></pre>
-    <p>Requires <a href="https://nodejs.org">Node.js LTS</a> and <a href="https://www.rust-lang.org">Rust stable</a>.</p>
-  </section>
-
-  <section class="install">
-    <h2>Agent Integration</h2>
-    <p>Review comments are stored as <code>.review.json</code> sidecar files. Coding agents can read and act on them with the bundled skills.</p>
-    <pre><code>/plugin marketplace add dryotta/mdownreview
-/plugin install mdownreview-skills@mdownreview</code></pre>
-    <p>Or use the CLI directly: <code>python scripts/mdownreview.py read</code></p>
-  </section>
-
-  <footer>
-    <p>MIT License &middot; <a href="https://github.com/dryotta/mdownreview">GitHub</a></p>
+  <!-- ── Footer ── -->
+  <footer class="reveal">
+    <div class="footer-links">
+      <a href="https://github.com/dryotta/mdownreview">GitHub</a>
+      <a href="https://github.com/dryotta/mdownreview/blob/main/README.md">README</a>
+      <a href="https://github.com/dryotta/mdownreview/blob/main/BUILDING.md">Build from Source</a>
+      <a href="https://github.com/dryotta/mdownreview/releases/latest">Releases</a>
+    </div>
+    <p>MIT License &middot; Built with Rust + React + Tauri</p>
   </footer>
+
+  <script>
+    // ── Copy buttons ──────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(pre => {
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'copy';
+      const scriptBlock = pre.closest('.script-block');
+      if (scriptBlock) {
+        scriptBlock.querySelector('.script-label').appendChild(btn);
+      } else {
+        pre.appendChild(btn);
+      }
+      btn.addEventListener('click', () => {
+        const text = (pre.querySelector('code') ?? pre).innerText.trim();
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'copied!';
+          btn.classList.add('copied');
+          setTimeout(() => {
+            btn.textContent = 'copy';
+            btn.classList.remove('copied');
+          }, 1500);
+        });
+      });
+    });
+
+    // ── Tab switching ──────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // ── Platform detection ─────────────────────────────────────────
+    function detectPlatform() {
+      const ua = navigator.userAgent.toLowerCase();
+      const pl = (navigator.platform ?? '').toLowerCase();
+      if (ua.includes('win')) {
+        return (ua.includes('arm') || pl.includes('arm')) ? 'win-arm64' : 'win-x64';
+      }
+      if (ua.includes('mac')) return 'mac-arm64';
+      return null;
+    }
+
+    const PLATFORM_LABELS = {
+      'win-x64':   { platform: 'Windows', arch: 'x64 (Intel/AMD)' },
+      'win-arm64': { platform: 'Windows', arch: 'ARM64' },
+      'mac-arm64': { platform: 'macOS',   arch: 'Apple Silicon (ARM64)' },
+    };
+
+    const detected = detectPlatform();
+
+    // Set platform label in Download tab
+    if (detected && PLATFORM_LABELS[detected]) {
+      document.getElementById('dl-platform-label').textContent = PLATFORM_LABELS[detected].platform;
+      document.getElementById('dl-arch-label').textContent = PLATFORM_LABELS[detected].arch;
+    }
+
+    // Show only matching script in Script tab
+    if (detected) {
+      const showMac = detected === 'mac-arm64';
+      document.getElementById('script-macos').style.display = showMac ? '' : 'none';
+      document.getElementById('script-windows').style.display = showMac ? 'none' : '';
+    }
+
+    // ── Resolve latest release download URL ────────────────────────
+    const ARTIFACT = {
+      'win-x64':   v => `mdownreview-${v}-windows-x64.zip`,
+      'win-arm64': v => `mdownreview-${v}-windows-arm64.zip`,
+      'mac-arm64': v => `mdownreview-${v}-macos-arm64.dmg`,
+    };
+
+    fetch('https://api.github.com/repos/dryotta/mdownreview/releases/latest')
+      .then(r => r.json())
+      .then(release => {
+        const tag = release.tag_name;
+        const v = tag.replace(/^v/, '');
+        const base = `https://github.com/dryotta/mdownreview/releases/download/${tag}`;
+        const btn = document.getElementById('dl-btn');
+        if (detected && ARTIFACT[detected]) {
+          btn.href = `${base}/${ARTIFACT[detected](v)}`;
+          btn.textContent = '↓ Download';
+        } else {
+          btn.href = `https://github.com/dryotta/mdownreview/releases/latest`;
+          btn.textContent = '↓ Download';
+        }
+        btn.classList.remove('loading');
+      })
+      .catch(() => {
+        const btn = document.getElementById('dl-btn');
+        btn.textContent = '↓ Download';
+        btn.classList.remove('loading');
+      });
+
+    // ── Scroll reveal ──────────────────────────────────────────────
+    function revealVisible() {
+      const navH = document.querySelector('nav').offsetHeight;
+      document.querySelectorAll('.reveal:not(.visible)').forEach(el => {
+        const { top, bottom } = el.getBoundingClientRect();
+        if (top < window.innerHeight - 10 && bottom > navH) {
+          el.classList.add('visible');
+        }
+      });
+    }
+    document.addEventListener('scrollend', revealVisible, { passive: true });
+    document.addEventListener('scroll', () => {
+      clearTimeout(window._rt);
+      window._rt = setTimeout(revealVisible, 120);
+    }, { passive: true });
+    revealVisible();
+  </script>
 
 </body>
 </html>
