@@ -46,12 +46,15 @@ Read back: `await page.evaluate(() => (window as Record<string, unknown>).__SAVE
 
 ## Native test pattern
 
+Native tests in `e2e/native/` use `@playwright/test` directly and connect to the real binary.
+The `fixtures.ts` file (CDP launch + page fixture) will be wired as part of the test infrastructure.
+Until then, use plain imports and skip on non-Windows:
+
 ```typescript
-import { test, expect } from "./fixtures"; // uses cdp-page fixture
-test("...", async ({ nativePage }) => {
-  // nativePage is a Playwright Page connected to the real binary via CDP
-  // auto-skips on non-Windows
-  // Native: requires real file I/O / OS watcher / ...
+import { test, expect } from "@playwright/test";
+test("...", async ({ page }) => {
+  test.skip(process.platform !== "win32", "native e2e is Windows-only (WebView2 CDP)");
+  // Real file I/O / OS watcher / CLI args — no IPC mock
 });
 ```
 

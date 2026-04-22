@@ -171,7 +171,6 @@ src-tauri/src/
 e2e/
   browser/                  ← Playwright tests (Vite dev server + IPC mock)
     fixtures/               ← error-tracking.ts, index.ts, test data files
-    helpers/                ← mock-tauri.ts
     *.spec.ts
   native/                   ← Playwright tests (real binary, Windows-only CDP)
     *.spec.ts
@@ -180,7 +179,7 @@ e2e/
 ## Testing Conventions
 
 - **Vitest** for unit and component tests. `test-setup.ts` spies on `console.error` and `console.warn` in every test — unexpected calls fail the test. Tests that intentionally trigger errors must suppress the spy with `mockImplementation(() => {})`.
-- **Playwright** E2E imports `{ test, expect }` from `e2e/fixtures/index.ts` — not from `@playwright/test` directly. The fixture attaches `pageerror` and `console` error collectors; any uncaught error fails the test.
+- **Playwright** browser E2E imports `{ test, expect }` from `e2e/browser/fixtures/index.ts` — not from `@playwright/test` directly. The fixture attaches `pageerror` and `console` error collectors; any uncaught error fails the test. Native E2E (`e2e/native/`) imports from `@playwright/test` directly.
 - **Rust** integration tests in `src-tauri/tests/commands_integration.rs`.
 - Dev-server E2E (`npm run test:e2e`) targets the Vite dev server with Tauri IPC mocked. Native binary tests (`npm run test:e2e:native`) are a pre-release manual gate.
 - **A task is NOT complete until `cargo test`, `npm test`, and `npm run test:e2e` all pass.**

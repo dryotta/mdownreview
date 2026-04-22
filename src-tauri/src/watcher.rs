@@ -28,6 +28,7 @@ pub struct FileChangeEvent {
 }
 
 /// Wrapper so AppHandle can store the receiver end of the sync channel.
+/// The `Option` lets `start_watcher` take exclusive ownership via `.take()`.
 pub struct SyncRx(pub Mutex<Option<std::sync::mpsc::Receiver<()>>>);
 
 /// Start the file watcher. Should be called once during app setup.
@@ -37,14 +38,19 @@ pub fn start_watcher(app: &AppHandle) {
     let app_handle = app.clone();
 
     // Take the sync_rx out of managed state — the watcher thread owns it exclusively.
-    let sync_rx = app
-        .state::<SyncRx>()
-        .inner()
-        .0
-        .lock()
-        .expect("sync_rx lock")
-        .take()
-        .expect("sync_rx already consumed");
+    let sync_rx = match app.state::<SyncRx>().inner().0.lock() {
+        Err(_) => {
+            tracing::error!("[watcher] sync_rx mutex poisoned; aborting watcher");
+            return;
+        }
+        Ok(mut g) => match g.take() {
+            Some(rx) => rx,
+            None => {
+                tracing::error!("[watcher] start_watcher called more than once; aborting");
+                return;
+            }
+        },
+    };
 
     std::thread::spawn(move || {
         let (tx, rx) = std::sync::mpsc::channel();
@@ -60,13 +66,6 @@ pub fn start_watcher(app: &AppHandle) {
         let mut watched_dirs: HashSet<PathBuf> = HashSet::new();
 
         loop {
-            // Drain any sync signals — their presence means watched_paths changed
-            // and we must re-sync dirs immediately after processing events.
-            let mut needs_sync = false;
-            while sync_rx.try_recv().is_ok() {
-                needs_sync = true;
-            }
-
             // Process debounced file-change events (200ms timeout for responsiveness).
             match rx.recv_timeout(Duration::from_millis(200)) {
                 Ok(Ok(events)) => {
@@ -100,7 +99,6 @@ pub fn start_watcher(app: &AppHandle) {
                             );
                         }
                     }
-                    needs_sync = true;
                 }
                 Ok(Err(e)) => {
                     tracing::warn!("[watcher] notify error: {}", e);
@@ -110,6 +108,13 @@ pub fn start_watcher(app: &AppHandle) {
                     tracing::info!("[watcher] channel disconnected, stopping");
                     break;
                 }
+            }
+
+            // Drain sync signals AFTER recv_timeout so signals posted during the
+            // 200ms block are caught immediately on this iteration, not the next.
+            let mut needs_sync = false;
+            while sync_rx.try_recv().is_ok() {
+                needs_sync = true;
             }
 
             if needs_sync {

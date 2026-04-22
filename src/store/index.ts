@@ -159,9 +159,10 @@ export const useStore = create<Store>()(
           newActive = newTabs[idx] ? newTabs[idx].path : newTabs[idx - 1]?.path ?? null;
         }
         const { [path]: _, ...restViewModes } = get().viewModeByTab;
-        set({ tabs: newTabs, activeTabPath: newActive, viewModeByTab: restViewModes });
+        const { [path]: __, ...restSaveByPath } = get().lastSaveByPath;
+        set({ tabs: newTabs, activeTabPath: newActive, viewModeByTab: restViewModes, lastSaveByPath: restSaveByPath });
       },
-      closeAllTabs: () => set({ tabs: [], activeTabPath: null, viewModeByTab: {} }),
+      closeAllTabs: () => set({ tabs: [], activeTabPath: null, viewModeByTab: {}, lastSaveByPath: {} }),
       setActiveTab: (path) => set({ activeTabPath: path }),
       setScrollTop: (path, scrollTop) =>
         set((s) => ({
