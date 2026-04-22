@@ -1,3 +1,33 @@
+## v0.3.2 — 2026-04-22
+
+### Features
+- feat: add expert review agents and self-improvement loop
+- feat(native-e2e): wire CDP launch via WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS for Windows
+
+### Fixes
+- fix: ESM hooks, collapse CLAUDE.md to AGENTS.md import
+- fix: prevent empty .review.yaml sidecars from being created
+- fix(native-e2e): address code quality issues in Task 6 test files
+- fix(native-e2e): address code quality issues in CDP wiring
+- fix(tests): address code quality issues in Task 4 browser test stubs
+- fix: address code quality review issues from tasks 2, 3, and 8
+- fix(watcher): per-file save guard — stop dropping unrelated file-changed events
+- fix(watcher): sync watched dirs immediately on update_watched_files, not after 500ms poll
+
+### Other
+- ci: add release-gate workflow and update publish-release skill
+- chore: embed evidence-based, Rust-first, zero-bug principles across all agents and skills
+- Update issue templates
+- docs: document Claude Code skills and self-improve loop in BUILDING.md
+- chore: add CLAUDE.md and start-feature skill for branch workflow
+- test: fill e2e native and unit test gaps
+- test(native): replace placeholder smoke tests with real assertions; add file-reload native spec
+- docs: update e2e-test-writer native pattern now that fixtures.ts exists
+- test(browser): fill in empty tab-management, panels, and cli-open stubs with real assertions
+- docs: overhaul test strategy documentation; update e2e-test-writer agent and run-tests skill
+- ci: native e2e tests run in release workflow only; browser tests unchanged in CI
+- refactor: move browser e2e tests into e2e/browser/ and rename playwright config
+
 ## v0.3.1 — 2026-04-21
 
 ### Features
