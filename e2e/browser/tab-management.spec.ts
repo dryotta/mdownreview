@@ -14,6 +14,7 @@ test.describe("Tab Management", () => {
           ];
         if (cmd === "read_text_file") return "# Content\n\n" + (args as { path: string }).path;
         if (cmd === "load_review_comments") return null;
+        if (cmd === "save_review_comments") return null;
         if (cmd === "check_path_exists") return "file";
         if (cmd === "get_log_path") return "/mock/log.log";
         return null;
@@ -71,7 +72,7 @@ test.describe("Tab Management", () => {
 
   test("22.5 - large file (>10KB) shows a warning banner", async ({ page }) => {
     // Override mock to return a file larger than the threshold
-    await page.addInitScript(({ dir }: { dir: string }) => {
+    await page.addInitScript(() => {
       const origMock = window.__TAURI_IPC_MOCK__!;
       window.__TAURI_IPC_MOCK__ = async (cmd: string, args: Record<string, unknown>) => {
         if (cmd === "read_text_file" && (args as { path: string }).path.includes("alpha.md")) {
@@ -79,7 +80,7 @@ test.describe("Tab Management", () => {
         }
         return origMock(cmd, args);
       };
-    }, { dir: FIXTURES_DIR });
+    });
     await page.goto("/");
     await page.locator(".folder-tree").getByText("alpha.md").click();
 

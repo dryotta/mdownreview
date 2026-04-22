@@ -6,6 +6,7 @@ test.describe("CLI File Open", () => {
       window.__TAURI_IPC_MOCK__ = async (cmd: string) => {
         if (cmd === "get_launch_args")
           return { files: ["/test/readme.md"], folders: [] };
+        if (cmd === "read_dir") return [];
         if (cmd === "read_text_file") return "# Launched File\n\nContent";
         if (cmd === "load_review_comments") return null;
         if (cmd === "check_path_exists") return "file";
@@ -26,6 +27,7 @@ test.describe("CLI File Open", () => {
     await page.addInitScript(() => {
       window.__TAURI_IPC_MOCK__ = async (cmd: string) => {
         if (cmd === "get_launch_args") return { files: [], folders: [] };
+        if (cmd === "read_dir") return [];
         if (cmd === "read_text_file") return "# Second Instance File\n\nContent";
         if (cmd === "load_review_comments") return null;
         if (cmd === "check_path_exists") return "file";
@@ -50,9 +52,6 @@ test.describe("CLI File Open", () => {
         })
       );
     });
-
-    // Give React time to process the event
-    await page.waitForTimeout(500);
 
     // A tab should open for newfile.md — if not, the app may use a different event name
     // or the event delivery mechanism in browser mock may differ from native mode.
