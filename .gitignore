@@ -32,3 +32,4 @@ __pycache__/
 *.pyc
 .superpowers/
 .claude/settings.local.json
+.e2e-native.pid

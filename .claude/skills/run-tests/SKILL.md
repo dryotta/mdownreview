@@ -10,6 +10,6 @@ Run the correct test suite for mdownreview based on what changed:
 - **Native E2E** (`src-tauri/`, watcher, file I/O — needs built binary): `npm run test:e2e:native:build`
 
 If unsure, run `npm test` first (fastest), then `npm run test:e2e` if UI-facing.
-Never run `test:e2e:native` without building first — the binary must exist at `src-tauri/target/release/mdownreview[.exe]`.
+Never run `test:e2e:native` without building first — the binary must exist at `src-tauri/target/debug/mdownreview[.exe]`. Build it with `cd src-tauri && cargo build`.
 
 Report: pass count, fail count, full output of any failures.
