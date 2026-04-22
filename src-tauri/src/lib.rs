@@ -83,6 +83,8 @@ pub fn run() {
         builder.build()
     };
 
+    let (sync_tx, sync_rx) = std::sync::mpsc::sync_channel::<()>(1);
+
     let app = tauri::Builder::default()
         .plugin(log_plugin)
         .plugin(tauri_plugin_opener::init())
@@ -99,7 +101,8 @@ pub fn run() {
             })
         )
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(watcher::WatcherState::new())
+        .manage(watcher::WatcherState::new(sync_tx))
+        .manage(watcher::SyncRx(std::sync::Mutex::new(Some(sync_rx))))
         .setup(|app| {
             // Register panic hook to log panics before process terminates
             let prev_hook = std::panic::take_hook();
