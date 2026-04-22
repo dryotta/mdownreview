@@ -10,26 +10,29 @@ test.describe("Native Smoke Tests", () => {
     await expect(nativePage.locator(".welcome-view").getByText("Open File")).toBeVisible();
   });
 
-  test("26.3 - temp .md file written to disk and opened via CLI arg opens in a tab", async ({ nativePage }) => {
+  test("26.3 - temp .md file can be created at OS tmpdir (CLI-arg open tested in CI build)", async ({ nativePage }) => {
+    // Native dialog cannot be driven programmatically. Full CLI-arg-open test runs in CI
+    // via test:e2e:native:build, which passes the file path as a launch argument.
+    // This test only validates that the OS tmpdir is writable from the test runner.
     const tmpFile = path.join(os.tmpdir(), `mdownreview-smoke-${Date.now()}.md`);
     fs.writeFileSync(tmpFile, "# Smoke Test\n\nThis file was created by the test.");
     try {
-      // The binary was launched without args, so we simulate opening via the file dialog.
-      // We can't drive the native dialog — instead, verify the infrastructure compiles.
-      // Full CLI-arg test is run in CI via test:e2e:native:build which passes the file as arg.
       expect(fs.existsSync(tmpFile)).toBe(true);
     } finally {
-      fs.unlinkSync(tmpFile);
+      fs.rmSync(tmpFile, { force: true });
     }
   });
 
   test("26.5 - log file exists after first launch", async ({ nativePage }) => {
-    // On Windows: %APPDATA%\mdownreview\logs\
-    const appData = process.env.APPDATA ?? os.homedir();
-    const logDir = path.join(appData, "mdownreview", "logs");
-    // Give the app a moment to write the log
+    // Derive the log directory from the app's own get_log_path command so the path
+    // matches the actual Tauri identifier (com.mdownreview.desktop), not the product name.
+    const logFilePath = await nativePage.evaluate(async () => {
+      // @ts-ignore — Tauri internals are available in the WebView
+      return window.__TAURI_INTERNALS__.invoke("get_log_path");
+    });
+    const logDir = path.dirname(logFilePath as string);
+    // Allow up to 1s for the app to flush the first log write on startup
     await new Promise((r) => setTimeout(r, 1000));
-    const logExists = fs.existsSync(logDir);
-    expect(logExists).toBe(true);
+    expect(fs.existsSync(logDir)).toBe(true);
   });
 });
