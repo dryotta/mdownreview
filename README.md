@@ -1,51 +1,71 @@
-# mdownreview
+# [mdownreview - Review AI Agent's work](https://dryotta.github.io/mdownreview)
 
-> Review AI Agent's work
+> Markdown viewer and review app for Windows and Mac: Make inline comments for AI agents to fix.
 
 [![CI](https://github.com/dryotta/mdownreview/actions/workflows/ci.yml/badge.svg)](https://github.com/dryotta/mdownreview/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/dryotta/mdownreview)](https://github.com/dryotta/mdownreview/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**[Homepage](https://dryotta.github.io/mdownreview)**
+## How It Works
 
-A slim and fast desktop app written in Rust and React for browsing, viewing and reviewing markdown, code and other text files on Windows and macOS.
+1. **Your AI agent writes a proposal**
+2. **You review the proposal** (`/mdownreview:open`) — browse the file tree, read rendered markdown, and leave inline review comments
+3. **You ask agent to read comments** (`/mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
+4. **You ask agent to address the comments** (`/mdownreview:review`) — the agent reads comments, makes fixes, and marks them resolved
+5. **You clean up** (`/mdownreview:cleanup`) — removes `.review.yaml` sidecar files once all comments are resolved
 
-## Features
+## Install
 
-- **File tree** — browse your entire docs folder with native folder navigation
-- **Tabbed viewer** — open multiple files side by side
-- **Syntax highlighting** — code blocks rendered with Shiki
-- **File associations** — opens `.md` and `.mdx` files directly from your OS
-- **Comments** — annotate sections inline and persist them alongside your files
+Download the latest release for your platform from the [Releases page](https://github.com/dryotta/mdownreview/releases/latest).
 
-## Download
+| Platform | Architecture | Artifact |
+|----------|-------------|----------|
+| Windows  | x64 (Intel/AMD) | `mdownreview-x.x.x-windows-x64.zip` |
+| Windows  | ARM64 | `mdownreview-x.x.x-windows-arm64.zip` |
+| macOS    | Apple Silicon | `mdownreview-x.x.x-macos-arm64.dmg` |
 
-Get the latest release from the [Releases page](https://github.com/dryotta/mdownreview/releases/latest).
+### Script install
 
-| Platform | Installer |
-|----------|-----------|
-| Windows  | `mdownreview_x.x.x_x64-setup.exe` |
-| macOS    | `mdownreview_x.x.x_x64.dmg` / `_aarch64.dmg` |
-
-## Development
-
-**Prerequisites:** [Node.js LTS](https://nodejs.org) · [Rust stable](https://rustup.rs)
-
-```bash
-npm install
-npm run tauri       # dev server with hot reload
-npm test            # unit tests (Vitest)
-npm run test:e2e    # E2E tests (Playwright)
+**macOS**
 ```
+curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh
+```
+
+**Windows (PowerShell)**
+```
+powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"
+```
+
+> ⚠️ Pipes remote code into your shell — use direct download if blocked by security policy.
 
 ## Agent Skills
 
-mdownreview persists review comments as `.review.json` sidecar files alongside your source files. Coding agents can read and act on these comments using the skills and CLI in [mdownreview-skills](https://github.com/dryotta/mdownreview-skills).
+Install plugins for Claude, GitHub Copilot CLI, and other coding agents:
 
 ```
 /plugin marketplace add dryotta/mdownreview-skills
 /plugin install mdownreview@mdownreview-skills
 ```
+
+| Skill | Description |
+|-------|-------------|
+| `open` | Find, install, and launch the mdownreview desktop app |
+| `read` | Scan for review sidecars and list unresolved comments |
+| `review` | Orchestrate the full cycle — read, fix, and clean up |
+| `cleanup` | Delete sidecar files where all comments are resolved |
+
+## Updating
+
+**App** — mdownreview checks for updates automatically on launch and installs them in the background. No action needed.
+
+**Skills** — update to the latest version:
+```
+/plugin update mdownreview-skills
+```
+
+## Building from Source
+
+See [BUILDING.md](BUILDING.md).
 
 ## License
 
