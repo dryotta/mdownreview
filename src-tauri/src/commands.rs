@@ -68,6 +68,10 @@ pub struct MrsfSidecar {
 
 pub type LaunchArgsState = Arc<Mutex<Option<LaunchArgs>>>;
 
+fn is_sidecar_file(name: &str) -> bool {
+    name.ends_with(".review.yaml") || name.ends_with(".review.json")
+}
+
 // ── Commands ───────────────────────────────────────────────────────────────
 
 /// Read directory entries, rejecting path traversal.
@@ -102,9 +106,7 @@ pub fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {
             e.to_string()
         })?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        
-        // Hide review sidecar files from folder tree
-        if name.ends_with(".review.yaml") || name.ends_with(".review.json") {
+        if is_sidecar_file(&name) {
             continue;
         }
         
@@ -306,4 +308,49 @@ pub fn get_git_head(path: String) -> Result<Option<String>, String> {
         }
         _ => Ok(None),
     }
+}
+
+/// Test-only command: open a folder and all its non-sidecar files via args-received.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub fn set_root_via_test(path: String, app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+
+    let folder = std::path::Path::new(&path);
+    let mut files: Vec<String> = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(folder) {
+        let mut paths: Vec<std::path::PathBuf> = entries
+            .flatten()
+            .filter_map(|e| {
+                let p = e.path();
+                if !p.is_file() {
+                    return None;
+                }
+                let name = p.file_name()?.to_str()?.to_owned();
+                if is_sidecar_file(&name) {
+                    return None;
+                }
+                Some(p)
+            })
+            .collect();
+        paths.sort();
+        files = paths
+            .into_iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect();
+    }
+
+    let payload = serde_json::json!({
+        "files": files,
+        "folders": [path],
+    });
+
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .emit("args-received", payload)
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }

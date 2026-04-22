@@ -38,7 +38,7 @@ export function DeletedFileViewer({ filePath }: Props) {
   const fileName = filePath.split(/[/\\]/).pop() ?? filePath;
 
   return (
-    <div style={{ padding: 24, maxWidth: 640, margin: "0 auto" }}>
+    <div className="deleted-file-viewer" style={{ padding: 24, maxWidth: 640, margin: "0 auto" }}>
       <div style={{
         background: "rgba(245, 166, 35, 0.1)",
         border: "1px solid rgba(245, 166, 35, 0.3)",

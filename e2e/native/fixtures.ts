@@ -17,5 +17,13 @@ const test = base.extend<{ nativePage: Page }>({
   },
 });
 
+/** Invoke the debug-only set_root_via_test command, opening a folder and its files. */
+export async function setRootViaTest(nativePage: Page, folder: string): Promise<void> {
+  await nativePage.evaluate((path: string) => {
+    // @ts-ignore — Tauri internals are available in the WebView
+    return window.__TAURI_INTERNALS__.invoke("set_root_via_test", { path });
+  }, folder);
+}
+
 export { test };
 export { expect } from "@playwright/test";

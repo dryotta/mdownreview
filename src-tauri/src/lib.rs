@@ -213,6 +213,29 @@ pub fn run() {
 
             Ok(())
         })
+        ;
+
+    #[cfg(debug_assertions)]
+    let app = app
+        .invoke_handler(tauri::generate_handler![
+            commands::read_dir,
+            commands::read_text_file,
+            commands::read_binary_file,
+            commands::save_review_comments,
+            commands::load_review_comments,
+            commands::get_launch_args,
+            commands::get_log_path,
+            commands::scan_review_files,
+            commands::get_git_head,
+            commands::check_path_exists,
+            watcher::update_watched_files,
+            commands::set_root_via_test,
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    #[cfg(not(debug_assertions))]
+    let app = app
         .invoke_handler(tauri::generate_handler![
             commands::read_dir,
             commands::read_text_file,

@@ -295,7 +295,14 @@ export const useStore = create<Store>()(
 
       // Watcher
       ghostEntries: [],
-      setGhostEntries: (entries) => set({ ghostEntries: entries }),
+      setGhostEntries: (entries) => {
+        const current = get().ghostEntries;
+        if (
+          current.length === entries.length &&
+          current.every((e, i) => e.sidecarPath === entries[i].sidecarPath && e.sourcePath === entries[i].sourcePath)
+        ) return;
+        set({ ghostEntries: entries });
+      },
       autoReveal: true,
       toggleAutoReveal: () => set((s) => ({ autoReveal: !s.autoReveal })),
       lastSaveByPath: {},

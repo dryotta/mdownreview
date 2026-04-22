@@ -129,6 +129,29 @@ describe("tabs slice – setActiveTab", () => {
   });
 });
 
+describe("tabs slice – closeAllTabs", () => {
+  it("removes all tabs and clears activeTabPath", () => {
+    useStore.getState().openFile("/a.md");
+    useStore.getState().openFile("/b.md");
+    useStore.getState().closeAllTabs();
+    expect(useStore.getState().tabs).toHaveLength(0);
+    expect(useStore.getState().activeTabPath).toBeNull();
+  });
+
+  it("clears viewModeByTab entries for all closed tabs", () => {
+    useStore.getState().openFile("/a.md");
+    useStore.getState().setViewMode("/a.md", "source");
+    useStore.getState().closeAllTabs();
+    expect(useStore.getState().viewModeByTab).toEqual({});
+  });
+
+  it("is a no-op when there are no tabs", () => {
+    useStore.getState().closeAllTabs();
+    expect(useStore.getState().tabs).toHaveLength(0);
+    expect(useStore.getState().activeTabPath).toBeNull();
+  });
+});
+
 describe("view mode per tab", () => {
   it("stores and retrieves view mode for a tab", () => {
     useStore.getState().setViewMode("/test.json", "visual");

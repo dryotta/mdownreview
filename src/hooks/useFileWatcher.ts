@@ -43,6 +43,22 @@ export function useFileWatcher() {
           detail: { path, kind },
         })
       );
+
+      // Re-scan for ghost entries when a file is deleted so the store stays current
+      if (kind === "deleted") {
+        const currentRoot = useStore.getState().root;
+        if (currentRoot) {
+          scanReviewFiles(currentRoot)
+            .then((pairs) =>
+              useStore.getState().setGhostEntries(
+                pairs.map(([sidecarPath, sourcePath]) => ({ sidecarPath, sourcePath }))
+              )
+            )
+            .catch((err) =>
+              console.warn("[useFileWatcher] failed to re-scan after deletion:", err)
+            );
+        }
+      }
     });
 
     return () => {
