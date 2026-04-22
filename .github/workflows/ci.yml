@@ -91,11 +91,9 @@ jobs:
           retention-days: 7
 
   # ── Installer builds (Windows + macOS) ───────────────────────────────────
-  # Only on push to main (not PRs) — saves ~800s of billed minutes per PR.
-  # Release-gate workflow covers cross-platform builds for release branches.
+  # Runs after tests pass to avoid wasting build minutes on test failures.
   build:
     name: Build (${{ matrix.name }})
-    if: github.event_name == 'push'
     needs: test
     runs-on: ${{ matrix.os }}
     strategy:
