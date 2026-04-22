@@ -18,7 +18,7 @@ export function useFileContent(path: string): FileContent {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { path: string; kind: string };
-      if (detail.path === path && detail.kind === "content") {
+      if (detail.path === path && (detail.kind === "content" || detail.kind === "deleted")) {
         setReloadKey((k) => k + 1);
       }
     };

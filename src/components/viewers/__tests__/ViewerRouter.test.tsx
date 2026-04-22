@@ -29,6 +29,12 @@ vi.mock("../SkeletonLoader", () => ({
   SkeletonLoader: () => <div data-testid="skeleton-loader">Loading…</div>,
 }));
 
+vi.mock("../DeletedFileViewer", () => ({
+  DeletedFileViewer: ({ filePath }: { filePath: string }) => (
+    <div data-testid="deleted-file-viewer" data-path={filePath}>DeletedFileViewer</div>
+  ),
+}));
+
 // Mock useFileContent hook
 vi.mock("@/hooks/useFileContent");
 import { useFileContent } from "@/hooks/useFileContent";
@@ -85,11 +91,29 @@ describe("ViewerRouter routing", () => {
     expect(screen.getByTestId("binary-placeholder")).toBeInTheDocument();
   });
 
+  it("too_large status shows BinaryPlaceholder", () => {
+    mockUseFileContent.mockReturnValue({ status: "too_large" });
+    useStore.setState({ tabs: [{ path: "/data/huge.csv", scrollTop: 0 }] });
+    render(<ViewerRouter path="/data/huge.csv" />);
+    expect(screen.getByTestId("binary-placeholder")).toBeInTheDocument();
+  });
+
   it("error status shows error message", () => {
     mockUseFileContent.mockReturnValue({ status: "error", error: "file not found" });
     useStore.setState({ tabs: [{ path: "/missing.md", scrollTop: 0 }] });
     render(<ViewerRouter path="/missing.md" />);
     expect(screen.getByText(/Error loading file/)).toBeInTheDocument();
     expect(screen.getByText(/file not found/)).toBeInTheDocument();
+  });
+
+  it("error status with ghost entry routes to DeletedFileViewer", () => {
+    mockUseFileContent.mockReturnValue({ status: "error", error: "file not found" });
+    useStore.setState({
+      tabs: [{ path: "/gone.md", scrollTop: 0 }],
+      ghostEntries: [{ sidecarPath: "/gone.md.review.yaml", sourcePath: "/gone.md" }],
+    });
+    render(<ViewerRouter path="/gone.md" />);
+    expect(screen.getByTestId("deleted-file-viewer")).toBeInTheDocument();
+    expect(screen.queryByText(/Error loading file/)).not.toBeInTheDocument();
   });
 });
