@@ -8,11 +8,11 @@
 
 ## How It Works
 
-1. **Your AI agent writes code** — ask it to build a feature, fix a bug, or refactor
-2. **Open in mdownreview** (`/mdownreview:open`) — browse the file tree, read rendered markdown, leave inline review comments
-3. **Summarize** (`/mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
-4. **Fix** (`/mdownreview:review`) — the agent reads your comments, makes fixes, and marks them resolved
-5. **Clean up** (`/mdownreview:cleanup`) — removes sidecar files where all comments are resolved
+1. **Your AI agent writes a proposal**
+2. **You review the proposal** (`/mdownreview:open`) — browse the file tree, read rendered markdown, and leave inline review comments
+3. **You ask agent to read comments** (`/mdownreview:read`) — the agent scans all `.review.yaml` sidecars and lists every unresolved comment
+4. **You ask agent to address the comments** (`/mdownreview:review`) — the agent reads comments, makes fixes, and marks them resolved
+5. **You clean up** (`/mdownreview:cleanup`) — removes `.review.yaml` sidecar files once all comments are resolved
 
 ## Install
 
@@ -36,11 +36,11 @@ curl -LsSf https://dryotta.github.io/mdownreview/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://dryotta.github.io/mdownreview/install.ps1 | iex"
 ```
 
-> ⚠️ **Note:** Scripted installs pipe remote code into your shell. Your system administrator or corporate security policy may block this approach. If the script fails or is blocked, use the direct download above instead.
+> ⚠️ Pipes remote code into your shell — use direct download if blocked by security policy.
 
 ## Agent Skills
 
-Install the agent skills to let your AI agent read and act on review comments:
+Install plugins for Claude, GitHub Copilot CLI, and other coding agents:
 
 ```
 /plugin marketplace add dryotta/mdownreview-skills
