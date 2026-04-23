@@ -1,9 +1,5 @@
-import { useEffect, useRef } from "react";
-import { useStore } from "@/store";
-import { loadReviewComments } from "@/lib/tauri-commands";
+import { useComments } from "@/lib/vm/use-comments";
 import { CommentThread } from "@/components/comments/CommentThread";
-import { groupCommentsIntoThreads } from "@/lib/comment-threads";
-import type { CommentWithOrphan } from "@/store";
 import "@/styles/comments.css";
 
 interface Props {
@@ -11,29 +7,7 @@ interface Props {
 }
 
 export function DeletedFileViewer({ filePath }: Props) {
-  const setFileComments = useStore((s) => s.setFileComments);
-  const comments = useStore((s) => s.commentsByFile[filePath]) ?? [];
-  const loadedRef = useRef(false);
-
-  // Load comments from sidecar
-  useEffect(() => {
-    loadedRef.current = false;
-    loadReviewComments(filePath)
-      .then((result) => {
-        if (result?.comments) {
-          // Mark all comments as orphaned since file is deleted
-          const orphaned: CommentWithOrphan[] = result.comments.map((c) => ({
-            ...c,
-            isOrphaned: true,
-          }));
-          setFileComments(filePath, orphaned);
-        }
-        loadedRef.current = true;
-      })
-      .catch(() => {
-        loadedRef.current = true;
-      });
-  }, [filePath, setFileComments]);
+  const { threads, comments } = useComments(filePath);
 
   const fileName = filePath.split(/[/\\]/).pop() ?? filePath;
 
@@ -60,7 +34,7 @@ export function DeletedFileViewer({ filePath }: Props) {
           : `${comments.length} comment${comments.length > 1 ? "s" : ""} from the review sidecar:`}
       </p>
 
-      {groupCommentsIntoThreads(comments).map(t => (
+      {threads.map(t => (
         <CommentThread key={t.root.id} rootComment={t.root} replies={t.replies} filePath={filePath} />
       ))}
     </div>

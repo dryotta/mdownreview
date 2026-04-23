@@ -23,6 +23,19 @@ async function setupFileReloadMocks(
       (window as Record<string, unknown>).__MOCK_COMMENTS__ = comments;
       (window as Record<string, unknown>).__SAVE_CALLS__ = [];
 
+      function toThreads(raw: unknown): unknown[] {
+        if (!raw || typeof raw !== "object" || !Array.isArray((raw as Record<string, unknown>).comments)) return [];
+        const allComments = (raw as Record<string, unknown>).comments as Record<string, unknown>[];
+        if (allComments.length === 0) return [];
+        const roots = allComments.filter(c => !c.reply_to);
+        return roots.map(root => ({
+          root: { ...root, matchedLineNumber: (root.line as number) || 0, isOrphaned: false },
+          replies: allComments
+            .filter(c => c.reply_to === root.id)
+            .map(r => ({ ...r, matchedLineNumber: (r.line as number) || 0, isOrphaned: false })),
+        }));
+      }
+
       window.__TAURI_IPC_MOCK__ = async (cmd: string, args: Record<string, unknown>) => {
         if (cmd === "get_launch_args")
           return { files: [], folders: [dir] };
@@ -36,6 +49,9 @@ async function setupFileReloadMocks(
           ((window as Record<string, unknown>).__SAVE_CALLS__ as unknown[]).push(args);
           return null;
         }
+        if (cmd === "get_file_comments")
+          return toThreads((window as Record<string, unknown>).__MOCK_COMMENTS__);
+        if (cmd === "set_comment_resolved") return null;
         if (cmd === "check_path_exists") return "file";
         if (cmd === "get_log_path") return "/mock/log.log";
         return null;
@@ -97,11 +113,18 @@ test.describe("File Change Reload", () => {
           },
         ],
       };
+      // Dispatch through both DOM (for useFileContent) and Tauri event system (for useComments)
       window.dispatchEvent(
         new CustomEvent("mdownreview:file-changed", {
           detail: { path: "/e2e/fixtures/test.md.review.yaml", kind: "review" },
         })
       );
+      const dispatch = (window as Record<string, unknown>).__DISPATCH_TAURI_EVENT__ as
+        | ((event: string, payload: unknown) => void)
+        | undefined;
+      if (dispatch) {
+        dispatch("file-changed", { path: "/e2e/fixtures/test.md.review.yaml", kind: "review" });
+      }
     });
 
     // Verify comment appears

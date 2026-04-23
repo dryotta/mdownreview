@@ -22,6 +22,7 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
     await page.addInitScript(() => {
       const callbacks: Record<number, { callback: (...args: unknown[]) => void; once: boolean }> =
         {};
+      const eventListeners: Record<string, number[]> = {};
       let nextId = 1;
       (window as Record<string, unknown>).__TAURI_INTERNALS__ = {
         transformCallback(callback: (...args: unknown[]) => void, once: boolean): number {
@@ -33,7 +34,13 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
           delete callbacks[id];
         },
         async invoke(cmd: string, args?: unknown): Promise<unknown> {
-          if (cmd === "plugin:event|listen" || cmd === "plugin:event|unlisten") {
+          if (cmd === "plugin:event|listen") {
+            const { event, handler } = args as { event: string; handler: number };
+            if (!eventListeners[event]) eventListeners[event] = [];
+            eventListeners[event].push(handler);
+            return nextId++;
+          }
+          if (cmd === "plugin:event|unlisten") {
             return nextId++;
           }
           const mock = (window as Record<string, unknown>).__TAURI_IPC_MOCK__ as
@@ -44,6 +51,20 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
           }
           return null;
         },
+      };
+      // Helper to dispatch events through the Tauri event system
+      (window as Record<string, unknown>).__DISPATCH_TAURI_EVENT__ = (
+        event: string,
+        payload: unknown
+      ) => {
+        const handlers = eventListeners[event] || [];
+        for (const id of handlers) {
+          const entry = callbacks[id];
+          if (entry) {
+            entry.callback({ event, payload, id: nextId++ });
+            if (entry.once) delete callbacks[id];
+          }
+        }
       };
       // Mock the event plugin internals used by @tauri-apps/api's unlisten() cleanup.
       (window as Record<string, unknown>).__TAURI_EVENT_PLUGIN_INTERNALS__ = {

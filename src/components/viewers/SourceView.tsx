@@ -1,13 +1,11 @@
-import { useEffect, useState, useRef, useMemo, useDeferredValue } from "react";
+import { useEffect, useState, useMemo, useDeferredValue } from "react";
 import { type BundledLanguage } from "shiki";
 import { getSharedHighlighter } from "@/lib/shiki";
 import { extname } from "@/lib/path-utils";
-import { matchComments } from "@/lib/comment-matching";
 import { computeSelectedTextHash } from "@/lib/comment-anchors";
 import { truncateSelectedText } from "@/lib/comment-utils";
-import { useStore } from "@/store";
-import { loadReviewComments } from "@/lib/tauri-commands";
-import { useAutoSaveComments } from "@/hooks/useAutoSaveComments";
+import { useComments } from "@/lib/vm/use-comments";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
 import { computeFoldRegions, type FoldRegion } from "@/lib/fold-regions";
@@ -76,12 +74,8 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
   const [highlightedSelectionLines, setHighlightedSelectionLines] = useState<Set<number>>(new Set());
   const { query, setQuery, matches, currentIndex, next, prev } = useSearch(content);
 
-  const setFileComments = useStore((s) => s.setFileComments);
-  const comments = useStore((s) => s.commentsByFile[filePath]);
-  const addComment = useStore((s) => s.addComment);
-  const loadedRef = useRef<string | null>(null);
-  const [commentReloadKey, setCommentReloadKey] = useState(0);
-  const [commentLoadKey, setCommentLoadKey] = useState(0);
+  const { comments } = useComments(filePath);
+  const { addComment } = useCommentActions();
 
   const deferredContent = useDeferredValue(content);
   const lines = useMemo(() => content.split("\n"), [content]);
@@ -108,59 +102,9 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     });
   };
 
-  // Load comments from sidecar
-  useEffect(() => {
-    let cancelled = false;
-    loadedRef.current = null;
-    loadReviewComments(filePath)
-      .then((result) => {
-        if (!cancelled && result?.comments) {
-          setFileComments(filePath, result.comments);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) {
-          loadedRef.current = filePath;
-          setCommentLoadKey((k) => k + 1);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [filePath, setFileComments]);
-
-  // Listen for review sidecar changes
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { path: string; kind: string };
-      if (detail.kind === "review" && (detail.path === `${filePath}.review.yaml` || detail.path === `${filePath}.review.json`)) {
-        setCommentReloadKey((k) => k + 1);
-      }
-    };
-    window.addEventListener("mdownreview:file-changed", handler);
-    return () => window.removeEventListener("mdownreview:file-changed", handler);
-  }, [filePath]);
-
-  // Reload comments when sidecar changes
-  useEffect(() => {
-    if (commentReloadKey === 0) return; // Skip initial — handled by main load effect
-    let cancelled = false;
-    loadReviewComments(filePath)
-      .then((result) => {
-        if (!cancelled && result?.comments) {
-          setFileComments(filePath, result.comments);
-          setCommentLoadKey((k) => k + 1);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [commentReloadKey, filePath, setFileComments]);
-
   // Reset folds when file changes
   // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when filePath prop changes
   useEffect(() => { setCollapsedLines(new Set()); setPendingSelectionAnchor(null); }, [filePath]);
-
-  // Auto-save comments to sidecar (shared hook with flush-on-unmount)
-  useAutoSaveComments(filePath, comments, commentLoadKey);
 
   // Theme tracking
   const [currentTheme, setCurrentTheme] = useState(
@@ -197,21 +141,16 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     return map;
   }, [matches, currentIndex]);
 
-  const matchedComments = useMemo(() => {
-    if (!comments || comments.length === 0) return [];
-    return matchComments(comments, lines);
-  }, [comments, lines]);
-
   const commentsByLine = useMemo(() => {
-    const map = new Map<number, typeof matchedComments>();
-    for (const c of matchedComments) {
+    const map = new Map<number, typeof comments>();
+    for (const c of comments) {
       const ln = c.matchedLineNumber ?? c.line ?? 1;
       const arr = map.get(ln) ?? [];
       arr.push(c);
       map.set(ln, arr);
     }
     return map;
-  }, [matchedComments]);
+  }, [comments]);
 
   // Auto-scroll to current match
   useEffect(() => {
@@ -446,7 +385,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     onSaveComment={
                       pendingSelectionAnchor && commentingLine === lineNum
                         ? (text: string) => {
-                            addComment(filePath, pendingSelectionAnchor, text);
+                            addComment(filePath, text, pendingSelectionAnchor).catch(() => {});
                             setPendingSelectionAnchor(null);
                             setHighlightedSelectionLines(new Set());
                           }

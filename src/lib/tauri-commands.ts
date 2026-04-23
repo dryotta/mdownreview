@@ -94,8 +94,9 @@ export const getAppVersion = (): Promise<string> => getVersion();
 // ── Phase 2: MVVM domain commands ─────────────────────────────────────────
 
 export interface MatchedComment extends MrsfComment {
-  matched_line_number: number;
-  is_orphaned: boolean;
+  matchedLineNumber: number;
+  isOrphaned: boolean;
+  anchoredText?: string;
 }
 
 export interface CommentThread {

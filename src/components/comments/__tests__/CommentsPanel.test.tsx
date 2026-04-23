@@ -1,19 +1,36 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CommentsPanel } from "../CommentsPanel";
-import { useStore } from "@/store";
-import type { CommentWithOrphan } from "@/store";
+import { useComments } from "@/lib/vm/use-comments";
+import type { MatchedComment, CommentThread as CommentThreadType } from "@/lib/tauri-commands";
 
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
+
+vi.mock("@/lib/vm/use-comments", () => ({
+  useComments: vi.fn(() => ({ threads: [], comments: [], loading: false, reload: vi.fn() })),
+}));
+
+vi.mock("@/lib/vm/use-comment-actions", () => ({
+  useCommentActions: vi.fn(() => ({
+    addComment: vi.fn(),
+    addReply: vi.fn(),
+    editComment: vi.fn().mockResolvedValue(undefined),
+    deleteComment: vi.fn().mockResolvedValue(undefined),
+    resolveComment: vi.fn().mockResolvedValue(undefined),
+    unresolveComment: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
+
+const mockUseComments = vi.mocked(useComments);
 
 const FILE = "/docs/README.md";
 
 function makeComment(
   id: string,
   text: string,
-  overrides: Partial<CommentWithOrphan> = {}
-): CommentWithOrphan {
+  overrides: Partial<MatchedComment> = {}
+): MatchedComment {
   return {
     id,
     author: "Test User (human)",
@@ -21,16 +38,32 @@ function makeComment(
     text,
     resolved: false,
     line: 1,
+    matchedLineNumber: overrides.matchedLineNumber ?? overrides.line ?? 1,
     isOrphaned: false,
     ...overrides,
   };
 }
 
-const initialState = useStore.getState();
+function makeThread(
+  root: MatchedComment,
+  replies: MatchedComment[] = []
+): CommentThreadType {
+  return { root, replies };
+}
+
+function setMockComments(threads: CommentThreadType[]) {
+  const allComments = threads.flatMap(t => [t.root, ...t.replies]);
+  mockUseComments.mockReturnValue({
+    threads,
+    comments: allComments,
+    loading: false,
+    reload: vi.fn(),
+  });
+}
 
 beforeEach(() => {
-  useStore.setState(initialState, true);
-  useStore.setState({ commentsByFile: {} });
+  vi.clearAllMocks();
+  mockUseComments.mockReturnValue({ threads: [], comments: [], loading: false, reload: vi.fn() });
 });
 
 // ─── 14.3: CommentsPanel behavior ────────────────────────────────────────────
@@ -42,15 +75,11 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("lists unresolved comments sorted by line number", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("3", "Third comment", { line: 30 }),
-          makeComment("1", "First comment", { line: 10 }),
-          makeComment("2", "Second comment", { line: 20 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("3", "Third comment", { line: 30, matchedLineNumber: 30 })),
+      makeThread(makeComment("1", "First comment", { line: 10, matchedLineNumber: 10 })),
+      makeThread(makeComment("2", "Second comment", { line: 20, matchedLineNumber: 20 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -61,25 +90,19 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("shows line number prefix for each comment", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "A comment", { line: 42 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "A comment", { line: 42, matchedLineNumber: 42 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
     expect(screen.getByText(/Line 42/)).toBeInTheDocument();
   });
 
   it("orphaned comments show warning icon ⚠ next to line number", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("1", "Orphaned comment", { isOrphaned: true, line: 5 }),
-          makeComment("2", "Normal comment", { isOrphaned: false, line: 10 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Orphaned comment", { isOrphaned: true, line: 5, matchedLineNumber: 5 })),
+      makeThread(makeComment("2", "Normal comment", { isOrphaned: false, line: 10, matchedLineNumber: 10 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
     // Panel shows orphan icon next to line number, CommentThread also shows one in header
@@ -88,14 +111,10 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("'Show resolved' toggle shows resolved comments", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("1", "Active comment", { line: 1 }),
-          makeComment("2", "Resolved comment", { resolved: true, line: 2 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Active comment", { line: 1, matchedLineNumber: 1 })),
+      makeThread(makeComment("2", "Resolved comment", { resolved: true, line: 2, matchedLineNumber: 2 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -109,14 +128,10 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("'Hide resolved' toggle hides resolved comments again", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("1", "Active comment", { line: 1 }),
-          makeComment("2", "Resolved comment", { resolved: true, line: 2 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Active comment", { line: 1, matchedLineNumber: 1 })),
+      makeThread(makeComment("2", "Resolved comment", { resolved: true, line: 2, matchedLineNumber: 2 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -130,11 +145,9 @@ describe("14.3 – CommentsPanel", () => {
   it("clicking a comment calls onScrollToLine with resolved line number", () => {
     const onScrollToLine = vi.fn();
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Scrollable comment", { line: 15, matchedLineNumber: 18 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Scrollable comment", { line: 15, matchedLineNumber: 18 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} onScrollToLine={onScrollToLine} />);
 
@@ -148,11 +161,9 @@ describe("14.3 – CommentsPanel", () => {
     const handler = vi.fn();
     window.addEventListener("scroll-to-line", handler);
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Click me", { line: 7 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Click me", { line: 7, matchedLineNumber: 7 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -166,29 +177,21 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("shows unresolved count in header", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("1", "A", { line: 1 }),
-          makeComment("2", "B", { line: 2 }),
-          makeComment("3", "C", { resolved: true, line: 3 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "A", { line: 1, matchedLineNumber: 1 })),
+      makeThread(makeComment("2", "B", { line: 2, matchedLineNumber: 2 })),
+      makeThread(makeComment("3", "C", { resolved: true, line: 3, matchedLineNumber: 3 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
     expect(screen.getByText("Comments (2)")).toBeInTheDocument();
   });
 
   it("uses matchedLineNumber for sorting when available", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("a", "Should be second", { line: 5, matchedLineNumber: 20 }),
-          makeComment("b", "Should be first", { line: 50, matchedLineNumber: 10 }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("a", "Should be second", { line: 5, matchedLineNumber: 20 })),
+      makeThread(makeComment("b", "Should be first", { line: 50, matchedLineNumber: 10 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -198,11 +201,9 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("comment items have role='button' and tabIndex for keyboard access", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Accessible comment", { line: 5 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Accessible comment", { line: 5, matchedLineNumber: 5 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -214,11 +215,9 @@ describe("14.3 – CommentsPanel", () => {
   it("pressing Enter on a comment item calls onScrollToLine", () => {
     const onScrollToLine = vi.fn();
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Keyboard comment", { line: 10, matchedLineNumber: 12 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Keyboard comment", { line: 10, matchedLineNumber: 12 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} onScrollToLine={onScrollToLine} />);
 
@@ -231,11 +230,9 @@ describe("14.3 – CommentsPanel", () => {
   it("pressing Space on a comment item calls onScrollToLine", () => {
     const onScrollToLine = vi.fn();
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Space comment", { line: 7 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Space comment", { line: 7, matchedLineNumber: 7 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} onScrollToLine={onScrollToLine} />);
 
@@ -249,11 +246,9 @@ describe("14.3 – CommentsPanel", () => {
     const handler = vi.fn();
     window.addEventListener("scroll-to-line", handler);
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "Event comment", { line: 20 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "Event comment", { line: 20, matchedLineNumber: 20 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 
@@ -269,11 +264,9 @@ describe("14.3 – CommentsPanel", () => {
   it("other keys on a comment item do not trigger navigation", () => {
     const onScrollToLine = vi.fn();
 
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [makeComment("1", "No trigger", { line: 3 })],
-      },
-    });
+    setMockComments([
+      makeThread(makeComment("1", "No trigger", { line: 3, matchedLineNumber: 3 })),
+    ]);
 
     render(<CommentsPanel filePath={FILE} onScrollToLine={onScrollToLine} />);
 
@@ -286,15 +279,15 @@ describe("14.3 – CommentsPanel", () => {
   });
 
   it("displays reply comments threaded under parent", () => {
-    useStore.setState({
-      commentsByFile: {
-        [FILE]: [
-          makeComment("1", "Parent comment", { line: 1 }),
-          makeComment("reply-1", "Good point!", { line: 1, reply_to: "1", author: "Alice (human)" }),
-          makeComment("reply-2", "I agree", { line: 1, reply_to: "1", author: "Bob (human)" }),
-        ],
-      },
-    });
+    setMockComments([
+      makeThread(
+        makeComment("1", "Parent comment", { line: 1, matchedLineNumber: 1 }),
+        [
+          makeComment("reply-1", "Good point!", { line: 1, matchedLineNumber: 1, reply_to: "1", author: "Alice (human)" }),
+          makeComment("reply-2", "I agree", { line: 1, matchedLineNumber: 1, reply_to: "1", author: "Bob (human)" }),
+        ]
+      ),
+    ]);
 
     render(<CommentsPanel filePath={FILE} />);
 

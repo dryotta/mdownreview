@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { useStore } from "@/store";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import type { CommentWithOrphan } from "@/store";
 import "@/styles/comments.css";
 
@@ -21,21 +21,19 @@ const SEVERITY_BADGE_CLASSES: Record<string, string> = {
 };
 
 // --- Single comment item (shared between root and reply rendering) ---
-function CommentItem({ comment, variant, onStartReply }: {
+function CommentItem({ comment, variant, filePath, onStartReply }: {
   comment: CommentWithOrphan;
   variant: "root" | "reply";
+  filePath: string;
   onStartReply?: () => void;
 }) {
-  const editComment = useStore((s) => s.editComment);
-  const deleteComment = useStore((s) => s.deleteComment);
-  const resolveComment = useStore((s) => s.resolveComment);
-  const unresolveComment = useStore((s) => s.unresolveComment);
+  const { editComment, deleteComment, resolveComment, unresolveComment } = useCommentActions();
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.text);
 
   const handleSaveEdit = () => {
     if (editText.trim()) {
-      editComment(comment.id, editText.trim());
+      editComment(filePath, comment.id, editText.trim()).catch(() => {});
       setEditing(false);
     }
   };
@@ -80,7 +78,7 @@ function CommentItem({ comment, variant, onStartReply }: {
             Edit
           </button>
         )}
-        <button className="comment-action-btn" onClick={() => deleteComment(comment.id)}>
+        <button className="comment-action-btn" onClick={() => deleteComment(filePath, comment.id).catch(() => {})}>
           Delete
         </button>
         {variant === "root" && onStartReply && (
@@ -90,11 +88,11 @@ function CommentItem({ comment, variant, onStartReply }: {
         )}
         {variant === "root" && (
           comment.resolved ? (
-            <button className="comment-action-btn" onClick={() => unresolveComment(comment.id)}>
+            <button className="comment-action-btn" onClick={() => unresolveComment(filePath, comment.id).catch(() => {})}>
               Unresolve
             </button>
           ) : (
-            <button className="comment-action-btn" onClick={() => resolveComment(comment.id)}>
+            <button className="comment-action-btn" onClick={() => resolveComment(filePath, comment.id).catch(() => {})}>
               Resolve
             </button>
           )
@@ -112,7 +110,7 @@ interface CommentThreadProps {
 }
 
 export function CommentThread({ rootComment, replies = [], filePath }: CommentThreadProps) {
-  const addReply = useStore((s) => s.addReply);
+  const { addReply } = useCommentActions();
   const [replying, setReplying] = useState(false);
   const [replyText, setReplyText] = useState("");
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -125,7 +123,7 @@ export function CommentThread({ rootComment, replies = [], filePath }: CommentTh
 
   const handleSendReply = () => {
     if (replyText.trim()) {
-      addReply(filePath, rootComment.id, replyText.trim());
+      addReply(filePath, rootComment.id, replyText.trim()).catch(() => {});
       setReplyText("");
       setReplying(false);
     }
@@ -140,11 +138,11 @@ export function CommentThread({ rootComment, replies = [], filePath }: CommentTh
           ⚠ Original location not found — comment may need manual review
         </div>
       )}
-      <CommentItem comment={rootComment} variant="root" onStartReply={() => setReplying(true)} />
+      <CommentItem comment={rootComment} variant="root" filePath={filePath} onStartReply={() => setReplying(true)} />
       {replies.length > 0 && (
         <div className="comment-thread-replies">
           {replies.map(reply => (
-            <CommentItem key={reply.id} comment={reply} variant="reply" />
+            <CommentItem key={reply.id} comment={reply} variant="reply" filePath={filePath} />
           ))}
         </div>
       )}

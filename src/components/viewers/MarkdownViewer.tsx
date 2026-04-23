@@ -24,20 +24,16 @@ import { TableOfContents, extractHeadings } from "./TableOfContents";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { CommentThread } from "@/components/comments/CommentThread";
 import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
-import { matchComments } from "@/lib/comment-matching";
 import { computeSelectedTextHash } from "@/lib/comment-anchors";
 import { truncateSelectedText } from "@/lib/comment-utils";
 import { groupCommentsIntoThreads } from "@/lib/comment-threads";
-import { useStore } from "@/store";
-import type { CommentWithOrphan } from "@/store";
-import { loadReviewComments, type MrsfComment } from "@/lib/tauri-commands";
-import { useAutoSaveComments } from "@/hooks/useAutoSaveComments";
+import { useComments } from "@/lib/vm/use-comments";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
+import type { MatchedComment, CommentAnchor } from "@/lib/tauri-commands";
 import { dirname } from "@/lib/path-utils";
 import "@/styles/markdown.css";
 
 const SIZE_WARN_THRESHOLD = 500 * 1024;
-
-type CommentAnchor = Partial<Pick<MrsfComment, "line" | "end_line" | "start_column" | "end_column" | "selected_text" | "selected_text_hash" | "commit" | "type" | "severity">>;
 
 interface Props {
   content: string;
@@ -209,11 +205,11 @@ function MdCommentPopover({
   expandedLine: number | null;
   commentingLine: number | null;
   bodyRef: React.RefObject<HTMLDivElement | null>;
-  commentsByLine: Map<number, CommentWithOrphan[]>;
+  commentsByLine: Map<number, MatchedComment[]>;
   filePath: string;
   lines: string[];
   pendingSelectionAnchor: CommentAnchor | null;
-  addComment: (filePath: string, anchor: CommentAnchor, text: string) => void;
+  addComment: (filePath: string, text: string, anchor?: CommentAnchor) => Promise<void>;
   setCommentingLine: (v: number | null) => void;
   setExpandedLine: (v: number | null) => void;
   setPendingSelectionAnchor: (v: CommentAnchor | null) => void;
@@ -263,7 +259,7 @@ function MdCommentPopover({
           onSaveComment={
             pendingSelectionAnchor
               ? (text: string) => {
-                  addComment(filePath, pendingSelectionAnchor, text);
+                  addComment(filePath, text, pendingSelectionAnchor).catch(() => {});
                   setPendingSelectionAnchor(null);
                 }
               : undefined
@@ -297,28 +293,19 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
 
   const lines = useMemo(() => body.split("\n"), [body]);
 
-  const setFileComments = useStore((s) => s.setFileComments);
-  const addComment = useStore((s) => s.addComment);
-  const comments = useStore((s) => s.commentsByFile[filePath]);
-  const loadedRef = useRef<string | null>(null);
-  const [commentReloadKey, setCommentReloadKey] = useState(0);
-  const [commentLoadKey, setCommentLoadKey] = useState(0);
-
-  const matchedComments = useMemo(() => {
-    if (!comments || comments.length === 0) return [];
-    return matchComments(comments, lines);
-  }, [comments, lines]);
+  const { comments } = useComments(filePath);
+  const { addComment } = useCommentActions();
 
   const commentsByLine = useMemo(() => {
-    const map = new Map<number, CommentWithOrphan[]>();
-    for (const c of matchedComments) {
+    const map = new Map<number, MatchedComment[]>();
+    for (const c of comments) {
       const ln = c.matchedLineNumber ?? c.line ?? 1;
       const arr = map.get(ln) ?? [];
       arr.push(c);
       map.set(ln, arr);
     }
     return map;
-  }, [matchedComments]);
+  }, [comments]);
 
   // Build components with img resolver (only img depends on filePath)
   const components = useMemo(() => ({
@@ -335,56 +322,6 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
       return <img src={resolvedSrc} alt={alt ?? ""} {...props} />;
     },
   }), [filePath]);
-
-  // Load comments from sidecar on file open
-  useEffect(() => {
-    let cancelled = false;
-    loadedRef.current = null;
-    loadReviewComments(filePath)
-      .then((result) => {
-        if (!cancelled && result?.comments) {
-          setFileComments(filePath, result.comments);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) {
-          loadedRef.current = filePath;
-          setCommentLoadKey((k) => k + 1);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [filePath, setFileComments]);
-
-  // Listen for review sidecar changes
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { path: string; kind: string };
-      if (detail.kind === "review" && (detail.path === `${filePath}.review.yaml` || detail.path === `${filePath}.review.json`)) {
-        setCommentReloadKey((k) => k + 1);
-      }
-    };
-    window.addEventListener("mdownreview:file-changed", handler);
-    return () => window.removeEventListener("mdownreview:file-changed", handler);
-  }, [filePath]);
-
-  // Reload comments when sidecar changes
-  useEffect(() => {
-    if (commentReloadKey === 0) return; // Skip initial — handled by main load effect
-    let cancelled = false;
-    loadReviewComments(filePath)
-      .then((result) => {
-        if (!cancelled && result?.comments) {
-          setFileComments(filePath, result.comments);
-          setCommentLoadKey((k) => k + 1);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [commentReloadKey, filePath, setFileComments]);
-
-  // Auto-save comments to sidecar (shared hook with flush-on-unmount)
-  useAutoSaveComments(filePath, comments, commentLoadKey);
 
   // Scroll-to-line from CommentsPanel click
   useEffect(() => {
