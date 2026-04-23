@@ -16,7 +16,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | delete-ts-comment-pipeline | Delete comment-matching.ts, comment-threads.ts, dead anchor exports | P1 | dead-code | yes | perf, architect, security, test-gap | src/lib/comment-matching.ts, src/lib/comment-threads.ts, src/lib/comment-anchors.ts | medium | no | yes | open |
 | hollow-out-comments-slice | Remove comment CRUD from Zustand store, keep only authorName | P1 | refactor | no | react-tauri, architect, security | src/store/index.ts | high | no | yes | open |
 | delete-auto-save-hook | Delete useAutoSaveComments and useCommitEnricher hooks | P1 | dead-code | yes | product, react-tauri, architect | src/hooks/useAutoSaveComments.ts, src/hooks/useCommitEnricher.ts | medium | no | yes | open |
-| test-vm-hooks | Write comprehensive tests for useComments and useCommentActions | P1 | test | no | test-gap, product | src/lib/vm/use-comments.ts, src/lib/vm/use-comment-actions.ts | low | yes | yes | open |
+| test-vm-hooks | Write comprehensive tests for useComments and useCommentActions | P1 | test | no | test-gap, product | src/lib/vm/use-comments.ts, src/lib/vm/use-comment-actions.ts | low | yes | yes | done |
 | bug-listen-cleanup-race | Fix listen() cleanup race in use-comments.ts | P2 | bug | yes | react-tauri | src/lib/vm/use-comments.ts | low | yes | yes | done |
 | fix-stale-persistence-test | Fix stale persistence test contradicting tab persistence | P2 | test | yes | test-gap | src/__tests__/store/persistence.test.ts | low | no | yes | open |
 | perf-comments-panel-memo | Add useMemo to CommentsPanel grouping/sorting/filtering | P2 | perf | yes | perf | src/components/comments/CommentsPanel.tsx | low | no | no | open |
