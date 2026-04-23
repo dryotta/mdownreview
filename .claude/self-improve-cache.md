@@ -32,10 +32,10 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | dead-vite-css | Remove Vite boilerplate CSS selectors from App.css | P2 | dead-code | yes | bug-hunter | src/App.css | low | no | yes | done |
 | extract-app-icons | Extract inline SVG icons from App.tsx to shared module | P2 | refactor | yes | architect | App.tsx | low | no | yes | open |
 | simplify-customevent-bridge | Replace DOM CustomEvent bridges with direct Tauri/Zustand signals | P2 | refactor | no | react-tauri, architect | useFileWatcher.ts, useFileContent.ts, CommentsPanel.tsx | medium | no | yes | open |
-| security-shellopen-scheme | Validate URL scheme before shellOpen in MarkdownViewer | P2 | security | yes | security | MarkdownViewer.tsx | low | no | no | open |
-| security-mermaid-strict | Add securityLevel: strict to Mermaid init | P2 | security | yes | security | MermaidView.tsx | low | no | no | open |
-| security-iframe-sandbox | Fix iframe sandbox allow-same-origin + allow-scripts combo | P2 | security | yes | security | HtmlPreviewView.tsx | low | no | no | open |
-| security-csp-extend | Add object-src, base-uri, frame-src to CSP | P2 | security | yes | security | src-tauri/tauri.conf.json | low | no | no | open |
+| security-shellopen-scheme | Validate URL scheme before shellOpen in MarkdownViewer | P2 | security | yes | security | MarkdownViewer.tsx | low | no | no | done |
+| security-mermaid-strict | Add securityLevel: strict to Mermaid init | P2 | security | yes | security | MermaidView.tsx | low | no | no | done |
+| security-iframe-sandbox | Fix iframe sandbox allow-same-origin + allow-scripts combo | P2 | security | yes | security | HtmlPreviewView.tsx | low | no | no | done |
+| security-csp-extend | Add object-src, base-uri, frame-src to CSP | P2 | security | yes | security | src-tauri/tauri.conf.json | low | no | no | done |
 | simplify-usecomments-dual-load | Merge duplicate load/effect in useComments into single mechanism | P3 | refactor | yes | react-tauri, product | lib/vm/use-comments.ts | low | no | yes | open |
 | bug-file-comments-swallow-error | Handle file-read errors in get_file_comments instead of unwrap_or_default | P3 | bug | yes | bug-hunter | src-tauri/src/commands.rs | low | yes | no | open |
 | security-path-validation | Add workspace root path validation to all Rust commands | P3 | security | no | security | src-tauri/src/commands.rs | high | yes | no | open |
