@@ -339,25 +339,6 @@ it('should unlisten on unmount', () => {
 
 ---
 
-## Step 7 — Create or update GitHub issues for Priority 1 bugs (optional)
-
-If GitHub CLI (`gh`) is available and authenticated, create or update issues for P1 bugs:
-
-1. For each P1 task, search for an existing open issue with the task ID in the title or body:
-   ```bash
-   gh issue list --search "[task-id]" --json number,title,state --limit 5
-   ```
-2. **If no matching open issue exists**: create one:
-   ```bash
-   gh issue create --title "Bug: [task title]" --body "[evidence, location, test outline, task ID: [id]]" --label "bug,auto-review"
-   ```
-3. **If a matching open issue exists**: skip (do not create duplicates)
-4. **If `gh` is not available or not authenticated**: skip this step entirely — it is not required for the backlog to be valid
-
-Print which issues were created/skipped.
-
----
-
 ## Done
 
 Print a summary:
@@ -368,7 +349,6 @@ Print a summary:
   Directive-aligned tasks: [N tasks tagged as addressing the directive, or "N/A"]
   Quick wins: [N] ([N] eligible for auto-improve)
   Backlog written to: .claude/self-improve-cache.md
-  GitHub issues: [N created / N skipped / not available]
 
   Next: run /self-improve to implement the top task automatically.
   [If directive present]: To focus self-improve on directive tasks, run:
