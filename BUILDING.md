@@ -86,6 +86,35 @@ Starts a task safely by ensuring you're always on a feature branch, never main.
 
 ---
 
+#### `/groom-issues`
+
+Interactively grooms GitHub issues by brainstorming requirements and attaching a structured spec as a comment.
+
+- **Default**: fetches all open issues labeled `needs-grooming`, processes oldest first
+- **With issue numbers** (`/groom-issues #36 #42`): grooms those specific issues regardless of labels
+- Asks clarifying questions one at a time, proposes approaches, generates a spec
+- Posts spec as a comment (with HTML marker for re-groom updates)
+- Swaps labels: `needs-grooming` → `groomed`
+- To re-groom: remove `groomed`, add `needs-grooming` — the skill updates the existing spec
+
+---
+
+#### `/implement-issues`
+
+Autonomously implements groomed GitHub issues end-to-end without user interaction.
+
+- **Default**: fetches all open issues labeled `groomed`, processes oldest first
+- **With issue numbers** (`/implement-issues #36 #42`): implements those specific issues
+- Reads the spec from the issue comment, consults expert agents for architecture guidance
+- Creates a feature branch per issue, plans with subagents, implements, validates, code-reviews
+- On success: commits and creates a PR that closes the issue
+- On failure: posts a failure comment on the issue, discards the branch, continues to next issue
+- One retry allowed per issue if validation/review fails
+
+**Pipeline**: read spec → consult experts → write plan → implement (subagents) → validate → code review → PR
+
+---
+
 #### `/run-tests`
 
 Selects and runs the right test suite based on what changed.
@@ -100,9 +129,12 @@ Reports pass count, fail count, and full output for any failures.
 
 ---
 
-#### `/write-missing-tests`
+#### `/validate-ci`
 
-Writes unit tests for high-value untested source files following the project's Vitest + React Testing Library conventions. Targets files in `src/lib/` and `src/components/` that have no corresponding `__tests__/` file.
+Triggers both CI and Release Gate workflows for full validation. Use before releases or for significant changes that need cross-platform testing.
+
+- **On a branch**: pushes and creates a draft PR. If the branch isn't `release/*`, offers to create one (Release Gate requires `release/*` prefix).
+- **On main**: creates a temporary `release/validate-<sha>` branch with an empty commit and a draft PR, triggering all workflows.
 
 ---
 
