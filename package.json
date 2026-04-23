@@ -15,7 +15,9 @@
     "test:e2e": "playwright test --config=playwright.browser.config.ts",
     "test:e2e:native": "playwright test --config=playwright.native.config.ts",
     "test:e2e:native:build": "cargo build --manifest-path src-tauri/Cargo.toml && npm run test:e2e:native",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "bench:cli": "cd src-tauri && cargo bench",
+    "bench:cli:script": "pwsh scripts/bench-cli.ps1"
   },
   "dependencies": {
     "@shikijs/rehype": "^4.0.2",
