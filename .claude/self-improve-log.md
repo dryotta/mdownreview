@@ -218,3 +218,21 @@
 - **Validation**: All checks passed (523 Vitest, lint clean)
 - **Tests written**: Updated existing mocks to match whole-document output format
 - **Expert review**: Skipped (focused perf improvement with clear correctness)
+
+## simplify-customevent-bridge  SKIPPED
+- **Date**: 2026-04-23
+- **Task**: Replace DOM CustomEvent bridges with direct Tauri/Zustand signals
+- **Reason**: Both bridges serve specific purposes: (1) mdownreview:file-changed bridge applies save-debounce filtering in useFileWatcher before re-dispatching  direct Tauri listen would bypass this. (2) scroll-to-line bridge decouples CommentsPanel from viewer internals and has 7 existing tests. Refactoring carries real regression risk for marginal architectural benefit.
+
+## security-serde-yaml-deprecation  DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-security-serde-yaml-deprecation
+- **Type**: security
+- **Task**: Migrate from deprecated serde_yaml to serde_yaml_ng 0.10
+- **Expert**: security
+- **Directive**: none
+- **Commit**: aec624a
+- **Validation**: All checks passed (523 Vitest, 107 cargo tests, lint clean)
+- **Tests written**: None (existing 107 Rust tests are the regression suite)
+- **Expert review**: Skipped (mechanical dependency swap, all tests pass)
+- **Note**: Chose serde_yaml_ng over serde_yml due to RUSTSEC-2025-0068 (serde_yml archived, possible segfault)
