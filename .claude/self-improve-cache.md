@@ -31,7 +31,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | test-line-comment-margin | Add tests for LineCommentMargin (zero coverage) | P2 | test | no | bug-hunter | components/comments/LineCommentMargin.tsx | low | yes | yes | done |
 | dead-vite-css | Remove Vite boilerplate CSS selectors from App.css | P2 | dead-code | yes | bug-hunter | src/App.css | low | no | yes | done |
 | extract-app-icons | Extract inline SVG icons from App.tsx to shared module | P2 | refactor | yes | architect | App.tsx | low | no | yes | done |
-| simplify-customevent-bridge | Replace DOM CustomEvent bridges with direct Tauri/Zustand signals | P2 | refactor | no | react-tauri, architect | useFileWatcher.ts, useFileContent.ts, CommentsPanel.tsx | medium | no | yes | open |
+| simplify-customevent-bridge | Replace DOM CustomEvent bridges with direct Tauri/Zustand signals | P2 | refactor | no | react-tauri, architect | useFileWatcher.ts, useFileContent.ts, CommentsPanel.tsx | medium | no | yes | skipped |
 | security-shellopen-scheme | Validate URL scheme before shellOpen in MarkdownViewer | P2 | security | yes | security | MarkdownViewer.tsx | low | no | no | done |
 | security-mermaid-strict | Add securityLevel: strict to Mermaid init | P2 | security | yes | security | MermaidView.tsx | low | no | no | done |
 | security-iframe-sandbox | Fix iframe sandbox allow-same-origin + allow-scripts combo | P2 | security | yes | security | HtmlPreviewView.tsx | low | no | no | done |
@@ -41,7 +41,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | security-path-validation | Add workspace root path validation to all Rust commands | P3 | security | no | security | src-tauri/src/commands.rs | high | yes | no | open |
 | test-app-tsx | Add tests for App.tsx keyboard shortcuts and event listeners | P3 | test | no | bug-hunter | App.tsx | low | no | yes | done |
 | perf-virtualize-sourceview | Add windowing/virtualization to SourceView for large files | P3 | perf | no | perf | SourceView.tsx | high | no | no | open |
-| security-serde-yaml-deprecation | Migrate from deprecated serde_yaml to maintained fork | P3 | security | no | security | src-tauri/Cargo.toml | medium | no | no | open |
+| security-serde-yaml-deprecation | Migrate from deprecated serde_yaml to maintained fork | P3 | security | no | security | src-tauri/Cargo.toml | medium | no | no | done |
 
 <!-- Status values: open, done, failed, skipped -->
 
