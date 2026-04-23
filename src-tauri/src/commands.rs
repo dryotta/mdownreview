@@ -318,7 +318,16 @@ pub fn get_git_head(path: String) -> Result<Option<String>, String> {
             let sha = String::from_utf8_lossy(&out.stdout).trim().to_string();
             Ok(if sha.is_empty() { None } else { Some(sha) })
         }
-        _ => Ok(None),
+        Ok(out) if out.status.code() == Some(128) => Ok(None),
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+            Err(format!(
+                "git rev-parse failed (exit {}): {}",
+                out.status.code().map_or("unknown".to_string(), |c| c.to_string()),
+                stderr
+            ))
+        }
+        Err(e) => Err(format!("failed to execute git: {}", e)),
     }
 }
 

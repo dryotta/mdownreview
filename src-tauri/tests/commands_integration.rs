@@ -1,6 +1,6 @@
 use mdown_review_lib::commands::{
-    load_review_comments, read_binary_file, read_dir, read_text_file, save_review_comments,
-    LaunchArgs, LaunchArgsState, MrsfComment, MrsfSidecar,
+    get_git_head, load_review_comments, read_binary_file, read_dir, read_text_file,
+    save_review_comments, LaunchArgs, LaunchArgsState, MrsfComment, MrsfSidecar,
 };
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -277,4 +277,44 @@ fn read_dir_hides_review_sidecars() {
     assert!(names.contains(&"config.json"));
     assert!(!names.contains(&"readme.md.review.yaml"), "YAML review sidecars should be hidden");
     assert!(!names.contains(&"main.rs.review.json"), "JSON review sidecars should be hidden");
+}
+
+// ── get_git_head ──────────────────────────────────────────────────────────
+
+#[test]
+fn get_git_head_returns_sha_in_git_repo() {
+    // The mdownreview repo itself is a git repo — use its root.
+    let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let result = get_git_head(repo_root);
+    assert!(result.is_ok());
+    let sha = result.unwrap();
+    assert!(sha.is_some(), "should return a SHA in a git repo");
+    assert!(sha.unwrap().len() >= 40, "SHA should be at least 40 hex chars");
+}
+
+#[test]
+fn get_git_head_returns_none_for_non_repo() {
+    let dir = tempfile::tempdir().unwrap();
+    let result = get_git_head(dir.path().to_str().unwrap().to_string());
+    assert!(result.is_ok());
+    assert!(result.unwrap().is_none(), "non-repo directory should return Ok(None)");
+}
+
+#[test]
+fn get_git_head_returns_error_on_command_failure() {
+    // Use a non-existent directory as cwd — Command::output() will fail
+    // because the working directory doesn't exist. This simulates a
+    // command execution failure distinct from "not a git repo".
+    let bad_path = if cfg!(windows) {
+        "Z:\\nonexistent_dir_that_surely_does_not_exist_12345".to_string()
+    } else {
+        "/nonexistent_dir_that_surely_does_not_exist_12345".to_string()
+    };
+    let result = get_git_head(bad_path);
+    assert!(result.is_err(), "command execution failure should return Err, not Ok(None)");
 }
