@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ViewerRouter } from "../ViewerRouter";
 import { useStore } from "@/store";
 
@@ -160,5 +160,99 @@ describe("ViewerRouter fileSize memoization", () => {
     expect(encodeSpy.mock.calls.length).toBe(callCountAfterFirst);
 
     encodeSpy.mockRestore();
+  });
+});
+
+describe("ViewerRouter scroll throttle", () => {
+  let rafCallbacks: Array<() => void>;
+  let rafIdCounter: number;
+  let cancelledIds: Set<number>;
+
+  beforeEach(() => {
+    rafCallbacks = [];
+    rafIdCounter = 0;
+    cancelledIds = new Set();
+
+    vi.spyOn(globalThis, "requestAnimationFrame").mockImplementation((cb) => {
+      const id = ++rafIdCounter;
+      rafCallbacks.push(() => {
+        if (!cancelledIds.has(id)) cb(performance.now());
+      });
+      return id;
+    });
+    vi.spyOn(globalThis, "cancelAnimationFrame").mockImplementation((id) => {
+      cancelledIds.add(id);
+    });
+  });
+
+  function flushRaf() {
+    const batch = rafCallbacks.splice(0);
+    batch.forEach((cb) => cb());
+  }
+
+  it("does not call setScrollTop synchronously on scroll", () => {
+    mockUseFileContent.mockReturnValue({ status: "ready", content: "text" });
+    useStore.setState({ tabs: [{ path: "/a.txt", scrollTop: 0 }] });
+    const spy = vi.spyOn(useStore.getState(), "setScrollTop");
+
+    render(<ViewerRouter path="/a.txt" />);
+
+    const container = screen.getByTestId("enhanced-viewer").parentElement!;
+    fireEvent.scroll(container, { target: { scrollTop: 100 } });
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("calls setScrollTop after rAF fires", () => {
+    mockUseFileContent.mockReturnValue({ status: "ready", content: "text" });
+    useStore.setState({ tabs: [{ path: "/a.txt", scrollTop: 0 }] });
+    const spy = vi.spyOn(useStore.getState(), "setScrollTop");
+
+    render(<ViewerRouter path="/a.txt" />);
+
+    const container = screen.getByTestId("enhanced-viewer").parentElement!;
+    fireEvent.scroll(container, { target: { scrollTop: 200 } });
+
+    act(() => flushRaf());
+
+    expect(spy).toHaveBeenCalledWith("/a.txt", 200);
+    spy.mockRestore();
+  });
+
+  it("coalesces rapid scroll events into one setScrollTop call", () => {
+    mockUseFileContent.mockReturnValue({ status: "ready", content: "text" });
+    useStore.setState({ tabs: [{ path: "/a.txt", scrollTop: 0 }] });
+    const spy = vi.spyOn(useStore.getState(), "setScrollTop");
+
+    render(<ViewerRouter path="/a.txt" />);
+
+    const container = screen.getByTestId("enhanced-viewer").parentElement!;
+    fireEvent.scroll(container, { target: { scrollTop: 100 } });
+    fireEvent.scroll(container, { target: { scrollTop: 200 } });
+    fireEvent.scroll(container, { target: { scrollTop: 300 } });
+
+    act(() => flushRaf());
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith("/a.txt", 300);
+    spy.mockRestore();
+  });
+
+  it("cancels pending rAF on unmount", () => {
+    mockUseFileContent.mockReturnValue({ status: "ready", content: "text" });
+    useStore.setState({ tabs: [{ path: "/a.txt", scrollTop: 0 }] });
+    const spy = vi.spyOn(useStore.getState(), "setScrollTop");
+
+    const { unmount } = render(<ViewerRouter path="/a.txt" />);
+
+    const container = screen.getByTestId("enhanced-viewer").parentElement!;
+    fireEvent.scroll(container, { target: { scrollTop: 500 } });
+
+    unmount();
+    act(() => flushRaf());
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });

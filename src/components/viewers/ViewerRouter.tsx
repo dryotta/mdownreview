@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useStore } from "@/store";
 import { useFileContent } from "@/hooks/useFileContent";
 import { SkeletonLoader } from "./SkeletonLoader";
@@ -14,6 +14,7 @@ interface Props {
 export function ViewerRouter({ path }: Props) {
   const { status, content, error } = useFileContent(path);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
   const setScrollTop = useStore((s) => s.setScrollTop);
   const tab = useStore((s) => s.tabs.find((t) => t.path === path));
   const ghostEntries = useStore((s) => s.ghostEntries);
@@ -47,9 +48,20 @@ export function ViewerRouter({ path }: Props) {
     return () => { cancelled = true; };
   }, [path, status, content, savedScrollTop]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(path, (e.target as HTMLDivElement).scrollTop);
-  };
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [path]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const top = (e.target as HTMLDivElement).scrollTop;
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      setScrollTop(path, top);
+    });
+  }, [path, setScrollTop]);
 
   if (status === "loading") {
     return (
