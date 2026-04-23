@@ -45,6 +45,34 @@ describe("truncateSelectedText", () => {
   it("returns empty string for empty input", () => {
     expect(truncateSelectedText("")).toBe("");
   });
+
+  it("truncates emoji text consistently with Rust (Unicode scalar values)", () => {
+    // "😀" is 1 Unicode scalar value but 2 UTF-16 code units
+    const emoji = "😀".repeat(5000); // 5000 emoji = 10000 UTF-16 code units
+    const result = truncateSelectedText(emoji);
+    // Should truncate to 4096 Unicode scalar values (matching Rust's chars().count())
+    // NOT 4096 UTF-16 code units (which would cut in the middle of an emoji)
+    expect(Array.from(result).length).toBeLessThanOrEqual(4096);
+    // Verify no broken surrogate pairs
+    expect(result).not.toMatch(/[\uD800-\uDBFF]$/); // no trailing high surrogate
+  });
+
+  it("counts combining characters as separate code points like Rust", () => {
+    // "é" as e + combining accent = 2 code points, 2 chars in Rust
+    const combining = "e\u0301".repeat(3000); // 3000 * 2 = 6000 code points
+    const result = truncateSelectedText(combining);
+    expect(Array.from(result).length).toBeLessThanOrEqual(4096);
+  });
+
+  it("handles mixed ASCII and emoji correctly", () => {
+    // Build string: 4000 ASCII + 200 emoji = 4200 code points
+    const mixed = "a".repeat(4000) + "😀".repeat(200);
+    const result = truncateSelectedText(mixed);
+    const codePoints = Array.from(result);
+    expect(codePoints.length).toBe(4096);
+    // The result should be 4000 'a' + 96 emoji
+    expect(result.startsWith("a".repeat(4000))).toBe(true);
+  });
 });
 
 describe("validateTargetingFields", () => {
