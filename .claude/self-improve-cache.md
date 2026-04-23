@@ -18,7 +18,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | simplify-comment-utils-ts | Remove Rust-duplicated functions from comment-utils.ts | P1 | dead-code | yes | architect, bug-hunter, react-tauri | lib/comment-utils.ts | low | no | yes | done |
 | dead-rust-commands | Remove 7 unused Rust IPC commands from lib.rs and commands.rs | P1 | dead-code+security | yes | bug-hunter, security, product, react-tauri | src-tauri/src/lib.rs, commands.rs | low | no | yes | done |
 | delete-comments-slice | Remove CommentsSlice entirely, move authorName to UISlice | P1 | refactor | yes | architect, product, react-tauri | store/index.ts | low | no | yes | done |
-| standardize-matched-comment | Replace CommentWithOrphan with MatchedComment everywhere | P1 | refactor | yes | architect, product, react-tauri | store/index.ts, CommentThread.tsx, LineCommentMargin.tsx | low | no | yes | open |
+| standardize-matched-comment | Replace CommentWithOrphan with MatchedComment everywhere | P1 | refactor | yes | architect, product, react-tauri | store/index.ts, CommentThread.tsx, LineCommentMargin.tsx | low | no | yes | done |
 | rust-unresolved-counts | Add batch Rust command for badge unresolved counts | P1 | rust-first | no | architect, product, perf, react-tauri | src-tauri/src/commands.rs, FolderTree.tsx, TabBar.tsx | medium | yes | yes | open |
 | refactor-markdownviewer-hooks | Extract shared hooks from MarkdownViewer (selection, comments-by-line, scroll) | P1 | refactor | no | architect, product | MarkdownViewer.tsx, useSelectionToolbar.ts | medium | no | yes | open |
 | perf-memo-usecomments-flatmap | Add useMemo to useComments flatMap of threads | P2 | perf | yes | perf | lib/vm/use-comments.ts | low | no | yes | open |
