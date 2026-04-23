@@ -1,6 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
+
+// Re-export core types so existing code (lib.rs, tests) still compiles
+pub use crate::core::types::{CommentAnchor, CommentThread, DirEntry, LaunchArgs, MatchedComment, MrsfComment, MrsfSidecar};
 
 /// Check if a path exists and whether it is a directory or file.
 /// Returns "file", "dir", or "missing".
@@ -39,58 +41,7 @@ pub fn compute_document_path(file_path: String, root: Option<String>) -> String 
         .unwrap_or(file_path)
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirEntry {
-    pub name: String,
-    pub path: String,
-    pub is_dir: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LaunchArgs {
-    pub files: Vec<String>,
-    pub folders: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MrsfComment {
-    pub id: String,
-    pub author: String,
-    pub timestamp: String,
-    pub text: String,
-    pub resolved: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_line: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_column: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_column: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchored_text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_text_hash: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub comment_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub severity: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MrsfSidecar {
-    pub mrsf_version: String,
-    pub document: String,
-    pub comments: Vec<MrsfComment>,
-}
+// Types are re-exported from core::types above
 
 pub type LaunchArgsState = Arc<Mutex<Option<LaunchArgs>>>;
 
@@ -194,90 +145,22 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
-/// Save review comments as MRSF YAML sidecar (atomic via temp + rename).
+/// Save review comments as MRSF YAML sidecar (delegates to core::sidecar).
 #[tauri::command]
 pub fn save_review_comments(file_path: String, document: String, comments: Vec<MrsfComment>) -> Result<(), String> {
-    let sidecar_path = std::path::PathBuf::from(format!("{}.review.yaml", file_path));
-
-    // When all comments are gone, remove the sidecar rather than leaving an empty file.
-    if comments.is_empty() {
-        if sidecar_path.exists() {
-            std::fs::remove_file(&sidecar_path).map_err(|e| {
-                tracing::error!("[rust] command error: {}", e);
-                e.to_string()
-            })?;
-        }
-        return Ok(());
-    }
-
-    let payload = MrsfSidecar {
-        mrsf_version: "1.0".to_string(),
-        document,
-        comments,
-    };
-    let yaml = serde_yaml::to_string(&payload).map_err(|e| {
+    crate::core::sidecar::save_sidecar(&file_path, &document, &comments).map_err(|e| {
         tracing::error!("[rust] command error: {}", e);
         e.to_string()
-    })?;
-
-    // Write to temp file in same directory, then rename for atomicity
-    let dir = sidecar_path.parent().unwrap_or(std::path::Path::new("."));
-    let tmp_path = dir.join(format!(
-        ".review-{}.tmp",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    ));
-    std::fs::write(&tmp_path, &yaml).map_err(|e| {
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })?;
-    std::fs::rename(&tmp_path, &sidecar_path).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp_path);
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })?;
-    Ok(())
+    })
 }
 
-/// Load review comments sidecar; tries .review.yaml first, then .review.json.
+/// Load review comments sidecar (delegates to core::sidecar).
 #[tauri::command]
 pub fn load_review_comments(file_path: String) -> Result<Option<MrsfSidecar>, String> {
-    let yaml_path = format!("{}.review.yaml", file_path);
-    let json_path = format!("{}.review.json", file_path);
-
-    // Try YAML first
-    match std::fs::read_to_string(&yaml_path) {
-        Ok(content) => {
-            let sidecar: MrsfSidecar = serde_yaml::from_str(&content).map_err(|e| {
-                tracing::error!("[rust] YAML parse error: {}", e);
-                e.to_string()
-            })?;
-            return Ok(Some(sidecar));
-        }
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-            tracing::error!("[rust] command error: {}", e);
-            return Err(e.to_string());
-        }
-        _ => {} // Not found, try JSON
-    }
-
-    // Try JSON fallback
-    match std::fs::read_to_string(&json_path) {
-        Ok(content) => {
-            let sidecar: MrsfSidecar = serde_json::from_str(&content).map_err(|e| {
-                tracing::error!("[rust] JSON parse error: {}", e);
-                e.to_string()
-            })?;
-            Ok(Some(sidecar))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => {
-            tracing::error!("[rust] command error: {}", e);
-            Err(e.to_string())
-        }
-    }
+    crate::core::sidecar::load_sidecar(&file_path).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })
 }
 
 /// Get (and clear) launch args stored during setup.
@@ -297,38 +180,10 @@ pub fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(log_dir.join("mdownreview.log").to_string_lossy().into_owned())
 }
 
-/// Scan a directory tree for MRSF sidecar files (.review.yaml and .review.json).
-/// Returns pairs of (sidecar_path, source_file_path).
+/// Scan a directory tree for MRSF sidecar files (delegates to core::scanner).
 #[tauri::command]
 pub fn scan_review_files(root: String) -> Result<Vec<(String, String)>, String> {
-    let mut results = Vec::new();
-    let walker = walkdir::WalkDir::new(&root)
-        .max_depth(50)
-        .into_iter()
-        .filter_map(|e| e.ok());
-
-    for entry in walker {
-        let path = entry.path();
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            let (is_sidecar, suffix) = if name.ends_with(".review.yaml") {
-                (true, ".review.yaml")
-            } else if name.ends_with(".review.json") {
-                (true, ".review.json")
-            } else {
-                (false, "")
-            };
-            if is_sidecar {
-                let sidecar = path.to_string_lossy().to_string();
-                let source = sidecar.trim_end_matches(suffix).to_string();
-                results.push((sidecar, source));
-            }
-        }
-        if results.len() >= 10_000 {
-            tracing::warn!("[scan] capped at 10,000 review files");
-            break;
-        }
-    }
-    Ok(results)
+    Ok(crate::core::scanner::find_review_files(&root, 10_000))
 }
 
 /// Get the current git HEAD SHA, if in a git repository.
@@ -400,4 +255,197 @@ pub fn set_root_via_test(path: String, app: tauri::AppHandle) -> Result<(), Stri
     }
 
     Ok(())
+}
+
+// ── Phase 2: MVVM domain commands ─────────────────────────────────────────
+
+/// Combined hot-path: load sidecar → match to file lines → build threads.
+/// Single IPC call for the GUI's most common operation.
+#[tauri::command]
+pub fn get_file_comments(file_path: String) -> Result<Vec<CommentThread>, String> {
+    // Load sidecar
+    let sidecar = crate::core::sidecar::load_sidecar(&file_path).map_err(|e| e.to_string())?;
+    let comments = match sidecar {
+        Some(s) => s.comments,
+        None => return Ok(vec![]),
+    };
+    if comments.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Read file content for matching
+    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Match comments to lines
+    let matched = crate::core::matching::match_comments(&comments, &lines);
+
+    // Build threads
+    Ok(crate::core::threads::group_into_threads(&matched))
+}
+
+/// Match comments to file content and return with anchoring results.
+#[tauri::command]
+pub fn match_comments_to_file(
+    file_path: String,
+    comments: Vec<MrsfComment>,
+) -> Result<Vec<MatchedComment>, String> {
+    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+    Ok(crate::core::matching::match_comments(&comments, &lines))
+}
+
+/// Group matched comments into threads.
+#[tauri::command]
+pub fn build_comment_threads(
+    comments: Vec<MatchedComment>,
+) -> Result<Vec<CommentThread>, String> {
+    Ok(crate::core::threads::group_into_threads(&comments))
+}
+
+/// Create a new comment, save to sidecar.
+#[tauri::command]
+pub fn add_comment(
+    file_path: String,
+    author: String,
+    text: String,
+    anchor: Option<CommentAnchor>,
+    comment_type: Option<String>,
+    severity: Option<String>,
+    document: Option<String>,
+) -> Result<(), String> {
+    let comment = crate::core::comments::create_comment(
+        &author,
+        &text,
+        anchor,
+        comment_type.as_deref(),
+        severity.as_deref(),
+    );
+
+    // Load existing, append, save
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .unwrap_or(MrsfSidecar {
+            mrsf_version: "1.0".to_string(),
+            document: document.unwrap_or_else(|| {
+                std::path::Path::new(&file_path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            }),
+            comments: vec![],
+        });
+    sidecar.comments.push(comment);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Create a reply to an existing comment, save to sidecar.
+#[tauri::command]
+pub fn add_reply(
+    file_path: String,
+    parent_id: String,
+    author: String,
+    text: String,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let parent = sidecar
+        .comments
+        .iter()
+        .find(|c| c.id == parent_id)
+        .ok_or_else(|| format!("parent comment {} not found", parent_id))?
+        .clone();
+
+    let reply = crate::core::comments::create_reply(&author, &text, &parent);
+    sidecar.comments.push(reply);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Edit a comment's text, save to sidecar.
+#[tauri::command]
+pub fn edit_comment(
+    file_path: String,
+    comment_id: String,
+    text: String,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let comment = sidecar
+        .comments
+        .iter_mut()
+        .find(|c| c.id == comment_id)
+        .ok_or_else(|| format!("comment {} not found", comment_id))?;
+    comment.text = text;
+
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Delete a comment (with reply reparenting per MRSF §9.1), save to sidecar.
+#[tauri::command]
+pub fn delete_comment(
+    file_path: String,
+    comment_id: String,
+) -> Result<(), String> {
+    let sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let updated = crate::core::comments::delete_comment(&sidecar.comments, &comment_id);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &updated,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Resolve or unresolve a comment, save to sidecar.
+#[tauri::command]
+pub fn set_comment_resolved(
+    file_path: String,
+    comment_id: String,
+    resolved: bool,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let comment = sidecar
+        .comments
+        .iter_mut()
+        .find(|c| c.id == comment_id)
+        .ok_or_else(|| format!("comment {} not found", comment_id))?;
+    comment.resolved = resolved;
+
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Compute SHA-256 hash for selected text anchor.
+#[tauri::command]
+pub fn compute_anchor_hash(text: String) -> String {
+    crate::core::anchors::compute_selected_text_hash(&text)
 }

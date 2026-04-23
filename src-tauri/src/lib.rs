@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod core;
 pub mod watcher;
 
 use commands::LaunchArgsState;
@@ -229,6 +230,15 @@ pub fn run() {
             commands::get_git_head,
             commands::check_path_exists,
             commands::compute_document_path,
+            commands::get_file_comments,
+            commands::match_comments_to_file,
+            commands::build_comment_threads,
+            commands::add_comment,
+            commands::add_reply,
+            commands::edit_comment,
+            commands::delete_comment,
+            commands::set_comment_resolved,
+            commands::compute_anchor_hash,
             watcher::update_watched_files,
             commands::set_root_via_test,
         ])
@@ -249,6 +259,15 @@ pub fn run() {
             commands::get_git_head,
             commands::check_path_exists,
             commands::compute_document_path,
+            commands::get_file_comments,
+            commands::match_comments_to_file,
+            commands::build_comment_threads,
+            commands::add_comment,
+            commands::add_reply,
+            commands::edit_comment,
+            commands::delete_comment,
+            commands::set_comment_resolved,
+            commands::compute_anchor_hash,
             watcher::update_watched_files,
         ])
         .build(tauri::generate_context!())

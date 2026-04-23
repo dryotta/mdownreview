@@ -1,7 +1,9 @@
 import { vi } from "vitest";
 import type {
+  CommentThread,
   DirEntry,
   LaunchArgs,
+  MatchedComment,
   MrsfSidecar,
 } from "@/lib/tauri-commands";
 
@@ -12,6 +14,8 @@ type InvokeResult =
   | DirEntry[]
   | LaunchArgs
   | MrsfSidecar
+  | CommentThread[]
+  | MatchedComment[]
   | "file"
   | "dir"
   | "missing"

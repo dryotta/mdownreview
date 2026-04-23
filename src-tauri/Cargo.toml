@@ -5,10 +5,20 @@ description = "A desktop markdown reviewer for developers"
 license = "MIT"
 authors = ["davidzh"]
 edition = "2021"
+default-run = "mdownreview"
+autobenches = false
 
 [lib]
 name = "mdown_review_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "mdownreview-cli"
+path = "src/bin/cli.rs"
+
+[[example]]
+name = "generate_bench_fixtures"
+path = "benches/generate_fixtures.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -32,8 +42,33 @@ notify-debouncer-mini = "0.5"
 walkdir = "2"
 serde_yaml = "0.9"
 sha2 = "0.10"
+clap = { version = "4", features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
 tempfile = "3"
 serde_yaml = "0.9"
 serde_json = "1"
+rand = "0.8"
+
+[[bench]]
+name = "sidecar_bench"
+harness = false
+
+[[bench]]
+name = "matching_bench"
+harness = false
+
+[[bench]]
+name = "scanner_bench"
+harness = false
+
+[[bench]]
+name = "threads_bench"
+harness = false
+
+[[bench]]
+name = "hot_path_bench"
+harness = false
