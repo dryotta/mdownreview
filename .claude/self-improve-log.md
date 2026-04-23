@@ -132,3 +132,14 @@
 - **Validation**: All checks passed (465 tests, lint clean)
 - **Tests written**: 7 new tests (empty input, single line, braces, strings, comments, escapes, large input)
 - **Expert review**: Skipped (localized algorithm change in single function)
+
+## react-use-deferred-value-shiki  DONE
+- **Date**: 2026-04-22
+- **Branch**: auto-improve/20260422-react-use-deferred-value-shiki
+- **Type**: feature (React optimization)
+- **Task**: Add useDeferredValue for Shiki highlighting
+- **Expert**: react-tauri
+- **Commit**: 3a4e86a
+- **Validation**: All checks passed (467 tests, lint clean)
+- **Tests written**: 2 tests (highlighted render, content update)
+- **Expert review**: Skipped (simple React hook addition)

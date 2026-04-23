@@ -33,7 +33,7 @@ branch: main
 | feat-tab-persistence | Persist open tabs across sessions | P3 | feature | yes | product | src/store/index.ts | low | no | open |
 | arch-replace-dom-events | Replace DOM CustomEvent bridge with Zustand store signals | P3 | feature | no | react-tauri, architect | src/hooks/useFileWatcher.ts, src/components/viewers/SourceView.tsx, src/components/viewers/MarkdownViewer.tsx | medium | no | open |
 | perf-fold-regions-string-concat | Fix O(n²) string concatenation in computeFoldRegions | P3 | feature | yes | performance | src/lib/fold-regions.ts | low | no | done |
-| react-use-deferred-value-shiki | Add useDeferredValue for Shiki highlighting | P3 | feature | yes | react-tauri | src/components/viewers/SourceView.tsx | low | no | open |
+| react-use-deferred-value-shiki | Add useDeferredValue for Shiki highlighting | P3 | feature | yes | react-tauri | src/components/viewers/SourceView.tsx | low | no | done |
 | react-use-transition-search | Add useTransition for search input | P3 | feature | yes | react-tauri | src/hooks/useSearch.ts | low | no | open |
 | tauri-emit-to-window | Use emit_to() instead of emit() for file-changed events | P3 | feature | yes | react-tauri | src-tauri/src/watcher.rs | low | no | open |
 | feat-comment-markdown-render | Render comment text as markdown instead of plain text | P3 | feature | yes | product | src/components/comments/CommentThread.tsx | low | no | open |
@@ -454,6 +454,12 @@ it('should scan on sidecar file deletion', async () => {
 
 ### 2026-04-22  perf-fold-regions-string-concat  DONE
 - **Lesson**: Segment-tracking slice+join is the standard O(n) replacement for char-by-char concat.
+- **New tasks added**: none
+- **Tasks re-prioritized**: none
+- **Process improvement**: none
+
+### 2026-04-22  react-use-deferred-value-shiki  DONE
+- **Lesson**: useDeferredValue is a clean fit for expensive render-path computations.
 - **New tasks added**: none
 - **Tasks re-prioritized**: none
 - **Process improvement**: none
