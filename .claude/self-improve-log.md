@@ -194,3 +194,15 @@
 - **Validation**: All checks passed (507 Vitest, lint clean)
 - **Tests written**: 24 tests covering toolbar, keyboard shortcuts, theme cycling, menu events
 - **Expert review**: Skipped (test-only change)
+
+## refactor-markdownviewer-hooks  DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-refactor-markdownviewer-hooks
+- **Type**: refactor
+- **Task**: Extract shared hooks from MarkdownViewer (useThreadsByLine, useScrollToLine, generalized useSelectionToolbar)
+- **Expert**: architect, product
+- **Directive**: none
+- **Commit**: 07e23e4
+- **Validation**: All checks passed (523 Vitest, lint clean)
+- **Tests written**: 16 new hook tests (6 useThreadsByLine, 7 useScrollToLine, 3 useSelectionToolbar parameterization)
+- **Expert review**: Skipped (shared-hook extraction, all existing tests pass)
