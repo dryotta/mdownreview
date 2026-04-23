@@ -151,7 +151,10 @@ const MD_COMPONENTS: Record<string, unknown> = {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (href) {
         e.preventDefault();
-        shellOpen(href).catch(() => {});
+        // Only open http/https URLs in external browser (security: block file://, javascript:, etc.)
+        if (/^https?:\/\//i.test(href)) {
+          shellOpen(href).catch(() => {});
+        }
       }
     };
     return (
