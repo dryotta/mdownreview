@@ -1,17 +1,13 @@
-import { useEffect, useState, useMemo, useDeferredValue } from "react";
-import { type BundledLanguage } from "shiki";
-import { getSharedHighlighter } from "@/lib/shiki";
-import { extname } from "@/lib/path-utils";
-import { computeSelectedTextHash } from "@/lib/comment-anchors";
-import { truncateSelectedText } from "@/lib/comment-utils";
+import { useEffect, useState, useMemo } from "react";
 import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
-import { computeFoldRegions, type FoldRegion } from "@/lib/fold-regions";
 import { useSearch } from "@/hooks/useSearch";
+import { useSourceHighlighting, escapeHtml } from "@/hooks/useSourceHighlighting";
+import { useSelectionToolbar } from "@/hooks/useSelectionToolbar";
+import { useFolding } from "@/hooks/useFolding";
 import { SearchBar } from "./SearchBar";
-import kqlGrammar from "@/lib/kql.tmLanguage.json";
 import "@/styles/source-viewer.css";
 
 const SIZE_WARN_THRESHOLD = 500 * 1024;
@@ -24,99 +20,36 @@ interface Props {
   wordWrap?: boolean;
 }
 
-// Use shared highlighter singleton
-
-function langFromPath(path: string): string {
-  const ext = extname(path).slice(1);
-  const map: Record<string, string> = {
-    ts: "typescript", tsx: "tsx", js: "javascript", jsx: "jsx",
-    py: "python", rs: "rust", go: "go", java: "java",
-    c: "c", cpp: "cpp", h: "c", css: "css", html: "html",
-    json: "json", yaml: "yaml", yml: "yaml", toml: "toml",
-    sh: "bash", bash: "bash", md: "markdown", sql: "sql",
-    rb: "ruby", php: "php", swift: "swift", kt: "kotlin", cs: "csharp",
-    xml: "xml", kql: "kql", csl: "kql",
-  };
-  return map[ext] ?? "text";
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
 function extractInnerCode(html: string): string {
   const match = /<code[^>]*>([\s\S]*?)<\/code>/.exec(html);
   return match ? match[1] : html;
 }
 
 export function SourceView({ content, path, filePath, fileSize, wordWrap }: Props) {
-  const [highlightedLines, setHighlightedLines] = useState<string[]>([]);
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);
-  const [collapsedLines, setCollapsedLines] = useState<Set<number>>(new Set());
   const [searchOpen, setSearchOpen] = useState(false);
-  const [selectionToolbar, setSelectionToolbar] = useState<{
-    position: { top: number; left: number };
-    lineNumber: number;
-    selectedText: string;
-    startOffset: number;
-    endLine: number;
-    endOffset: number;
-  } | null>(null);
-  const [pendingSelectionAnchor, setPendingSelectionAnchor] = useState<{
-    line: number;
-    end_line: number;
-    start_column: number;
-    end_column: number;
-    selected_text: string;
-    selected_text_hash?: string;
-  } | null>(null);
-  const [highlightedSelectionLines, setHighlightedSelectionLines] = useState<Set<number>>(new Set());
   const { query, setQuery, matches, currentIndex, next, prev } = useSearch(content);
 
   const { comments } = useComments(filePath);
   const { addComment } = useCommentActions();
 
-  const deferredContent = useDeferredValue(content);
   const lines = useMemo(() => content.split("\n"), [content]);
-  const deferredLines = useMemo(() => deferredContent.split("\n"), [deferredContent]);
 
-  const foldRegions = useMemo(() => computeFoldRegions(lines), [lines]);
+  const { highlightedLines } = useSourceHighlighting(content, path);
+  const {
+    selectionToolbar,
+    setSelectionToolbar,
+    pendingSelectionAnchor,
+    highlightedSelectionLines,
+    handleMouseUp,
+    handleAddSelectionComment,
+    clearSelection,
+  } = useSelectionToolbar();
+  const { collapsedLines, foldStartMap, toggleFold } = useFolding(lines, filePath);
 
-  const foldStartMap = useMemo(() => {
-    const m = new Map<number, FoldRegion>();
-    foldRegions.forEach((r) => {
-      if (!m.has(r.startLine) || m.get(r.startLine)!.endLine < r.endLine) {
-        m.set(r.startLine, r);
-      }
-    });
-    return m;
-  }, [foldRegions]);
-
-  const toggleFold = (lineNum: number) => {
-    setCollapsedLines((prev) => {
-      const next = new Set(prev);
-      if (next.has(lineNum)) next.delete(lineNum);
-      else next.add(lineNum);
-      return next;
-    });
-  };
-
-  // Reset folds when file changes
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when filePath prop changes
-  useEffect(() => { setCollapsedLines(new Set()); setPendingSelectionAnchor(null); }, [filePath]);
-
-  // Theme tracking
-  const [currentTheme, setCurrentTheme] = useState(
-    () => document.documentElement.getAttribute("data-theme") ?? "light"
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setCurrentTheme(document.documentElement.getAttribute("data-theme") ?? "light");
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
+  // Reset selection when file changes
+  useEffect(() => { clearSelection(); }, [filePath, clearSelection]);
 
   // Ctrl+F keyboard handler
   useEffect(() => {
@@ -194,105 +127,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
     return parts.join("");
   }
 
-  // Syntax highlighting per line (uses deferred lines to avoid blocking during rapid updates)
-  useEffect(() => {
-    const theme = currentTheme === "dark" ? "github-dark" : "github-light";
-    const lang = langFromPath(path);
-    getSharedHighlighter()
-      .then(async (hl) => {
-        const loaded = hl.getLoadedLanguages();
-        if (!loaded.includes(lang) && lang !== "text") {
-          if (lang === "kql") {
-            await hl.loadLanguage({
-              name: "kql",
-              ...kqlGrammar,
-            }).catch(() => {});
-          } else {
-            await hl.loadLanguage(lang as BundledLanguage).catch(() => {});
-          }
-        }
-        const htmlLines = deferredLines.map((line) => {
-          try {
-            return hl.codeToHtml(line || " ", { lang, theme });
-          } catch {
-            return `<pre><code>${escapeHtml(line)}</code></pre>`;
-          }
-        });
-        setHighlightedLines(htmlLines);
-      })
-      .catch(() => setHighlightedLines([]));
-  }, [deferredLines, path, currentTheme]);
-
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
-
-  const handleMouseUp = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.isCollapsed) { setSelectionToolbar(null); return; }
-    const range = sel.getRangeAt(0);
-    const selectedText = sel.toString();
-    if (!selectedText.trim()) { setSelectionToolbar(null); return; }
-
-    const startEl = range.startContainer.parentElement?.closest("[data-line-idx]");
-    const endEl = range.endContainer.parentElement?.closest("[data-line-idx]");
-    if (!startEl || !endEl) { setSelectionToolbar(null); return; }
-
-    const startIdx = Number(startEl.getAttribute("data-line-idx"));
-    const endIdx = Number(endEl.getAttribute("data-line-idx"));
-
-    // Use last client rect for positioning near selection end
-    const rects = range.getClientRects();
-    const lastRect = rects[rects.length - 1] || range.getBoundingClientRect();
-
-    // Position above selection, clamped to viewport
-    const toolbarHeight = 36;
-    const toolbarWidth = 120;
-    let top = lastRect.top - toolbarHeight - 4;
-    let left = lastRect.left + (lastRect.width / 2) - (toolbarWidth / 2);
-
-    // Flip below if no room above
-    if (top < 4) {
-      top = lastRect.bottom + 4;
-    }
-
-    // Clamp horizontal
-    left = Math.max(4, Math.min(left, window.innerWidth - toolbarWidth - 4));
-
-    setSelectionToolbar({
-      position: { top, left },
-      lineNumber: startIdx + 1,
-      selectedText,
-      startOffset: range.startOffset,
-      endLine: endIdx + 1,
-      endOffset: range.endOffset,
-    });
-  };
-
-  const handleAddSelectionComment = async () => {
-    if (!selectionToolbar) return;
-    const { lineNumber, selectedText, startOffset, endLine, endOffset } = selectionToolbar;
-
-    const truncated = truncateSelectedText(selectedText);
-    const hash = await computeSelectedTextHash(truncated);
-
-    setPendingSelectionAnchor({
-      line: lineNumber,
-      end_line: endLine,
-      start_column: startOffset,
-      end_column: endOffset,
-      selected_text: truncated,
-      selected_text_hash: hash,
-    });
-
-    // Highlight selected lines
-    const startLine = lineNumber;
-    const endLineNum = endLine ?? lineNumber;
-    const highlighted = new Set<number>();
-    for (let i = startLine; i <= endLineNum; i++) highlighted.add(i);
-    setHighlightedSelectionLines(highlighted);
-
-    setSelectionToolbar(null);
-    setCommentingLine(lineNumber);
-  };
 
   return (
     <div className={`source-view${wordWrap ? " wrap-enabled" : ""}`} style={{ position: "relative" }}>
@@ -336,9 +171,9 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                           if (lineComments.length > 0 && expandedLine !== lineNum) {
                             setExpandedLine(lineNum);
                             setCommentingLine(null);
-                            setPendingSelectionAnchor(null);
+                            clearSelection();
                           } else {
-                            setPendingSelectionAnchor(null);
+                            clearSelection();
                             setCommentingLine(
                               commentingLine === lineNum ? null : lineNum
                             );
@@ -380,14 +215,13 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
                     matchedComments={lineComments}
                     showInput={commentingLine === lineNum}
                     forceExpanded={expandedLine === lineNum}
-                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); setPendingSelectionAnchor(null); setHighlightedSelectionLines(new Set()); }}
+                    onCloseInput={() => { setCommentingLine(null); setExpandedLine(null); clearSelection(); }}
                     onRequestInput={() => setCommentingLine(lineNum)}
                     onSaveComment={
                       pendingSelectionAnchor && commentingLine === lineNum
                         ? (text: string) => {
                             addComment(filePath, text, pendingSelectionAnchor).catch(() => {});
-                            setPendingSelectionAnchor(null);
-                            setHighlightedSelectionLines(new Set());
+                            clearSelection();
                           }
                         : undefined
                     }
@@ -419,7 +253,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
       {selectionToolbar && (
         <SelectionToolbar
           position={selectionToolbar.position}
-          onAddComment={handleAddSelectionComment}
+          onAddComment={() => handleAddSelectionComment(setCommentingLine)}
           onDismiss={() => setSelectionToolbar(null)}
         />
       )}
