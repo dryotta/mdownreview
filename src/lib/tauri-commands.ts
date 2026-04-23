@@ -90,3 +90,88 @@ export const computeDocumentPath = (
   invoke<string>("compute_document_path", { filePath, root });
 
 export const getAppVersion = (): Promise<string> => getVersion();
+
+// ── Phase 2: MVVM domain commands ─────────────────────────────────────────
+
+export interface MatchedComment extends MrsfComment {
+  matched_line_number: number;
+  is_orphaned: boolean;
+}
+
+export interface CommentThread {
+  root: MatchedComment;
+  replies: MatchedComment[];
+}
+
+export interface CommentAnchor {
+  line: number;
+  end_line?: number;
+  start_column?: number;
+  end_column?: number;
+  selected_text?: string;
+  selected_text_hash?: string;
+}
+
+export const getFileComments = (filePath: string): Promise<CommentThread[]> =>
+  invoke<CommentThread[]>("get_file_comments", { filePath });
+
+export const matchCommentsToFile = (
+  filePath: string,
+  comments: MrsfComment[]
+): Promise<MatchedComment[]> =>
+  invoke<MatchedComment[]>("match_comments_to_file", { filePath, comments });
+
+export const buildCommentThreads = (
+  comments: MatchedComment[]
+): Promise<CommentThread[]> =>
+  invoke<CommentThread[]>("build_comment_threads", { comments });
+
+export const addComment = (
+  filePath: string,
+  author: string,
+  text: string,
+  anchor?: CommentAnchor,
+  commentType?: string,
+  severity?: string,
+  document?: string
+): Promise<void> =>
+  invoke<void>("add_comment", {
+    filePath,
+    author,
+    text,
+    anchor: anchor ?? null,
+    commentType: commentType ?? null,
+    severity: severity ?? null,
+    document: document ?? null,
+  });
+
+export const addReply = (
+  filePath: string,
+  parentId: string,
+  author: string,
+  text: string
+): Promise<void> =>
+  invoke<void>("add_reply", { filePath, parentId, author, text });
+
+export const editComment = (
+  filePath: string,
+  commentId: string,
+  text: string
+): Promise<void> =>
+  invoke<void>("edit_comment", { filePath, commentId, text });
+
+export const deleteComment = (
+  filePath: string,
+  commentId: string
+): Promise<void> =>
+  invoke<void>("delete_comment", { filePath, commentId });
+
+export const setCommentResolved = (
+  filePath: string,
+  commentId: string,
+  resolved: boolean
+): Promise<void> =>
+  invoke<void>("set_comment_resolved", { filePath, commentId, resolved });
+
+export const computeAnchorHash = (text: string): Promise<string> =>
+  invoke<string>("compute_anchor_hash", { text });

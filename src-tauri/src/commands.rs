@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 
 // Re-export core types so existing code (lib.rs, tests) still compiles
-pub use crate::core::types::{DirEntry, LaunchArgs, MrsfComment, MrsfSidecar};
+pub use crate::core::types::{CommentAnchor, CommentThread, DirEntry, LaunchArgs, MatchedComment, MrsfComment, MrsfSidecar};
 
 /// Check if a path exists and whether it is a directory or file.
 /// Returns "file", "dir", or "missing".
@@ -255,4 +255,197 @@ pub fn set_root_via_test(path: String, app: tauri::AppHandle) -> Result<(), Stri
     }
 
     Ok(())
+}
+
+// ── Phase 2: MVVM domain commands ─────────────────────────────────────────
+
+/// Combined hot-path: load sidecar → match to file lines → build threads.
+/// Single IPC call for the GUI's most common operation.
+#[tauri::command]
+pub fn get_file_comments(file_path: String) -> Result<Vec<CommentThread>, String> {
+    // Load sidecar
+    let sidecar = crate::core::sidecar::load_sidecar(&file_path).map_err(|e| e.to_string())?;
+    let comments = match sidecar {
+        Some(s) => s.comments,
+        None => return Ok(vec![]),
+    };
+    if comments.is_empty() {
+        return Ok(vec![]);
+    }
+
+    // Read file content for matching
+    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Match comments to lines
+    let matched = crate::core::matching::match_comments(&comments, &lines);
+
+    // Build threads
+    Ok(crate::core::threads::group_into_threads(&matched))
+}
+
+/// Match comments to file content and return with anchoring results.
+#[tauri::command]
+pub fn match_comments_to_file(
+    file_path: String,
+    comments: Vec<MrsfComment>,
+) -> Result<Vec<MatchedComment>, String> {
+    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+    let lines: Vec<&str> = content.lines().collect();
+    Ok(crate::core::matching::match_comments(&comments, &lines))
+}
+
+/// Group matched comments into threads.
+#[tauri::command]
+pub fn build_comment_threads(
+    comments: Vec<MatchedComment>,
+) -> Result<Vec<CommentThread>, String> {
+    Ok(crate::core::threads::group_into_threads(&comments))
+}
+
+/// Create a new comment, save to sidecar.
+#[tauri::command]
+pub fn add_comment(
+    file_path: String,
+    author: String,
+    text: String,
+    anchor: Option<CommentAnchor>,
+    comment_type: Option<String>,
+    severity: Option<String>,
+    document: Option<String>,
+) -> Result<(), String> {
+    let comment = crate::core::comments::create_comment(
+        &author,
+        &text,
+        anchor,
+        comment_type.as_deref(),
+        severity.as_deref(),
+    );
+
+    // Load existing, append, save
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .unwrap_or(MrsfSidecar {
+            mrsf_version: "1.0".to_string(),
+            document: document.unwrap_or_else(|| {
+                std::path::Path::new(&file_path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            }),
+            comments: vec![],
+        });
+    sidecar.comments.push(comment);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Create a reply to an existing comment, save to sidecar.
+#[tauri::command]
+pub fn add_reply(
+    file_path: String,
+    parent_id: String,
+    author: String,
+    text: String,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let parent = sidecar
+        .comments
+        .iter()
+        .find(|c| c.id == parent_id)
+        .ok_or_else(|| format!("parent comment {} not found", parent_id))?
+        .clone();
+
+    let reply = crate::core::comments::create_reply(&author, &text, &parent);
+    sidecar.comments.push(reply);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Edit a comment's text, save to sidecar.
+#[tauri::command]
+pub fn edit_comment(
+    file_path: String,
+    comment_id: String,
+    text: String,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let comment = sidecar
+        .comments
+        .iter_mut()
+        .find(|c| c.id == comment_id)
+        .ok_or_else(|| format!("comment {} not found", comment_id))?;
+    comment.text = text;
+
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Delete a comment (with reply reparenting per MRSF §9.1), save to sidecar.
+#[tauri::command]
+pub fn delete_comment(
+    file_path: String,
+    comment_id: String,
+) -> Result<(), String> {
+    let sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let updated = crate::core::comments::delete_comment(&sidecar.comments, &comment_id);
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &updated,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Resolve or unresolve a comment, save to sidecar.
+#[tauri::command]
+pub fn set_comment_resolved(
+    file_path: String,
+    comment_id: String,
+    resolved: bool,
+) -> Result<(), String> {
+    let mut sidecar = crate::core::sidecar::load_sidecar(&file_path)
+        .map_err(|e| e.to_string())?
+        .ok_or("sidecar not found")?;
+
+    let comment = sidecar
+        .comments
+        .iter_mut()
+        .find(|c| c.id == comment_id)
+        .ok_or_else(|| format!("comment {} not found", comment_id))?;
+    comment.resolved = resolved;
+
+    crate::core::sidecar::save_sidecar(
+        &file_path,
+        &sidecar.document,
+        &sidecar.comments,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Compute SHA-256 hash for selected text anchor.
+#[tauri::command]
+pub fn compute_anchor_hash(text: String) -> String {
+    crate::core::anchors::compute_selected_text_hash(&text)
 }
