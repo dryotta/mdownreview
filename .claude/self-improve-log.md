@@ -165,3 +165,14 @@
 - **Validation**: All checks passed (31 Rust tests, 470 Vitest tests, lint clean)
 - **Tests written**: 2 Rust tests (FileChangeEvent serialization)
 - **Expert review**: Skipped (1-line Rust API change)
+
+## feat-keyboard-comments-panel  DONE
+- **Date**: 2026-04-22
+- **Branch**: auto-improve/20260422-feat-keyboard-comments-panel
+- **Type**: feature (accessibility)
+- **Task**: Add keyboard navigation to CommentsPanel
+- **Expert**: ux
+- **Commit**: a248a5d
+- **Validation**: All checks passed (475 tests, lint clean)
+- **Tests written**: 5 tests (role/tabIndex, Enter, Space, event dispatch, negative case)
+- **Expert review**: Skipped (minimal accessibility addition)

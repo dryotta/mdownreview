@@ -29,7 +29,7 @@ branch: main
 | rust-path-computation | Move relative path computation to Rust | P3 | rust-migration | yes | architect | src/hooks/useAutoSaveComments.ts, src-tauri/src/commands.rs | low | no | done |
 | feat-approval-workflow | Add file/session review approval workflow | P3 | feature | no | product | src/store/index.ts, src-tauri/src/commands.rs, src/components/TabBar/TabBar.tsx | medium | no | open |
 | feat-comment-export | Add comment export for agent consumption | P3 | feature | no | product | src-tauri/src/commands.rs | medium | no | open |
-| feat-keyboard-comments-panel | Add keyboard accessibility to CommentsPanel | P3 | feature | yes | ux | src/components/comments/CommentsPanel.tsx | low | no | open |
+| feat-keyboard-comments-panel | Add keyboard accessibility to CommentsPanel | P3 | feature | yes | ux | src/components/comments/CommentsPanel.tsx | low | no | done |
 | feat-tab-persistence | Persist open tabs across sessions | P3 | feature | yes | product | src/store/index.ts | low | no | open |
 | arch-replace-dom-events | Replace DOM CustomEvent bridge with Zustand store signals | P3 | feature | no | react-tauri, architect | src/hooks/useFileWatcher.ts, src/components/viewers/SourceView.tsx, src/components/viewers/MarkdownViewer.tsx | medium | no | open |
 | perf-fold-regions-string-concat | Fix O(n²) string concatenation in computeFoldRegions | P3 | feature | yes | performance | src/lib/fold-regions.ts | low | no | done |
@@ -472,6 +472,12 @@ it('should scan on sidecar file deletion', async () => {
 
 ### 2026-04-22  tauri-emit-to-window  DONE
 - **Lesson**: emit_to with window label is the correct Tauri v2 pattern for scoped events.
+- **New tasks added**: none
+- **Tasks re-prioritized**: none
+- **Process improvement**: none
+
+### 2026-04-22  feat-keyboard-comments-panel  DONE
+- **Lesson**: role=button + tabIndex + onKeyDown is the standard a11y pattern for clickable divs.
 - **New tasks added**: none
 - **Tasks re-prioritized**: none
 - **Process improvement**: none
