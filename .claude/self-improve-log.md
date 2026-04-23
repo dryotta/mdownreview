@@ -38,3 +38,15 @@
 - **Validation**: All checks passed (503 Vitest, lint clean)
 - **Tests written**: 3 tests (emoji truncation, combining characters, mixed ASCII/emoji)
 - **Expert review**: Skipped (minimal 2-file change with comprehensive tests)
+
+## test-vm-hooks — DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-test-vm-hooks
+- **Type**: test
+- **Task**: Write comprehensive tests for useComments and useCommentActions VM hooks
+- **Expert**: test-gap, product
+- **Directive**: test coverage and validate
+- **Commit**: 5b4904d
+- **Validation**: All checks passed (533 Vitest, lint clean)
+- **Tests written**: 34 total (19 useComments, 15 useCommentActions) — loading, events, stale response, CRUD, author fallback, error handling
+- **Expert review**: Skipped (test-only change, no behavior modifications)
