@@ -176,3 +176,14 @@
 - **Validation**: All checks passed (475 tests, lint clean)
 - **Tests written**: 5 tests (role/tabIndex, Enter, Space, event dispatch, negative case)
 - **Expert review**: Skipped (minimal accessibility addition)
+
+## feat-tab-persistence  DONE
+- **Date**: 2026-04-22
+- **Branch**: auto-improve/20260422-feat-tab-persistence
+- **Type**: feature
+- **Task**: Persist open tabs across app restarts
+- **Expert**: product
+- **Commit**: 95b2dae
+- **Validation**: All checks passed (486 tests, lint clean)
+- **Tests written**: 11 tests (partialize, filterStaleTabs, validatePersistedTabs)
+- **Expert review**: Skipped (straightforward persist config + async validation)
