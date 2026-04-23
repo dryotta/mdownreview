@@ -65,6 +65,17 @@ interface CommentsSlice {
   unresolveComment: (id: string) => void;
 }
 
+/** Find which file path contains a comment with the given ID. */
+function findFileForComment(
+  commentsByFile: Record<string, CommentWithOrphan[]>,
+  id: string
+): string | undefined {
+  for (const [fp, comments] of Object.entries(commentsByFile)) {
+    if (comments.some((c) => c.id === id)) return fp;
+  }
+  return undefined;
+}
+
 // ── UI slice ──────────────────────────────────────────────────────────────
 
 type Theme = "system" | "light" | "dark";
@@ -219,71 +230,81 @@ export const useStore = create<Store>()(
         }));
       },
       editComment: (id, text) =>
-        set((s) => ({
-          commentsByFile: Object.fromEntries(
-            Object.entries(s.commentsByFile).map(([fp, comments]) => [
-              fp,
-              comments.map((c) => (c.id === id ? { ...c, text } : c)),
-            ])
-          ),
-        })),
+        set((s) => {
+          const fp = findFileForComment(s.commentsByFile, id);
+          if (!fp) return s;
+          return {
+            commentsByFile: {
+              ...s.commentsByFile,
+              [fp]: s.commentsByFile[fp].map((c) => (c.id === id ? { ...c, text } : c)),
+            },
+          };
+        }),
       deleteComment: (id) =>
-        set((s) => ({
-          commentsByFile: Object.fromEntries(
-            Object.entries(s.commentsByFile).map(([fp, comments]) => {
-              const parent = comments.find((c) => c.id === id);
-              if (!parent) return [fp, comments];
+        set((s) => {
+          const fp = findFileForComment(s.commentsByFile, id);
+          if (!fp) return s;
+          const comments = s.commentsByFile[fp];
+          const parent = comments.find((c) => c.id === id);
+          if (!parent) return s;
 
-              // MRSF §9.1: Promote direct replies before removing parent
-              const promoted = comments.map((c) => {
-                if (c.reply_to !== id) return c;
-                const updated = { ...c };
+          // MRSF §9.1: Promote direct replies before removing parent
+          const promoted = comments.map((c) => {
+            if (c.reply_to !== id) return c;
+            const updated = { ...c };
 
-                // Copy targeting fields from parent if reply omits them
-                if (updated.line === undefined && parent.line !== undefined)
-                  updated.line = parent.line;
-                if (updated.end_line === undefined && parent.end_line !== undefined)
-                  updated.end_line = parent.end_line;
-                if (updated.start_column === undefined && parent.start_column !== undefined)
-                  updated.start_column = parent.start_column;
-                if (updated.end_column === undefined && parent.end_column !== undefined)
-                  updated.end_column = parent.end_column;
-                // Only copy selected_text + hash together to avoid mismatched pairs
-                if (updated.selected_text === undefined && parent.selected_text !== undefined) {
-                  updated.selected_text = parent.selected_text;
-                  if (parent.selected_text_hash !== undefined)
-                    updated.selected_text_hash = parent.selected_text_hash;
-                }
+            // Copy targeting fields from parent if reply omits them
+            if (updated.line === undefined && parent.line !== undefined)
+              updated.line = parent.line;
+            if (updated.end_line === undefined && parent.end_line !== undefined)
+              updated.end_line = parent.end_line;
+            if (updated.start_column === undefined && parent.start_column !== undefined)
+              updated.start_column = parent.start_column;
+            if (updated.end_column === undefined && parent.end_column !== undefined)
+              updated.end_column = parent.end_column;
+            // Only copy selected_text + hash together to avoid mismatched pairs
+            if (updated.selected_text === undefined && parent.selected_text !== undefined) {
+              updated.selected_text = parent.selected_text;
+              if (parent.selected_text_hash !== undefined)
+                updated.selected_text_hash = parent.selected_text_hash;
+            }
 
-                // Reparent to grandparent (or remove reply_to if parent was root)
-                updated.reply_to = parent.reply_to;
-                if (!updated.reply_to) delete updated.reply_to;
+            // Reparent to grandparent (or remove reply_to if parent was root)
+            updated.reply_to = parent.reply_to;
+            if (!updated.reply_to) delete updated.reply_to;
 
-                return updated;
-              });
+            return updated;
+          });
 
-              return [fp, promoted.filter((c) => c.id !== id)];
-            })
-          ),
-        })),
+          return {
+            commentsByFile: {
+              ...s.commentsByFile,
+              [fp]: promoted.filter((c) => c.id !== id),
+            },
+          };
+        }),
       resolveComment: (id) =>
-        set((s) => ({
-          commentsByFile: Object.fromEntries(
-            Object.entries(s.commentsByFile).map(([fp, comments]) => [
-              fp,
-              comments.map((c) => (c.id === id ? { ...c, resolved: true } : c)),
-            ])
-          ),
-        })),
+        set((s) => {
+          const fp = findFileForComment(s.commentsByFile, id);
+          if (!fp) return s;
+          return {
+            commentsByFile: {
+              ...s.commentsByFile,
+              [fp]: s.commentsByFile[fp].map((c) => (c.id === id ? { ...c, resolved: true } : c)),
+            },
+          };
+        }),
       unresolveComment: (id) =>
-        set((s) => ({
-          commentsByFile: Object.fromEntries(
-            Object.entries(s.commentsByFile).map(([fp, comments]) => [
-              fp,
-              comments.map((c) => (c.id === id ? { ...c, resolved: false } : c)),
-            ])
-          ),
-        })),
+        set((s) => {
+          const fp = findFileForComment(s.commentsByFile, id);
+          if (!fp) return s;
+          return {
+            commentsByFile: {
+              ...s.commentsByFile,
+              [fp]: s.commentsByFile[fp].map((c) => (c.id === id ? { ...c, resolved: false } : c)),
+            },
+          };
+        }),
 
       // UI
       theme: "system",
