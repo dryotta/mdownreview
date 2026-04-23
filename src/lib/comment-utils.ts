@@ -13,10 +13,11 @@ export function generateCommentId(): string {
   return crypto.randomUUID();
 }
 
-/** Truncate selected_text to the spec maximum (4096 chars). */
+/** Truncate selected_text to the spec maximum (4096 Unicode code points). */
 export function truncateSelectedText(text: string): string {
-  if (text.length <= SELECTED_TEXT_MAX_LENGTH) return text;
-  return text.slice(0, SELECTED_TEXT_MAX_LENGTH);
+  const codePoints = Array.from(text);
+  if (codePoints.length <= SELECTED_TEXT_MAX_LENGTH) return text;
+  return codePoints.slice(0, SELECTED_TEXT_MAX_LENGTH).join("");
 }
 
 /** Validate and clamp MRSF targeting fields per spec §7.1. Logs warning on clamping. */
