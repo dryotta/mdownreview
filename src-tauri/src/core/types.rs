@@ -51,6 +51,39 @@ pub struct MrsfSidecar {
     pub comments: Vec<MrsfComment>,
 }
 
+/// Anchor specification for creating new comments
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentAnchor {
+    pub line: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_column: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_column: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_text_hash: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MatchedComment {
+    #[serde(flatten)]
+    pub comment: MrsfComment,
+    pub matched_line_number: u32,
+    pub is_orphaned: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchored_text: Option<String>,
+}
+
+/// A thread: root comment with its replies sorted by timestamp
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommentThread {
+    pub root: MatchedComment,
+    pub replies: Vec<MatchedComment>,
+}
+
 /// Mutations that can be applied to a comment via patch_comment.
 pub enum CommentMutation {
     SetResolved(bool),
