@@ -1,7 +1,8 @@
 # CLI Mode + Core Extraction — Design Spec
 
 **Issue:** [#17 — Rich CLI support without GUI](https://github.com/dryotta/mdownreview/issues/17)
-**Scope:** Phase 1 of 4 — CLI binary and core module extraction
+**Scope:** Phase 1 of 3 — CLI binary and core module extraction
+**Phases:** **Phase 1 (CLI + Core Extraction)** → Phase 2 (MVVM Refactor) → Phase 3 (Performance Benchmarks)
 **Date:** 2026-04-22
 
 ## Problem
@@ -377,6 +378,5 @@ Once the CLI binary is stable:
 
 ## Future Phases
 
-- **Phase 2:** MVVM refactor — move comment-matching, anchoring, and thread-building from TypeScript into `core/`
-- **Phase 3:** React optimization — Zustand selectors, Shiki consolidation, dep pruning
-- **Phase 4:** Performance benchmarks — CLI timing, GUI rendering metrics, CI regression gates
+- **Phase 2:** MVVM refactor — move comment-matching, anchoring, threading, mutations from TypeScript into `core/`; restructure React as pure View with ViewModel adapter; Shiki consolidation; dep pruning
+- **Phase 3:** Performance benchmarks — criterion micro-benchmarks for core Rust, CLI subprocess timing, Playwright GUI metrics, CI regression gates
