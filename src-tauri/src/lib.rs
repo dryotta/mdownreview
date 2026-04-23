@@ -216,48 +216,39 @@ pub fn run() {
         })
         ;
 
+    // Shared command list — debug adds set_root_via_test for native e2e tests
+    macro_rules! shared_commands {
+        ($($extra:path),* $(,)?) => {
+            tauri::generate_handler![
+                commands::read_dir,
+                commands::read_text_file,
+                commands::read_binary_file,
+                commands::get_launch_args,
+                commands::get_log_path,
+                commands::scan_review_files,
+                commands::check_path_exists,
+                commands::get_file_comments,
+                commands::add_comment,
+                commands::add_reply,
+                commands::edit_comment,
+                commands::delete_comment,
+                commands::set_comment_resolved,
+                commands::compute_anchor_hash,
+                watcher::update_watched_files,
+                $($extra),*
+            ]
+        };
+    }
+
     #[cfg(debug_assertions)]
     let app = app
-        .invoke_handler(tauri::generate_handler![
-            commands::read_dir,
-            commands::read_text_file,
-            commands::read_binary_file,
-            commands::get_launch_args,
-            commands::get_log_path,
-            commands::scan_review_files,
-            commands::check_path_exists,
-            commands::get_file_comments,
-            commands::add_comment,
-            commands::add_reply,
-            commands::edit_comment,
-            commands::delete_comment,
-            commands::set_comment_resolved,
-            commands::compute_anchor_hash,
-            watcher::update_watched_files,
-            commands::set_root_via_test,
-        ])
+        .invoke_handler(shared_commands![commands::set_root_via_test])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
     #[cfg(not(debug_assertions))]
     let app = app
-        .invoke_handler(tauri::generate_handler![
-            commands::read_dir,
-            commands::read_text_file,
-            commands::read_binary_file,
-            commands::get_launch_args,
-            commands::get_log_path,
-            commands::scan_review_files,
-            commands::check_path_exists,
-            commands::get_file_comments,
-            commands::add_comment,
-            commands::add_reply,
-            commands::edit_comment,
-            commands::delete_comment,
-            commands::set_comment_resolved,
-            commands::compute_anchor_hash,
-            watcher::update_watched_files,
-        ])
+        .invoke_handler(shared_commands![])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
