@@ -86,6 +86,19 @@ Starts a task safely by ensuring you're always on a feature branch, never main.
 
 ---
 
+#### `/groom-issues`
+
+Interactively grooms GitHub issues by brainstorming requirements and attaching a structured spec as a comment.
+
+- **Default**: fetches all open issues labeled `needs-grooming`, processes oldest first
+- **With issue numbers** (`/groom-issues #36 #42`): grooms those specific issues regardless of labels
+- Asks clarifying questions one at a time, proposes approaches, generates a spec
+- Posts spec as a comment (with HTML marker for re-groom updates)
+- Swaps labels: `needs-grooming` → `groomed`
+- To re-groom: remove `groomed`, add `needs-grooming` — the skill updates the existing spec
+
+---
+
 #### `/run-tests`
 
 Selects and runs the right test suite based on what changed.
