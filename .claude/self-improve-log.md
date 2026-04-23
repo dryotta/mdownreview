@@ -50,3 +50,15 @@
 - **Validation**: All checks passed (533 Vitest, lint clean)
 - **Tests written**: 34 total (19 useComments, 15 useCommentActions) — loading, events, stale response, CRUD, author fallback, error handling
 - **Expert review**: Skipped (test-only change, no behavior modifications)
+
+## fix-stale-persistence-test — DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-fix-stale-persistence-test
+- **Type**: test
+- **Task**: Fix stale persistence test contradicting tab persistence
+- **Expert**: test-gap
+- **Directive**: test coverage and validate
+- **Commit**: 90f1d12
+- **Validation**: All checks passed (533 Vitest, lint clean)
+- **Tests written**: Updated 3 existing assertions (tabs, activeTabPath, expected keys)
+- **Expert review**: Skipped (trivial test assertion update)
