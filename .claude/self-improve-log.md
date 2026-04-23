@@ -187,3 +187,14 @@
 - **Validation**: All checks passed (486 tests, lint clean)
 - **Tests written**: 11 tests (partialize, filterStaleTabs, validatePersistedTabs)
 - **Expert review**: Skipped (straightforward persist config + async validation)
+
+## feat-comment-markdown-render  DONE
+- **Date**: 2026-04-22
+- **Branch**: auto-improve/20260422-feat-comment-markdown-render
+- **Type**: feature
+- **Task**: Render comment text as markdown
+- **Expert**: product
+- **Commit**: fb17db9
+- **Validation**: Initial fail (2 CommentsPanel tests), fixed selectors, 492 tests pass
+- **Tests written**: 6 tests (bold, plain text, links, inline code, lists, div wrapper)
+- **Expert review**: Skipped (lightweight rendering change)

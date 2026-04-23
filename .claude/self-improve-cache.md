@@ -36,7 +36,7 @@ branch: main
 | react-use-deferred-value-shiki | Add useDeferredValue for Shiki highlighting | P3 | feature | yes | react-tauri | src/components/viewers/SourceView.tsx | low | no | done |
 | react-use-transition-search | Add useTransition for search input | P3 | feature | yes | react-tauri | src/hooks/useSearch.ts | low | no | done |
 | tauri-emit-to-window | Use emit_to() instead of emit() for file-changed events | P3 | feature | yes | react-tauri | src-tauri/src/watcher.rs | low | no | done |
-| feat-comment-markdown-render | Render comment text as markdown instead of plain text | P3 | feature | yes | product | src/components/comments/CommentThread.tsx | low | no | open |
+| feat-comment-markdown-render | Render comment text as markdown instead of plain text | P3 | feature | yes | product | src/components/comments/CommentThread.tsx | low | no | done |
 
 <!-- Status values: open, done, failed, skipped -->
 
@@ -487,3 +487,9 @@ it('should scan on sidecar file deletion', async () => {
 - **New tasks added**: none
 - **Tasks re-prioritized**: none
 - **Process improvement**: none
+
+### 2026-04-22  feat-comment-markdown-render  DONE
+- **Lesson**: Changing element type (p->div) can break tests that filter by className on text nodes. Always check consuming tests.
+- **New tasks added**: none
+- **Tasks re-prioritized**: none
+- **Process improvement**: Validator should list affected test files beyond just the changed component
