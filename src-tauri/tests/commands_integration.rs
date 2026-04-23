@@ -2,6 +2,7 @@ use mdown_review_lib::commands::{
     compute_document_path, get_git_head, load_review_comments, read_binary_file, read_dir,
     read_text_file, save_review_comments, LaunchArgs, LaunchArgsState, MrsfComment, MrsfSidecar,
 };
+use mdown_review_lib::watcher::FileChangeEvent;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
@@ -371,4 +372,32 @@ fn compute_document_path_returns_filename_with_empty_root() {
     // Empty root string should fallback to filename, not return absolute path
     let result = compute_document_path("/workspace/project/file.md".into(), Some("".into()));
     assert_eq!(result, "file.md");
+}
+
+// ── FileChangeEvent serialization ─────────────────────────────────────────
+
+#[test]
+fn file_change_event_serializes_with_correct_fields() {
+    let event = FileChangeEvent {
+        path: "/project/docs/readme.md".to_string(),
+        kind: "content".to_string(),
+    };
+    let json: serde_json::Value = serde_json::to_value(&event).unwrap();
+    assert_eq!(json["path"], "/project/docs/readme.md");
+    assert_eq!(json["kind"], "content");
+    // Ensure no extra fields are present
+    let obj = json.as_object().unwrap();
+    assert_eq!(obj.len(), 2, "FileChangeEvent should have exactly 2 fields: path and kind");
+}
+
+#[test]
+fn file_change_event_serializes_all_kinds() {
+    for kind in &["content", "review", "deleted"] {
+        let event = FileChangeEvent {
+            path: "test.md".to_string(),
+            kind: kind.to_string(),
+        };
+        let json: serde_json::Value = serde_json::to_value(&event).unwrap();
+        assert_eq!(json["kind"].as_str().unwrap(), *kind);
+    }
 }
