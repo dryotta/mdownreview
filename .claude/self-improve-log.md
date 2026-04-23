@@ -88,3 +88,14 @@
 - **Validation**: All checks passed (455 tests, lint clean)
 - **Tests written**: 13 tests (referential identity + correctness for editComment, deleteComment, resolveComment, unresolveComment)
 - **Expert review**: Session crashed during review; validator passed, skipped re-review
+
+## rust-path-computation  DONE
+- **Date**: 2026-04-22
+- **Branch**: auto-improve/20260422-rust-path-computation
+- **Type**: rust-migration
+- **Task**: Move relative path computation to Rust
+- **Expert**: architect
+- **Commit**: 39192f9
+- **Validation**: All checks passed (455 tests, 29 Rust tests, lint clean)
+- **Tests written**: 8 Rust integration tests (relative path, no root, not-under-root, nested, root-equals-file, forward slashes, trailing separator, empty root)
+- **Expert review**: 5 approved; perf expert objected to IPC overhead for trivial computation (AGENTS.md mandates Rust-first for path ops); 3 experts flagged Promise.all fix - applied

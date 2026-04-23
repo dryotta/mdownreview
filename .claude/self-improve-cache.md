@@ -26,7 +26,7 @@ branch: main
 | perf-shiki-whole-doc | Switch Shiki from per-line to whole-document highlighting | P2 | feature | no | performance | src/components/viewers/SourceView.tsx | medium | no | open |
 | rust-levenshtein-migration | Move Levenshtein fuzzy matching to Rust command | P2 | rust-migration | no | performance, architect | src/lib/comment-matching.ts, src-tauri/src/commands.rs | medium | no | open |
 | rust-html-asset-resolution | Move HTML asset resolution to single Rust command | P3 | rust-migration | no | react-tauri | src/lib/resolve-html-assets.ts, src-tauri/src/commands.rs | medium | no | open |
-| rust-path-computation | Move relative path computation to Rust | P3 | rust-migration | yes | architect | src/hooks/useAutoSaveComments.ts, src-tauri/src/commands.rs | low | no | open |
+| rust-path-computation | Move relative path computation to Rust | P3 | rust-migration | yes | architect | src/hooks/useAutoSaveComments.ts, src-tauri/src/commands.rs | low | no | done |
 | feat-approval-workflow | Add file/session review approval workflow | P3 | feature | no | product | src/store/index.ts, src-tauri/src/commands.rs, src/components/TabBar/TabBar.tsx | medium | no | open |
 | feat-comment-export | Add comment export for agent consumption | P3 | feature | no | product | src-tauri/src/commands.rs | medium | no | open |
 | feat-keyboard-comments-panel | Add keyboard accessibility to CommentsPanel | P3 | feature | yes | ux | src/components/comments/CommentsPanel.tsx | low | no | open |
@@ -433,3 +433,9 @@ it('should scan on sidecar file deletion', async () => {
 - **New tasks added**: none
 - **Tasks re-prioritized**: none
 - **Process improvement**: none
+
+### 2026-04-22  rust-path-computation  DONE
+- **Lesson**: Perf expert correctly noted IPC overhead for trivial computation. Kept per AGENTS.md Rust-first for path ops. Applied Promise.all to parallelize independent IPC calls. Test-gap reviewer caught CI-breaking Windows test - gated with cfg(windows).
+- **New tasks added**: none
+- **Tasks re-prioritized**: none
+- **Process improvement**: Always cfg-gate platform-specific Rust tests
