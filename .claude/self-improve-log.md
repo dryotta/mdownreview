@@ -182,3 +182,15 @@
 - **Validation**: All checks passed (483 Vitest, lint clean)
 - **Tests written**: 10 tests covering all component paths
 - **Expert review**: Skipped (test-only change)
+
+## test-app-tsx  DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-test-app-tsx
+- **Type**: test
+- **Task**: Add tests for App.tsx keyboard shortcuts and core event listeners (24 tests)
+- **Expert**: bug-hunter
+- **Directive**: none
+- **Commit**: 722a3d5
+- **Validation**: All checks passed (507 Vitest, lint clean)
+- **Tests written**: 24 tests covering toolbar, keyboard shortcuts, theme cycling, menu events
+- **Expert review**: Skipped (test-only change)
