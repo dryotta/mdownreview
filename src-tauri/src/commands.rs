@@ -1,6 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
+
+// Re-export core types so existing code (lib.rs, tests) still compiles
+pub use crate::core::types::{DirEntry, LaunchArgs, MrsfComment, MrsfSidecar};
 
 /// Check if a path exists and whether it is a directory or file.
 /// Returns "file", "dir", or "missing".
@@ -39,58 +41,7 @@ pub fn compute_document_path(file_path: String, root: Option<String>) -> String 
         .unwrap_or(file_path)
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirEntry {
-    pub name: String,
-    pub path: String,
-    pub is_dir: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct LaunchArgs {
-    pub files: Vec<String>,
-    pub folders: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct MrsfComment {
-    pub id: String,
-    pub author: String,
-    pub timestamp: String,
-    pub text: String,
-    pub resolved: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_line: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub start_column: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_column: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub anchored_text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub selected_text_hash: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commit: Option<String>,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub comment_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub severity: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MrsfSidecar {
-    pub mrsf_version: String,
-    pub document: String,
-    pub comments: Vec<MrsfComment>,
-}
+// Types are re-exported from core::types above
 
 pub type LaunchArgsState = Arc<Mutex<Option<LaunchArgs>>>;
 
@@ -194,90 +145,22 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
-/// Save review comments as MRSF YAML sidecar (atomic via temp + rename).
+/// Save review comments as MRSF YAML sidecar (delegates to core::sidecar).
 #[tauri::command]
 pub fn save_review_comments(file_path: String, document: String, comments: Vec<MrsfComment>) -> Result<(), String> {
-    let sidecar_path = std::path::PathBuf::from(format!("{}.review.yaml", file_path));
-
-    // When all comments are gone, remove the sidecar rather than leaving an empty file.
-    if comments.is_empty() {
-        if sidecar_path.exists() {
-            std::fs::remove_file(&sidecar_path).map_err(|e| {
-                tracing::error!("[rust] command error: {}", e);
-                e.to_string()
-            })?;
-        }
-        return Ok(());
-    }
-
-    let payload = MrsfSidecar {
-        mrsf_version: "1.0".to_string(),
-        document,
-        comments,
-    };
-    let yaml = serde_yaml::to_string(&payload).map_err(|e| {
+    crate::core::sidecar::save_sidecar(&file_path, &document, &comments).map_err(|e| {
         tracing::error!("[rust] command error: {}", e);
         e.to_string()
-    })?;
-
-    // Write to temp file in same directory, then rename for atomicity
-    let dir = sidecar_path.parent().unwrap_or(std::path::Path::new("."));
-    let tmp_path = dir.join(format!(
-        ".review-{}.tmp",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos()
-    ));
-    std::fs::write(&tmp_path, &yaml).map_err(|e| {
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })?;
-    std::fs::rename(&tmp_path, &sidecar_path).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp_path);
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })?;
-    Ok(())
+    })
 }
 
-/// Load review comments sidecar; tries .review.yaml first, then .review.json.
+/// Load review comments sidecar (delegates to core::sidecar).
 #[tauri::command]
 pub fn load_review_comments(file_path: String) -> Result<Option<MrsfSidecar>, String> {
-    let yaml_path = format!("{}.review.yaml", file_path);
-    let json_path = format!("{}.review.json", file_path);
-
-    // Try YAML first
-    match std::fs::read_to_string(&yaml_path) {
-        Ok(content) => {
-            let sidecar: MrsfSidecar = serde_yaml::from_str(&content).map_err(|e| {
-                tracing::error!("[rust] YAML parse error: {}", e);
-                e.to_string()
-            })?;
-            return Ok(Some(sidecar));
-        }
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-            tracing::error!("[rust] command error: {}", e);
-            return Err(e.to_string());
-        }
-        _ => {} // Not found, try JSON
-    }
-
-    // Try JSON fallback
-    match std::fs::read_to_string(&json_path) {
-        Ok(content) => {
-            let sidecar: MrsfSidecar = serde_json::from_str(&content).map_err(|e| {
-                tracing::error!("[rust] JSON parse error: {}", e);
-                e.to_string()
-            })?;
-            Ok(Some(sidecar))
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(e) => {
-            tracing::error!("[rust] command error: {}", e);
-            Err(e.to_string())
-        }
-    }
+    crate::core::sidecar::load_sidecar(&file_path).map_err(|e| {
+        tracing::error!("[rust] command error: {}", e);
+        e.to_string()
+    })
 }
 
 /// Get (and clear) launch args stored during setup.
@@ -297,38 +180,10 @@ pub fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
     Ok(log_dir.join("mdownreview.log").to_string_lossy().into_owned())
 }
 
-/// Scan a directory tree for MRSF sidecar files (.review.yaml and .review.json).
-/// Returns pairs of (sidecar_path, source_file_path).
+/// Scan a directory tree for MRSF sidecar files (delegates to core::scanner).
 #[tauri::command]
 pub fn scan_review_files(root: String) -> Result<Vec<(String, String)>, String> {
-    let mut results = Vec::new();
-    let walker = walkdir::WalkDir::new(&root)
-        .max_depth(50)
-        .into_iter()
-        .filter_map(|e| e.ok());
-
-    for entry in walker {
-        let path = entry.path();
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            let (is_sidecar, suffix) = if name.ends_with(".review.yaml") {
-                (true, ".review.yaml")
-            } else if name.ends_with(".review.json") {
-                (true, ".review.json")
-            } else {
-                (false, "")
-            };
-            if is_sidecar {
-                let sidecar = path.to_string_lossy().to_string();
-                let source = sidecar.trim_end_matches(suffix).to_string();
-                results.push((sidecar, source));
-            }
-        }
-        if results.len() >= 10_000 {
-            tracing::warn!("[scan] capped at 10,000 review files");
-            break;
-        }
-    }
-    Ok(results)
+    Ok(crate::core::scanner::find_review_files(&root, 10_000))
 }
 
 /// Get the current git HEAD SHA, if in a git repository.

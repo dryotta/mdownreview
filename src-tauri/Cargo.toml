@@ -10,6 +10,10 @@ edition = "2021"
 name = "mdown_review_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "mdownreview-cli"
+path = "src/bin/cli.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -32,6 +36,8 @@ notify-debouncer-mini = "0.5"
 walkdir = "2"
 serde_yaml = "0.9"
 sha2 = "0.10"
+clap = { version = "4", features = ["derive"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 tempfile = "3"

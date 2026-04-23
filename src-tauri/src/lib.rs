@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod core;
 pub mod watcher;
 
 use commands::LaunchArgsState;
