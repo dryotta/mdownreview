@@ -27,6 +27,8 @@ function getPersistedSnapshot() {
     autoReveal: state.autoReveal,
     authorName: state.authorName,
     recentItems: state.recentItems,
+    tabs: state.tabs,
+    activeTabPath: state.activeTabPath,
   };
 }
 
@@ -47,16 +49,17 @@ describe("persistence partialize contract", () => {
     expect(snapshot).not.toHaveProperty("commentsByFile");
   });
 
-  it("does not include tabs in the persisted snapshot", () => {
+  it("includes tabs in the persisted snapshot", () => {
     useStore.getState().openFile("/some/file.md");
     const snapshot = getPersistedSnapshot();
-    expect(snapshot).not.toHaveProperty("tabs");
+    expect(snapshot).toHaveProperty("tabs");
+    expect(snapshot.tabs.length).toBeGreaterThan(0);
   });
 
-  it("does not include activeTabPath in the persisted snapshot", () => {
+  it("includes activeTabPath in the persisted snapshot", () => {
     useStore.getState().openFile("/some/file.md");
     const snapshot = getPersistedSnapshot();
-    expect(snapshot).not.toHaveProperty("activeTabPath");
+    expect(snapshot).toHaveProperty("activeTabPath", "/some/file.md");
   });
 
   it("includes theme in the persisted snapshot", () => {
@@ -101,7 +104,7 @@ describe("persistence partialize contract", () => {
     const snapshot = getPersistedSnapshot();
     const keys = Object.keys(snapshot).sort();
     expect(keys).toEqual(
-      ["authorName", "autoReveal", "commentsPaneVisible", "expandedFolders", "folderPaneWidth", "recentItems", "root", "theme"].sort()
+      ["activeTabPath", "authorName", "autoReveal", "commentsPaneVisible", "expandedFolders", "folderPaneWidth", "recentItems", "root", "tabs", "theme"].sort()
     );
   });
 
