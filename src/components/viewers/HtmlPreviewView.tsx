@@ -10,7 +10,10 @@ export function HtmlPreviewView({ content, filePath }: Props) {
   const [unsafeMode, setUnsafeMode] = useState(false);
   const [resolvedContent, setResolvedContent] = useState(content);
   const [resolving, setResolving] = useState(false);
-  const sandbox = unsafeMode ? "allow-same-origin allow-scripts" : "allow-same-origin";
+  // Security: never combine allow-same-origin + allow-scripts (iframe escape).
+  // Safe mode: allow-same-origin only (for CSS/fonts, no script execution).
+  // Unsafe mode: allow-scripts only (scripts run sandboxed, cannot access parent).
+  const sandbox = unsafeMode ? "allow-scripts" : "allow-same-origin";
 
   useEffect(() => {
     if (!filePath) {

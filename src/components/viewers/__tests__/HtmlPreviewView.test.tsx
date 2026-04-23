@@ -24,5 +24,6 @@ describe("HtmlPreviewView", () => {
     fireEvent.click(screen.getByRole("button", { name: /enable scripts/i }));
     const iframe = container.querySelector("iframe");
     expect(iframe?.getAttribute("sandbox")).toContain("allow-scripts");
+    expect(iframe?.getAttribute("sandbox")).not.toContain("allow-same-origin");
   });
 });

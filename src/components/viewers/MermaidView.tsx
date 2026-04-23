@@ -18,7 +18,7 @@ export function MermaidView({ content }: Props) {
     async function renderDiagram() {
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false, theme: "default" });
+        mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "strict" });
         const { svg: renderedSvg } = await mermaid.render(mermaidId, content);
         if (!cancelled) {
           setSvg(renderedSvg);
