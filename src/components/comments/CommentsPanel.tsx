@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
-import { useStore } from "@/store";
+import { useComments } from "@/lib/vm/use-comments";
 import { CommentThread } from "./CommentThread";
-import { groupCommentsIntoThreads } from "@/lib/comment-threads";
-import type { CommentWithOrphan } from "@/store";
+import type { MatchedComment } from "@/lib/tauri-commands";
 import "@/styles/comments.css";
 
 interface Props {
@@ -11,15 +10,10 @@ interface Props {
 }
 
 export function CommentsPanel({ filePath, onScrollToLine }: Props) {
-  const commentsByFile = useStore((s) => s.commentsByFile);
+  const { threads } = useComments(filePath);
   const [showResolved, setShowResolved] = useState(false);
 
-  const allComments = commentsByFile[filePath];
-
   const { sorted, unresolved, resolved } = useMemo(() => {
-    const comments = allComments ?? [];
-    const threads = groupCommentsIntoThreads(comments);
-
     const sorted = [...threads].sort(
       (a, b) => (a.root.matchedLineNumber ?? a.root.line ?? 0) - (b.root.matchedLineNumber ?? b.root.line ?? 0)
     );
@@ -27,17 +21,17 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
     const unresolved = sorted.filter(t => !t.root.resolved);
     const resolved = sorted.filter(t => t.root.resolved);
     return { sorted, unresolved, resolved };
-  }, [allComments]);
+  }, [threads]);
 
   const displayed = showResolved ? sorted : unresolved;
 
-  const handleClick = useCallback((comment: CommentWithOrphan) => {
+  const handleClick = useCallback((comment: MatchedComment) => {
     const line = comment.matchedLineNumber ?? comment.line ?? 1;
     onScrollToLine?.(line);
     window.dispatchEvent(new CustomEvent("scroll-to-line", { detail: { line } }));
   }, [onScrollToLine]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, comment: CommentWithOrphan) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, comment: MatchedComment) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       handleClick(comment);

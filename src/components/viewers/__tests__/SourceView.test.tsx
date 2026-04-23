@@ -12,9 +12,19 @@ vi.mock("@/lib/shiki", () => ({
 
 vi.mock("@/logger");
 
-vi.mock("@/lib/tauri-commands", () => ({
-  loadReviewComments: vi.fn().mockResolvedValue(null),
-  saveReviewComments: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/lib/vm/use-comments", () => ({
+  useComments: vi.fn(() => ({ threads: [], comments: [], loading: false, reload: vi.fn() })),
+}));
+
+vi.mock("@/lib/vm/use-comment-actions", () => ({
+  useCommentActions: vi.fn(() => ({
+    addComment: vi.fn(),
+    addReply: vi.fn(),
+    editComment: vi.fn(),
+    deleteComment: vi.fn(),
+    resolveComment: vi.fn(),
+    unresolveComment: vi.fn(),
+  })),
 }));
 
 describe("SourceView", () => {

@@ -1,16 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { CommentThread } from "../CommentThread";
-import { useStore } from "@/store";
 import type { CommentWithOrphan } from "@/store";
 
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
 
-const initialState = useStore.getState();
+const mockEditComment = vi.fn().mockResolvedValue(undefined);
+const mockDeleteComment = vi.fn().mockResolvedValue(undefined);
+const mockResolveComment = vi.fn().mockResolvedValue(undefined);
+const mockUnresolveComment = vi.fn().mockResolvedValue(undefined);
+const mockAddReply = vi.fn().mockResolvedValue(undefined);
+const mockAddComment = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/vm/use-comment-actions", () => ({
+  useCommentActions: vi.fn(() => ({
+    addComment: mockAddComment,
+    addReply: mockAddReply,
+    editComment: mockEditComment,
+    deleteComment: mockDeleteComment,
+    resolveComment: mockResolveComment,
+    unresolveComment: mockUnresolveComment,
+  })),
+}));
 
 beforeEach(() => {
-  useStore.setState(initialState, true);
+  vi.clearAllMocks();
 });
 
 function makeComment(overrides: Partial<CommentWithOrphan> = {}): CommentWithOrphan {
@@ -50,10 +65,7 @@ describe("CommentThread - existing functionality", () => {
     expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
   });
 
-  it("saving edit calls editComment in store", () => {
-    const editCommentSpy = vi.fn();
-    useStore.setState({ editComment: editCommentSpy } as never);
-
+  it("saving edit calls editComment with filePath", () => {
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
     fireEvent.click(screen.getByRole("button", { name: /edit/i }));
 
@@ -61,27 +73,21 @@ describe("CommentThread - existing functionality", () => {
     fireEvent.change(textarea, { target: { value: "updated text" } });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(editCommentSpy).toHaveBeenCalledWith("comment-1", "updated text");
+    expect(mockEditComment).toHaveBeenCalledWith("/test/file.md", "comment-1", "updated text");
   });
 
-  it("Delete button calls deleteComment in store", () => {
-    const deleteCommentSpy = vi.fn();
-    useStore.setState({ deleteComment: deleteCommentSpy } as never);
-
+  it("Delete button calls deleteComment with filePath", () => {
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));
 
-    expect(deleteCommentSpy).toHaveBeenCalledWith("comment-1");
+    expect(mockDeleteComment).toHaveBeenCalledWith("/test/file.md", "comment-1");
   });
 
-  it("Resolve button calls resolveComment in store", () => {
-    const resolveCommentSpy = vi.fn();
-    useStore.setState({ resolveComment: resolveCommentSpy } as never);
-
+  it("Resolve button calls resolveComment with filePath", () => {
     render(<CommentThread rootComment={makeComment({ resolved: false })} filePath="/test/file.md" />);
     fireEvent.click(screen.getByRole("button", { name: /resolve/i }));
 
-    expect(resolveCommentSpy).toHaveBeenCalledWith("comment-1");
+    expect(mockResolveComment).toHaveBeenCalledWith("/test/file.md", "comment-1");
   });
 
   it("resolved comment shows 'Unresolve' button instead of 'Resolve'", () => {
@@ -92,13 +98,10 @@ describe("CommentThread - existing functionality", () => {
   });
 
   it("resolved comment calls unresolveComment when Unresolve is clicked", () => {
-    const unresolveCommentSpy = vi.fn();
-    useStore.setState({ unresolveComment: unresolveCommentSpy } as never);
-
     render(<CommentThread rootComment={makeComment({ resolved: true })} filePath="/test/file.md" />);
     fireEvent.click(screen.getByRole("button", { name: /unresolve/i }));
 
-    expect(unresolveCommentSpy).toHaveBeenCalledWith("comment-1");
+    expect(mockUnresolveComment).toHaveBeenCalledWith("/test/file.md", "comment-1");
   });
 });
 
@@ -186,9 +189,6 @@ describe("CommentThread - Reply action", () => {
   });
 
   it("calls addReply when Send is clicked with valid text", () => {
-    const addReplySpy = vi.fn();
-    useStore.setState({ addReply: addReplySpy } as never);
-
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
 
     fireEvent.click(screen.getByRole("button", { name: /reply/i }));
@@ -197,13 +197,10 @@ describe("CommentThread - Reply action", () => {
     fireEvent.change(textarea, { target: { value: "My reply text" } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    expect(addReplySpy).toHaveBeenCalledWith("/test/file.md", "comment-1", "My reply text");
+    expect(mockAddReply).toHaveBeenCalledWith("/test/file.md", "comment-1", "My reply text");
   });
 
   it("clears and hides reply textarea after successful send", () => {
-    const addReplySpy = vi.fn();
-    useStore.setState({ addReply: addReplySpy } as never);
-
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
 
     fireEvent.click(screen.getByRole("button", { name: /reply/i }));
@@ -216,21 +213,15 @@ describe("CommentThread - Reply action", () => {
   });
 
   it("does not call addReply when Send is clicked with empty text", () => {
-    const addReplySpy = vi.fn();
-    useStore.setState({ addReply: addReplySpy } as never);
-
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
 
     fireEvent.click(screen.getByRole("button", { name: /reply/i }));
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    expect(addReplySpy).not.toHaveBeenCalled();
+    expect(mockAddReply).not.toHaveBeenCalled();
   });
 
   it("does not call addReply when Send is clicked with only whitespace", () => {
-    const addReplySpy = vi.fn();
-    useStore.setState({ addReply: addReplySpy } as never);
-
     render(<CommentThread rootComment={makeComment()} filePath="/test/file.md" />);
 
     fireEvent.click(screen.getByRole("button", { name: /reply/i }));
@@ -239,7 +230,7 @@ describe("CommentThread - Reply action", () => {
     fireEvent.change(textarea, { target: { value: "   " } });
     fireEvent.click(screen.getByRole("button", { name: /send/i }));
 
-    expect(addReplySpy).not.toHaveBeenCalled();
+    expect(mockAddReply).not.toHaveBeenCalled();
   });
 
   it("shows reply input area when Reply is clicked", () => {

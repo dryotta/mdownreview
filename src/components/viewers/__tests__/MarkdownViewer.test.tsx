@@ -24,6 +24,21 @@ vi.mock("@shikijs/rehype", () => ({
   default: () => () => {},
 }));
 
+vi.mock("@/lib/vm/use-comments", () => ({
+  useComments: vi.fn(() => ({ threads: [], comments: [], loading: false, reload: vi.fn() })),
+}));
+
+vi.mock("@/lib/vm/use-comment-actions", () => ({
+  useCommentActions: vi.fn(() => ({
+    addComment: vi.fn(),
+    addReply: vi.fn(),
+    editComment: vi.fn(),
+    deleteComment: vi.fn(),
+    resolveComment: vi.fn(),
+    unresolveComment: vi.fn(),
+  })),
+}));
+
 // Mock child components to simplify testing
 vi.mock("../FrontmatterBlock", () => ({
   FrontmatterBlock: ({ data }: { data: Record<string, unknown> }) => (
@@ -67,10 +82,6 @@ vi.mock("../TableOfContents", () => ({
 
 vi.mock("@/components/comments/LineCommentMargin", () => ({
   LineCommentMargin: () => null,
-}));
-
-vi.mock("@/lib/comment-matching", () => ({
-  matchComments: () => [],
 }));
 
 const FILE_PATH = "/docs/README.md";

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "@/store";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { CommentInput } from "./CommentInput";
 import { CommentThread } from "./CommentThread";
 import { groupCommentsIntoThreads } from "@/lib/comment-threads";
@@ -23,7 +23,7 @@ interface Props {
 export function LineCommentMargin({
   filePath, lineNumber, lineText, matchedComments, showInput, onCloseInput, onSaveComment, forceExpanded, onRequestInput,
 }: Props) {
-  const addComment = useStore((s) => s.addComment);
+  const { addComment } = useCommentActions();
   const [expanded, setExpanded] = useState(false);
 
   const unresolved = matchedComments.filter((c) => !c.resolved);
@@ -35,7 +35,7 @@ export function LineCommentMargin({
       // MRSF §6.2: line-only comments SHOULD include full line as selected_text
       const selectedText = truncateSelectedText(lineText);
       const hash = await computeSelectedTextHash(selectedText);
-      addComment(filePath, { line: lineNumber, selected_text: selectedText, selected_text_hash: hash }, text);
+      addComment(filePath, text, { line: lineNumber, selected_text: selectedText, selected_text_hash: hash }).catch(() => {});
     }
     onCloseInput?.();
     setExpanded(true);

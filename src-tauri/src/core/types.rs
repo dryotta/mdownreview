@@ -68,6 +68,7 @@ pub struct CommentAnchor {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MatchedComment {
     #[serde(flatten)]
     pub comment: MrsfComment,

@@ -7,6 +7,21 @@ function setupCommentMock(page: Page, comments: unknown) {
   return page.addInitScript(
     ({ dir, comments }: { dir: string; comments: unknown }) => {
       (window as Record<string, unknown>).__SAVE_CALLS__ = [];
+      (window as Record<string, unknown>).__RESOLVE_CALLS__ = [];
+
+      function toThreads(raw: Record<string, unknown> | null): unknown[] {
+        if (!raw || !Array.isArray((raw as Record<string, unknown>).comments)) return [];
+        const allComments = (raw as Record<string, unknown>).comments as Record<string, unknown>[];
+        if (allComments.length === 0) return [];
+        const roots = allComments.filter(c => !c.reply_to);
+        return roots.map(root => ({
+          root: { ...root, matchedLineNumber: (root.line as number) || 0, isOrphaned: false },
+          replies: allComments
+            .filter(c => c.reply_to === root.id)
+            .map(r => ({ ...r, matchedLineNumber: (r.line as number) || 0, isOrphaned: false })),
+        }));
+      }
+
       window.__TAURI_IPC_MOCK__ = async (cmd: string, args: Record<string, unknown>) => {
         if (cmd === "get_launch_args")
           return { files: [], folders: [dir] };
@@ -17,6 +32,11 @@ function setupCommentMock(page: Page, comments: unknown) {
         if (cmd === "load_review_comments") return comments;
         if (cmd === "save_review_comments") {
           ((window as Record<string, unknown>).__SAVE_CALLS__ as unknown[]).push(args);
+          return null;
+        }
+        if (cmd === "get_file_comments") return toThreads(comments as Record<string, unknown> | null);
+        if (cmd === "set_comment_resolved") {
+          ((window as Record<string, unknown>).__RESOLVE_CALLS__ as unknown[]).push(args);
           return null;
         }
         if (cmd === "check_path_exists") return "file";
@@ -158,7 +178,7 @@ test.describe("Comments Lifecycle", () => {
     await expect(page.getByText("Already addressed")).toBeVisible();
   });
 
-  test("23.7 - save_review_comments is called when comment is resolved", async ({ page }) => {
+  test("23.7 - set_comment_resolved is called when comment is resolved", async ({ page }) => {
     await setupCommentMock(page, {
       mrsf_version: "1.0",
       document: "sample.md",
@@ -184,15 +204,15 @@ test.describe("Comments Lifecycle", () => {
     await expect(resolveBtn).toBeVisible();
     await resolveBtn.click();
 
-    // Wait for auto-save debounce (500ms + buffer)
+    // Wait for IPC call to complete
     await page.waitForTimeout(1500);
 
-    // Verify save_review_comments was called
-    const saveCalls = await page.evaluate(
-      () => (window as Record<string, unknown>).__SAVE_CALLS__
+    // Verify set_comment_resolved was called
+    const resolveCalls = await page.evaluate(
+      () => (window as Record<string, unknown>).__RESOLVE_CALLS__
     );
-    expect(Array.isArray(saveCalls)).toBe(true);
-    expect((saveCalls as unknown[]).length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(resolveCalls)).toBe(true);
+    expect((resolveCalls as unknown[]).length).toBeGreaterThanOrEqual(1);
   });
 });
 

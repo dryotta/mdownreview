@@ -17,6 +17,7 @@ test.describe("Tab Management", () => {
         if (cmd === "save_review_comments") return null;
         if (cmd === "check_path_exists") return "file";
         if (cmd === "get_log_path") return "/mock/log.log";
+        if (cmd === "get_file_comments") return [];
         return null;
       };
     }, { dir: FIXTURES_DIR });

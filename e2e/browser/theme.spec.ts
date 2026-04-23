@@ -5,6 +5,7 @@ test.describe("Theme", () => {
     await page.addInitScript(() => {
       window.__TAURI_IPC_MOCK__ = async (cmd: string) => {
         if (cmd === "get_launch_args") return { files: [], folders: [] };
+        if (cmd === "get_file_comments") return [];
         return null;
       };
     });

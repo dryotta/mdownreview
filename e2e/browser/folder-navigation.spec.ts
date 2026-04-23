@@ -29,6 +29,7 @@ async function mockTauriInvoke(page: Page) {
       if (cmd === "read_text_file") return "# Test\n\nContent";
       if (cmd === "load_review_comments") return null;
       if (cmd === "check_path_exists") return "file";
+      if (cmd === "get_file_comments") return [];
       return null;
     };
   });
