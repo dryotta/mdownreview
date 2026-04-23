@@ -20,12 +20,12 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | bug-listen-cleanup-race | Fix listen() cleanup race in use-comments.ts | P2 | bug | yes | react-tauri | src/lib/vm/use-comments.ts | low | yes | yes | done |
 | fix-stale-persistence-test | Fix stale persistence test contradicting tab persistence | P2 | test | yes | test-gap | src/__tests__/store/persistence.test.ts | low | no | yes | done |
 | perf-comments-panel-memo | Add useMemo to CommentsPanel grouping/sorting/filtering | P2 | perf | yes | perf | src/components/comments/CommentsPanel.tsx | low | no | no | done |
-| simplify-custom-event-bus | Replace DOM CustomEvent bridge with direct Tauri event subs | P2 | refactor | no | react-tauri, architect | src/hooks/useFileWatcher.ts, viewers | medium | no | yes | open |
+| simplify-custom-event-bus | Replace DOM CustomEvent bridge with direct Tauri event subs | P2 | refactor | no | react-tauri, architect | src/hooks/useFileWatcher.ts, viewers | medium | no | yes | skipped |
 | security-enable-csp | Enable Content Security Policy in tauri.conf.json | P2 | security | yes | security | src-tauri/tauri.conf.json | medium | no | no | done |
-| security-path-validation | Add path validation to all file-accepting Rust commands | P2 | security | no | security | src-tauri/src/commands.rs | medium | yes | no | open |
+| security-path-validation | Add path validation to all file-accepting Rust commands | P2 | security | no | security | src-tauri/src/commands.rs | medium | yes | no | skipped |
 | refactor-sourceview-god-component | Break up SourceView.tsx into focused hooks | P2 | refactor | no | architect | src/components/viewers/SourceView.tsx | medium | no | yes | open |
 | perf-shiki-whole-doc | Switch Shiki from per-line to whole-document highlighting | P2 | perf | no | perf | src/components/viewers/SourceView.tsx | medium | no | no | open |
-| dead-ipc-wrappers | Remove unused IPC wrappers from tauri-commands.ts | P2 | dead-code | yes | perf | src/lib/tauri-commands.ts | low | no | yes | open |
+| dead-ipc-wrappers | Remove unused IPC wrappers from tauri-commands.ts | P2 | dead-code | yes | perf | src/lib/tauri-commands.ts | low | no | yes | done |
 | bug-unicode-truncation | Fix Unicode truncation mismatch between TS and Rust | P2 | bug | yes | security | src/lib/comment-utils.ts, src-tauri/src/core/anchors.rs | low | yes | yes | done |
 | dedup-welcome-path-helpers | Replace inline path helpers in WelcomeView with path-utils | P3 | dead-code | yes | perf | src/components/WelcomeView.tsx | low | no | yes | done |
 | remove-dead-collapse-all | Remove unused collapseAll store action | P3 | dead-code | yes | perf | src/store/index.ts | low | no | yes | done |
@@ -36,7 +36,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | security-sidecar-file-lock | Add per-file mutex for concurrent sidecar writes | P3 | security | no | security | src-tauri/src/core/sidecar.rs | medium | yes | no | open |
 | feat-approval-workflow | Add file/session review approval workflow | P3 | feature | no | product | src/store/index.ts, src-tauri/src/commands.rs | medium | no | no | open |
 | feat-comment-export | Add comment export for agent consumption | P3 | feature | no | product | src-tauri/src/commands.rs | medium | no | no | open |
-| arch-replace-dom-events | Replace DOM CustomEvent bridge with Zustand store signals | P3 | refactor | no | react-tauri, architect | src/hooks/useFileWatcher.ts | medium | no | yes | open |
+| arch-replace-dom-events | Replace DOM CustomEvent bridge with Zustand store signals | P3 | refactor | no | react-tauri, architect | src/hooks/useFileWatcher.ts | medium | no | yes | skipped |
 
 <!-- Status values: open, done, failed, skipped -->
 
