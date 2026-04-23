@@ -54,10 +54,10 @@ describe("14.3 – CommentsPanel", () => {
 
     render(<CommentsPanel filePath={FILE} />);
 
-    const comments = screen.getAllByText(/comment/i).filter((el) => el.classList.contains("comment-text"));
-    expect(comments[0]).toHaveTextContent("First comment");
-    expect(comments[1]).toHaveTextContent("Second comment");
-    expect(comments[2]).toHaveTextContent("Third comment");
+    const commentEls = document.querySelectorAll(".comment-text");
+    expect(commentEls[0]).toHaveTextContent("First comment");
+    expect(commentEls[1]).toHaveTextContent("Second comment");
+    expect(commentEls[2]).toHaveTextContent("Third comment");
   });
 
   it("shows line number prefix for each comment", () => {
@@ -192,9 +192,9 @@ describe("14.3 – CommentsPanel", () => {
 
     render(<CommentsPanel filePath={FILE} />);
 
-    const comments = screen.getAllByText(/Should be/).filter((el) => el.classList.contains("comment-text"));
-    expect(comments[0]).toHaveTextContent("Should be first");
-    expect(comments[1]).toHaveTextContent("Should be second");
+    const commentEls = document.querySelectorAll(".comment-text");
+    expect(commentEls[0]).toHaveTextContent("Should be first");
+    expect(commentEls[1]).toHaveTextContent("Should be second");
   });
 
   it("comment items have role='button' and tabIndex for keyboard access", () => {

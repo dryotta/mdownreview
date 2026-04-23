@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { useStore } from "@/store";
 import type { CommentWithOrphan } from "@/store";
 import "@/styles/comments.css";
@@ -71,7 +72,7 @@ function CommentItem({ comment, variant, onStartReply }: {
           </div>
         </div>
       ) : (
-        <p className="comment-text">{comment.text}</p>
+        <div className="comment-text"><ReactMarkdown>{comment.text}</ReactMarkdown></div>
       )}
       <div className="comment-actions" onClick={(e) => e.stopPropagation()}>
         {!editing && (
