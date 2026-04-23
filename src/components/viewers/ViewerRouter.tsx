@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useStore } from "@/store";
 import { useFileContent } from "@/hooks/useFileContent";
 import { SkeletonLoader } from "./SkeletonLoader";
@@ -20,6 +20,11 @@ export function ViewerRouter({ path }: Props) {
   const isGhost = ghostEntries.some((g) => g.sourcePath === path);
 
   const savedScrollTop = tab?.scrollTop ?? 0;
+
+  const fileSize = useMemo(
+    () => content ? new TextEncoder().encode(content).length : undefined,
+    [content],
+  );
 
   // Restore scroll position after content renders.
   // Uses a rAF retry loop because async syntax highlighting (Shiki) and
@@ -81,7 +86,6 @@ export function ViewerRouter({ path }: Props) {
     );
   }
 
-  const fileSize = content ? new Blob([content]).size : undefined;
   return (
     <div ref={scrollRef} style={{ flex: 1, overflow: "auto" }} onScroll={handleScroll}>
       <EnhancedViewer content={content!} path={path} filePath={path} fileSize={fileSize} />
