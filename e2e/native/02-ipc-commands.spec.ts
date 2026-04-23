@@ -4,7 +4,7 @@ import * as path from "path";
 import * as fs from "fs";
 
 test.describe("Native IPC commands", () => {
-  test("28.1 - save_review_comments writes an atomic YAML sidecar", async ({ nativePage }) => {
+  test("28.1 - add_comment writes an atomic YAML sidecar", async ({ nativePage }) => {
     const tmpDir = path.join(os.tmpdir(), `mdownreview-ipc-save-${Date.now()}`);
     fs.mkdirSync(tmpDir, { recursive: true });
     const sourceFile = path.join(tmpDir, "doc.md");
@@ -13,21 +13,12 @@ test.describe("Native IPC commands", () => {
     try {
       await nativePage.evaluate(
         ({ filePath, document }: { filePath: string; document: string }) => {
-          const comments = [
-            {
-              id: "c1",
-              author: "Tester (test)",
-              timestamp: "2026-01-01T00:00:00Z",
-              text: "First comment",
-              resolved: false,
-              line: 1,
-            },
-          ];
           // @ts-ignore
-          return window.__TAURI_INTERNALS__.invoke("save_review_comments", {
+          return window.__TAURI_INTERNALS__.invoke("add_comment", {
             filePath,
+            author: "Tester (test)",
+            text: "First comment",
             document,
-            comments,
           });
         },
         { filePath: sourceFile, document: "doc.md" }

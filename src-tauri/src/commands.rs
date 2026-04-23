@@ -18,7 +18,6 @@ pub fn check_path_exists(path: String) -> String {
 /// Compute the document path of a file relative to a workspace root.
 /// Returns a forward-slash-separated relative path when the file is under root,
 /// or just the filename as a fallback. Used for the MRSF sidecar `document` field.
-#[tauri::command]
 pub fn compute_document_path(file_path: String, root: Option<String>) -> String {
     use std::path::Path;
 
@@ -151,24 +150,6 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
-/// Save review comments as MRSF YAML sidecar (delegates to core::sidecar).
-#[tauri::command]
-pub fn save_review_comments(file_path: String, document: String, comments: Vec<MrsfComment>) -> Result<(), String> {
-    crate::core::sidecar::save_sidecar(&file_path, &document, &comments).map_err(|e| {
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })
-}
-
-/// Load review comments sidecar (delegates to core::sidecar).
-#[tauri::command]
-pub fn load_review_comments(file_path: String) -> Result<Option<MrsfSidecar>, String> {
-    crate::core::sidecar::load_sidecar(&file_path).map_err(|e| {
-        tracing::error!("[rust] command error: {}", e);
-        e.to_string()
-    })
-}
-
 /// Get (and clear) launch args stored during setup.
 #[tauri::command]
 pub fn get_launch_args(state: State<LaunchArgsState>) -> Result<LaunchArgs, String> {
@@ -190,32 +171,6 @@ pub fn get_log_path(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn scan_review_files(root: String) -> Result<Vec<(String, String)>, String> {
     Ok(crate::core::scanner::find_review_files(&root, 10_000))
-}
-
-/// Get the current git HEAD SHA, if in a git repository.
-#[tauri::command]
-pub fn get_git_head(path: String) -> Result<Option<String>, String> {
-    let output = std::process::Command::new("git")
-        .arg("rev-parse")
-        .arg("HEAD")
-        .current_dir(&path)
-        .output();
-    match output {
-        Ok(out) if out.status.success() => {
-            let sha = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            Ok(if sha.is_empty() { None } else { Some(sha) })
-        }
-        Ok(out) if out.status.code() == Some(128) => Ok(None),
-        Ok(out) => {
-            let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            Err(format!(
-                "git rev-parse failed (exit {}): {}",
-                out.status.code().map_or("unknown".to_string(), |c| c.to_string()),
-                stderr
-            ))
-        }
-        Err(e) => Err(format!("failed to execute git: {}", e)),
-    }
 }
 
 /// Test-only command: open a folder and all its non-sidecar files via args-received.
@@ -288,25 +243,6 @@ pub fn get_file_comments(file_path: String) -> Result<Vec<CommentThread>, String
 
     // Build threads
     Ok(crate::core::threads::group_into_threads(&matched))
-}
-
-/// Match comments to file content and return with anchoring results.
-#[tauri::command]
-pub fn match_comments_to_file(
-    file_path: String,
-    comments: Vec<MrsfComment>,
-) -> Result<Vec<MatchedComment>, String> {
-    let content = std::fs::read_to_string(&file_path).unwrap_or_default();
-    let lines: Vec<&str> = content.lines().collect();
-    Ok(crate::core::matching::match_comments(&comments, &lines))
-}
-
-/// Group matched comments into threads.
-#[tauri::command]
-pub fn build_comment_threads(
-    comments: Vec<MatchedComment>,
-) -> Result<Vec<CommentThread>, String> {
-    Ok(crate::core::threads::group_into_threads(&comments))
 }
 
 /// Create a new comment, save to sidecar.

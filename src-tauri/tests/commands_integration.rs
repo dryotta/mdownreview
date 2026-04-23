@@ -1,8 +1,9 @@
 use mdown_review_lib::commands::{
-    compute_document_path, get_git_head, load_review_comments, read_binary_file, read_dir,
-    read_text_file, save_review_comments, CommentsChangedEvent, LaunchArgs, LaunchArgsState,
+    compute_document_path, read_binary_file, read_dir,
+    read_text_file, CommentsChangedEvent, LaunchArgs, LaunchArgsState,
     MrsfComment, MrsfSidecar,
 };
+use mdown_review_lib::core::sidecar::{save_sidecar, load_sidecar};
 use mdown_review_lib::watcher::FileChangeEvent;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -117,7 +118,7 @@ fn save_and_load_mrsf_yaml() {
     let file_path = tmp.path().to_str().unwrap().to_string();
 
     let comments = vec![make_mrsf_comment("c1"), make_mrsf_comment("c2")];
-    save_review_comments(file_path.clone(), "test.md".to_string(), comments.clone()).unwrap();
+    save_sidecar(&file_path, "test.md", &comments).unwrap();
 
     // Check YAML file was created
     let sidecar_path = format!("{}.review.yaml", file_path);
@@ -126,7 +127,7 @@ fn save_and_load_mrsf_yaml() {
     assert!(content.contains("document: test.md"));
 
     // Round-trip via load
-    let loaded = load_review_comments(file_path).unwrap().unwrap();
+    let loaded = load_sidecar(&file_path).unwrap().unwrap();
     assert_eq!(loaded.mrsf_version, "1.0");
     assert_eq!(loaded.document, "test.md");
     assert_eq!(loaded.comments.len(), 2);
@@ -134,37 +135,37 @@ fn save_and_load_mrsf_yaml() {
 }
 
 #[test]
-fn load_review_comments_returns_none_when_missing() {
-    let result = load_review_comments("/nonexistent/path/to/file.md".to_string()).unwrap();
+fn load_sidecar_returns_none_when_missing() {
+    let result = load_sidecar("/nonexistent/path/to/file.md").unwrap();
     assert!(result.is_none());
 }
 
 #[test]
-fn save_review_comments_deletes_sidecar_when_empty() {
+fn save_sidecar_deletes_sidecar_when_empty() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     let file_path = tmp.path().to_str().unwrap().to_string();
     let sidecar_path = format!("{}.review.yaml", file_path);
 
     // Write a sidecar with one comment, then save empty to clear it.
-    save_review_comments(file_path.clone(), "test.md".to_string(), vec![make_mrsf_comment("c1")]).unwrap();
+    save_sidecar(&file_path, "test.md", &[make_mrsf_comment("c1")]).unwrap();
     assert!(std::path::Path::new(&sidecar_path).exists());
 
-    save_review_comments(file_path.clone(), "test.md".to_string(), vec![]).unwrap();
+    save_sidecar(&file_path, "test.md", &[]).unwrap();
     assert!(!std::path::Path::new(&sidecar_path).exists(), "empty save should delete the sidecar");
 
     // Subsequent load should return None (no sidecar).
-    let result = load_review_comments(file_path).unwrap();
+    let result = load_sidecar(&file_path).unwrap();
     assert!(result.is_none());
 }
 
 #[test]
-fn save_review_comments_empty_is_noop_when_no_sidecar() {
+fn save_sidecar_empty_is_noop_when_no_sidecar() {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     let file_path = tmp.path().to_str().unwrap().to_string();
     let sidecar_path = format!("{}.review.yaml", file_path);
 
     // Saving empty with no pre-existing sidecar must not create one.
-    save_review_comments(file_path, "test.md".to_string(), vec![]).unwrap();
+    save_sidecar(&file_path, "test.md", &[]).unwrap();
     assert!(!std::path::Path::new(&sidecar_path).exists(), "empty save must not create a sidecar");
 }
 
@@ -176,7 +177,7 @@ fn load_mrsf_json_fallback() {
     let sidecar = dir.path().join("test.md.review.json");
     std::fs::write(&sidecar, r#"{"mrsf_version":"1.0","document":"test.md","comments":[{"id":"j1","author":"A","timestamp":"2026-01-01T00:00:00Z","text":"json comment","resolved":false}]}"#).unwrap();
 
-    let loaded = load_review_comments(file.to_str().unwrap().to_string()).unwrap().unwrap();
+    let loaded = load_sidecar(file.to_str().unwrap()).unwrap().unwrap();
     assert_eq!(loaded.mrsf_version, "1.0");
     assert_eq!(loaded.comments[0].id, "j1");
 }
@@ -192,7 +193,7 @@ fn yaml_preferred_over_json() {
     let json_sidecar = dir.path().join("test.md.review.json");
     std::fs::write(&json_sidecar, r#"{"mrsf_version":"1.0","document":"test.md","comments":[{"id":"j1","author":"A","timestamp":"2026-01-01T00:00:00Z","text":"json comment","resolved":false}]}"#).unwrap();
 
-    let loaded = load_review_comments(file.to_str().unwrap().to_string()).unwrap().unwrap();
+    let loaded = load_sidecar(file.to_str().unwrap()).unwrap().unwrap();
     assert_eq!(loaded.comments[0].id, "y1", "YAML should be preferred over JSON");
 }
 
@@ -279,46 +280,6 @@ fn read_dir_hides_review_sidecars() {
     assert!(names.contains(&"config.json"));
     assert!(!names.contains(&"readme.md.review.yaml"), "YAML review sidecars should be hidden");
     assert!(!names.contains(&"main.rs.review.json"), "JSON review sidecars should be hidden");
-}
-
-// ── get_git_head ──────────────────────────────────────────────────────────
-
-#[test]
-fn get_git_head_returns_sha_in_git_repo() {
-    // The mdownreview repo itself is a git repo — use its root.
-    let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
-    let result = get_git_head(repo_root);
-    assert!(result.is_ok());
-    let sha = result.unwrap();
-    assert!(sha.is_some(), "should return a SHA in a git repo");
-    assert!(sha.unwrap().len() >= 40, "SHA should be at least 40 hex chars");
-}
-
-#[test]
-fn get_git_head_returns_none_for_non_repo() {
-    let dir = tempfile::tempdir().unwrap();
-    let result = get_git_head(dir.path().to_str().unwrap().to_string());
-    assert!(result.is_ok());
-    assert!(result.unwrap().is_none(), "non-repo directory should return Ok(None)");
-}
-
-#[test]
-fn get_git_head_returns_error_on_command_failure() {
-    // Use a non-existent directory as cwd — Command::output() will fail
-    // because the working directory doesn't exist. This simulates a
-    // command execution failure distinct from "not a git repo".
-    let bad_path = if cfg!(windows) {
-        "Z:\\nonexistent_dir_that_surely_does_not_exist_12345".to_string()
-    } else {
-        "/nonexistent_dir_that_surely_does_not_exist_12345".to_string()
-    };
-    let result = get_git_head(bad_path);
-    assert!(result.is_err(), "command execution failure should return Err, not Ok(None)");
 }
 
 // ── compute_document_path ─────────────────────────────────────────────────
