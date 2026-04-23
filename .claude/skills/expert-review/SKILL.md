@@ -41,12 +41,21 @@ When a Review Directive is present, it modifies the skill at every stage:
 
 ## Engineering principles all experts must apply
 
-Every expert is bound by these rules (already embedded in their agent definitions):
+The canonical, full set of engineering principles lives in
+[`docs/principles.md`](../../../docs/principles.md). Every expert is bound by
+that document. Synthesis must reflect it: bugs are Priority 1 regardless of
+perceived severity, Rust migration candidates get their own section, and
+every item in the plan must have code-level evidence.
+
+The three foundational rules (already embedded in each agent's prompt) are:
 1. **Evidence-based only** — no finding without a file:line citation
 2. **Rust-first** — flag any TypeScript logic that belongs in Rust
 3. **Zero bug policy** — every bug comes with a failing test outline
 
-The synthesis must reflect these principles: bugs are Priority 1 regardless of severity perception, Rust migration candidates get their own section, and every item in the plan must have code-level evidence.
+Findings should also be tagged against the seven product pillars
+(Professional, Reliable, Performant, Lean, Sound Architecture, Sound Design
+Patterns, Sound Test Strategy) so the synthesis can show which pillars are
+under-served.
 
 ---
 

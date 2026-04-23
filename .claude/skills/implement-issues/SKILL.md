@@ -20,7 +20,12 @@ This skill accepts optional issue numbers from the user to target specific issue
 
 ## Engineering Principles
 
-Every implementation is bound by the project's three core principles:
+The full canonical set of principles, design patterns, and test strategy lives
+in [`docs/principles.md`](../../../docs/principles.md),
+[`docs/architecture.md`](../../../docs/architecture.md), and
+[`docs/test-strategy.md`](../../../docs/test-strategy.md). Every implementation
+must satisfy them. The three foundational rules below are the per-change
+filter:
 
 1. **Evidence-based only** — implementations follow the spec. No speculative additions.
 2. **Rust-first** — logic that can live in Rust goes in Rust, exposed via typed Tauri commands.

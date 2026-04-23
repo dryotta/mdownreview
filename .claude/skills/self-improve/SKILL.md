@@ -53,7 +53,9 @@ The Improvement Directive can be used in three ways, detected by pattern matchin
 
 ## Engineering principles this loop enforces
 
-Every cycle is bound by three principles that filter what gets implemented:
+The canonical, full set of engineering principles lives in
+[`docs/principles.md`](../../../docs/principles.md). Every cycle is bound by
+that document. The three foundational rules below are the per-task filter:
 
 1. **Evidence-based only** — tasks must cite a specific file:line. Speculative improvements are excluded from auto-mode.
 2. **Rust-first** — tasks that move logic from TypeScript to Rust are elevated in priority. A task that adds TypeScript logic that could live in Rust is downgraded.

@@ -22,7 +22,22 @@ If you accidentally commit to `main`, do NOT force-push. Ask the user how to pro
 
 ## Core Engineering Principles
 
-These three principles govern every proposal, implementation, and review decision. They are non-negotiable.
+The full, canonical set of principles, rules, and rationale lives in
+**[`docs/principles.md`](docs/principles.md)**. Read it before making
+substantive changes; everything in `AGENTS.md` defers to it.
+
+The product is built around seven pillars:
+
+1. **Professional** — predictable, local-only, accessible, secure, honest logging.
+2. **Reliable** — no silent failures, race-condition discipline, durable comments, deterministic startup.
+3. **Performant** — benchmark before claiming, heavy work in Rust, fine-grained selectors, no work in render.
+4. **Lean in resources** — small dependency surface, bounded background work, no log spam, persist only what must persist, no dead code.
+5. **Sound client architecture** — two layers + one IPC bridge, single store, single logger, one-way dependencies. See [`docs/architecture.md`](docs/architecture.md).
+6. **Sound design patterns** — typed IPC wrappers, sliced store, hooks-for-orchestration, sidecars over databases, errors-as-values across IPC, open standards.
+7. **Sound test strategy** — three test layers with clear ownership, required-pass gates, native tests must justify themselves. See [`docs/test-strategy.md`](docs/test-strategy.md).
+
+Every pillar is filtered through three foundational rules — these are the ones
+that gate every individual change:
 
 ### 1. Evidence-Based Only
 
@@ -81,6 +96,9 @@ Do not implement these — they are explicitly out of scope:
 
 ## Architecture
 
+> Quick reference. The canonical version lives in
+> **[`docs/architecture.md`](docs/architecture.md)**.
+
 Two runtime layers bridged by Tauri v2:
 
 **Rust layer** (`src-tauri/src/`)
@@ -127,6 +145,9 @@ Two runtime layers bridged by Tauri v2:
 | Native E2E tests | Playwright (real Tauri binary via CDP, Windows only) |
 
 ## Test Strategy
+
+> Quick reference. The canonical version lives in
+> **[`docs/test-strategy.md`](docs/test-strategy.md)**.
 
 Three layers. Know which to use and why:
 
@@ -304,7 +325,9 @@ Rust-side watcher (`src-tauri/src/watcher.rs`) using `notify-debouncer-mini`:
 
 ## Behavioral Specs
 
-Detailed requirements and acceptance scenarios for each feature:
+Detailed requirements and acceptance scenarios for each feature. The
+foundational documents above (`docs/principles.md`, `docs/architecture.md`,
+`docs/test-strategy.md`) take precedence over any individual spec.
 
 - [App Logging](docs/specs/app-logging.md)
 - [CLI File Open & File Associations](docs/specs/cli-file-open.md)

@@ -7,6 +7,10 @@ description: Use at the start of any new task. Creates a feature branch from a c
 
 Use this before any development task to ensure work happens on a branch.
 
+## Engineering principles
+
+Before starting any change, read [`docs/principles.md`](../../../docs/principles.md). All work on the new branch is bound by the seven product pillars and the three foundational rules (Evidence-Based, Rust-First, Zero Bug).
+
 ## Steps
 
 1. **Check current branch:**
