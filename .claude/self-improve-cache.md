@@ -26,7 +26,7 @@ directive: "clean up web layer code and fully embrace model and viewmodel from n
 | extract-use-theme | Extract shared useTheme hook from duplicate MutationObserver pattern | P2 | refactor | yes | product | useSourceHighlighting.ts, MarkdownViewer.tsx | low | no | yes | open |
 | dedup-size-warn-threshold | Extract shared SIZE_WARN_THRESHOLD constant | P2 | dead-code | yes | product | SourceView.tsx, MarkdownViewer.tsx | low | no | yes | open |
 | standardize-listen-cleanup | Standardize Tauri listen() cleanup pattern across all hooks | P2 | bug | no | react-tauri, bug-hunter | useFileWatcher.ts, App.tsx, use-comments.ts | medium | yes | yes | open |
-| refactor-rust-mutation-boilerplate | Extract with_sidecar_mut helper for 5 Rust mutation commands | P2 | refactor | yes | react-tauri | src-tauri/src/commands.rs | low | no | yes | open |
+| refactor-rust-mutation-boilerplate | Extract with_sidecar_mut helper for 5 Rust mutation commands | P2 | refactor | yes | react-tauri | src-tauri/src/commands.rs | low | no | yes | done |
 | dedup-lib-rs-handlers | Deduplicate invoke_handler debug/release blocks in lib.rs | P2 | refactor | yes | react-tauri | src-tauri/src/lib.rs | low | no | yes | done |
 | test-line-comment-margin | Add tests for LineCommentMargin (zero coverage) | P2 | test | no | bug-hunter | components/comments/LineCommentMargin.tsx | low | yes | yes | open |
 | dead-vite-css | Remove Vite boilerplate CSS selectors from App.css | P2 | dead-code | yes | bug-hunter | src/App.css | low | no | yes | done |

@@ -5,6 +5,15 @@
 <!-- Archived (2026-04-23 cycle 1): bug-rust-emit-comments-changed, bug-listen-cleanup-race, bug-unicode-truncation, test-vm-hooks, fix-stale-persistence-test, perf-comments-panel-memo, remove-dead-collapse-all, dedup-welcome-path-helpers, simplify-search-hook, security-enable-csp, migrate-viewers-to-vm-hooks, delete-ts-comment-pipeline, hollow-out-comments-slice, dead-ipc-wrappers, refactor-sourceview-god-component -->
 <!-- Previously skipped: simplify-custom-event-bus, security-path-validation, arch-replace-dom-events, perf-shiki-whole-doc, rust-html-asset-resolution, rust-fold-regions, security-sidecar-file-lock, feat-approval-workflow, feat-comment-export -->
 
+## refactor-rust-mutation-boilerplate — DONE
+- **Date**: 2026-04-23
+- **Branch**: auto-improve/20260423-refactor-rust-mutation
+- **Type**: refactor
+- **Task**: Extract with_sidecar_mut helper for 4 Rust mutation commands
+- **Expert**: react-tauri
+- **Commit**: c170720
+- **Validation**: 30 cargo tests pass
+
 ## perf-memo-usecomments-flatmap — DONE
 - **Date**: 2026-04-23
 - **Branch**: auto-improve/20260423-perf-memo-flatmap
