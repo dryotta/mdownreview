@@ -73,76 +73,71 @@ export function FolderTree({ onFileOpen, onCloseFolder }: FolderTreeProps) {
 
   // Build visible flat list for keyboard nav
   type TreeNode = { path: string; isDir: boolean; depth: number; name: string; isGhost?: boolean };
-  
-  function buildFlatList(
-    parentPath: string,
-    depth: number
-  ): TreeNode[] {
-    const entries = childrenCache[parentPath] ?? [];
-    const result: TreeNode[] = [];
-    for (const entry of entries) {
-      if (filter) {
-        const matchesSelf =
-          !entry.is_dir && entry.name.toLowerCase().includes(filter.toLowerCase());
-        const hasMatchingChild = entry.is_dir && hasMatch(entry.path);
-        if (!matchesSelf && !hasMatchingChild) continue;
+
+  const mergedList = useMemo(() => {
+    function hasMatch(folderPath: string): boolean {
+      const entries = childrenCache[folderPath] ?? [];
+      return entries.some(
+        (e) =>
+          (!e.is_dir && e.name.toLowerCase().includes(filter.toLowerCase())) ||
+          (e.is_dir && hasMatch(e.path))
+      );
+    }
+
+    function buildFlatList(parentPath: string, depth: number): TreeNode[] {
+      const entries = childrenCache[parentPath] ?? [];
+      const result: TreeNode[] = [];
+      for (const entry of entries) {
+        if (filter) {
+          const matchesSelf =
+            !entry.is_dir && entry.name.toLowerCase().includes(filter.toLowerCase());
+          const hasMatchingChild = entry.is_dir && hasMatch(entry.path);
+          if (!matchesSelf && !hasMatchingChild) continue;
+        }
+        result.push({ path: entry.path, isDir: entry.is_dir, depth, name: entry.name });
+        if (entry.is_dir && expandedFolders[entry.path]) {
+          result.push(...buildFlatList(entry.path, depth + 1));
+        }
       }
-      result.push({ path: entry.path, isDir: entry.is_dir, depth, name: entry.name });
-      if (entry.is_dir && expandedFolders[entry.path]) {
-        result.push(...buildFlatList(entry.path, depth + 1));
+      return result;
+    }
+
+    const flatList = root ? buildFlatList(root, 0) : [];
+    const merged: TreeNode[] = [...flatList];
+
+    if (root) {
+      for (const ghost of ghostEntries) {
+        const alreadyInTree = flatList.some((n) => n.path === ghost.sourcePath);
+        if (alreadyInTree) continue;
+
+        const sep = ghost.sourcePath.includes("/") ? "/" : "\\";
+        const parts = ghost.sourcePath.split(sep);
+        const parentPath = parts.slice(0, -1).join(sep);
+        const fileName = parts[parts.length - 1];
+
+        const parentIdx = merged.findIndex((n) => n.path === parentPath && n.isDir);
+        if (parentIdx === -1 && parentPath !== root) continue;
+
+        const parentDepth = parentIdx >= 0 ? merged[parentIdx].depth : -1;
+        const ghostDepth = parentDepth + 1;
+
+        let insertIdx = parentIdx + 1;
+        while (insertIdx < merged.length && merged[insertIdx].depth >= ghostDepth) {
+          insertIdx++;
+        }
+
+        merged.splice(insertIdx, 0, {
+          path: ghost.sourcePath,
+          isDir: false,
+          depth: ghostDepth,
+          name: fileName,
+          isGhost: true,
+        });
       }
     }
-    return result;
-  }
 
-  function hasMatch(folderPath: string): boolean {
-    const entries = childrenCache[folderPath] ?? [];
-    return entries.some(
-      (e) =>
-        (!e.is_dir && e.name.toLowerCase().includes(filter.toLowerCase())) ||
-        (e.is_dir && hasMatch(e.path))
-    );
-  }
-
-  const flatList = root ? buildFlatList(root, 0) : [];
-  
-  // Merge ghost entries into flat list
-  const mergedList = [...flatList];
-  if (root) {
-    for (const ghost of ghostEntries) {
-      // Only show if the source file isn't already in the tree
-      const alreadyInTree = flatList.some((n) => n.path === ghost.sourcePath);
-      if (alreadyInTree) continue;
-      
-      // Find the parent directory
-      const sep = ghost.sourcePath.includes("/") ? "/" : "\\";
-      const parts = ghost.sourcePath.split(sep);
-      const parentPath = parts.slice(0, -1).join(sep);
-      const fileName = parts[parts.length - 1];
-      
-      // Check if parent is in the expanded tree
-      const parentIdx = mergedList.findIndex((n) => n.path === parentPath && n.isDir);
-      if (parentIdx === -1 && parentPath !== root) continue;
-      
-      // Calculate depth
-      const parentDepth = parentIdx >= 0 ? mergedList[parentIdx].depth : -1;
-      const ghostDepth = parentDepth + 1;
-      
-      // Insert after parent's children (find last child at same or deeper level)
-      let insertIdx = parentIdx + 1;
-      while (insertIdx < mergedList.length && mergedList[insertIdx].depth >= ghostDepth) {
-        insertIdx++;
-      }
-      
-      mergedList.splice(insertIdx, 0, {
-        path: ghost.sourcePath,
-        isDir: false,
-        depth: ghostDepth,
-        name: fileName,
-        isGhost: true,
-      });
-    }
-  }
+    return merged;
+  }, [root, childrenCache, expandedFolders, filter, ghostEntries]);
 
   // Collect visible file paths for badge counts
   const filePaths = useMemo(
