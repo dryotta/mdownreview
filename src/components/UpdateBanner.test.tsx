@@ -1,10 +1,19 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { UpdateBanner } from "./UpdateBanner";
 import { useStore } from "@/store";
 
-// Reset store state before each test
+vi.mock("@tauri-apps/api/core");
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn().mockResolvedValue(() => {}),
+}));
+vi.mock("@/logger");
+vi.mock("@/lib/tauri-commands", () => ({
+  installUpdate: vi.fn().mockResolvedValue(undefined),
+}));
+
+
 beforeEach(() => {
   useStore.setState({
     updateStatus: "idle",
