@@ -3,7 +3,7 @@
 //! are no-ops in iter 2 — the NSIS pre/post-install hooks (Group B) own PATH
 //! mutation; an in-app re-add path is deliberately deferred.
 
-use super::CliShimStatus;
+use super::{CliShimError, CliShimStatus};
 use tauri::AppHandle;
 use winreg::enums::HKEY_CURRENT_USER;
 use winreg::RegKey;
@@ -41,14 +41,14 @@ pub fn status(_app: &AppHandle) -> CliShimStatus {
     }
 }
 
-pub fn install(_app: &AppHandle) -> Result<(), String> {
+pub fn install(_app: &AppHandle) -> Result<(), CliShimError> {
     // No-op — the NSIS POSTINSTALL hook (Group B) adds the install dir to
     // HKCU\Environment\Path. An in-app re-add would need a winreg write plus
     // a WM_SETTINGCHANGE broadcast; deferred past iter 2.
     Ok(())
 }
 
-pub fn remove(_app: &AppHandle) -> Result<(), String> {
+pub fn remove(_app: &AppHandle) -> Result<(), CliShimError> {
     // No-op — NSIS PREUNINSTALL hook handles PATH removal.
     Ok(())
 }

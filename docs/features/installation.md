@@ -83,7 +83,7 @@ First-launch and "what's new" UX is driven by a small Rust ViewModel persisted a
 
 Source: `src-tauri/src/core/onboarding.rs:10-28`. **Forward-compat refusal:** any file with `schema_version > 1`, malformed JSON, or I/O error returns `OnboardingState::default()` (a fresh state) — old binaries never blow up on a future-format file. Saves go through `core/atomic.rs::write_atomic` so a crash mid-write cannot corrupt the file (`core/onboarding.rs:48-51`).
 
-The frontend reads via the `useOnboarding` hook (`src/lib/vm/use-onboarding.ts`) which mirrors the `useComments` shape — a single read on mount, no event subscription.
+The frontend reads via the `OnboardingSlice` in the Zustand store (`src/store/index.ts`) — `refreshOnboarding()` runs `Promise.allSettled` over all status reads + `onboarding_state`, and per-section action wrappers (e.g. `installCliShim`) chain a status refresh on settle.
 
 ## Platform integration commands
 
@@ -111,7 +111,7 @@ Each command file with OS divergence follows the **platform sub-module pattern**
 - `src-tauri/dmg/` — DMG layout assets (background image placeholder, `README.txt` shipped at DMG root via `bundle.resources`)
 - `src-tauri/src/core/onboarding.rs` — schema-versioned onboarding state (load/save on injectable path)
 - `src-tauri/src/commands/{onboarding,cli_shim,default_handler,folder_context}.rs` — 11 platform-integration IPC commands
-- `src/lib/vm/use-onboarding.ts` — read-side ViewModel for onboarding state
+- `src/store/index.ts` — `OnboardingSlice` (state + actions) consumed by the welcome/setup panels
 - `scripts/stage-cli.mjs` — places the CLI at `src-tauri/binaries/mdownreview-cli-<triple>` so Tauri's `externalBin` build-time check passes
 - `.github/workflows/release.yml` — build pipeline + codesign verification + DMG layout verification
 

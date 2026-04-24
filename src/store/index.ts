@@ -1,6 +1,22 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/shallow";
+import {
+  cliShimStatus as ipcCliShimStatus,
+  defaultHandlerStatus as ipcDefaultHandlerStatus,
+  folderContextStatus as ipcFolderContextStatus,
+  installCliShim as ipcInstallCliShim,
+  onboardingMarkSectionDone as ipcMarkSectionDone,
+  onboardingMarkWelcomed as ipcMarkWelcomed,
+  onboardingState as ipcOnboardingState,
+  registerFolderContext as ipcRegisterFolderContext,
+  removeCliShim as ipcRemoveCliShim,
+  setDefaultHandler as ipcSetDefaultHandler,
+  unregisterFolderContext as ipcUnregisterFolderContext,
+  type OnboardingState,
+} from "@/lib/tauri-commands";
+
+export type { OnboardingState };
 
 // ── Recent items ──────────────────────────────────────────────────────────
 
@@ -99,6 +115,43 @@ interface RecentSlice {
   addRecentItem: (path: string, type: "file" | "folder") => void;
 }
 
+// ── Onboarding slice ──────────────────────────────────────────────────────
+
+export type OnboardingStatus = "pending" | "done" | "unsupported" | "error";
+
+export interface OnboardingStatuses {
+  cliShim: OnboardingStatus;
+  defaultHandler: OnboardingStatus;
+  folderContext: OnboardingStatus;
+}
+
+/** Section keys used as map keys in onboardingErrors and as args to markSectionDone. */
+export type OnboardingSectionKey = "cliShim" | "defaultHandler" | "folderContext";
+
+interface OnboardingSlice {
+  // Read state
+  onboardingStatuses: OnboardingStatuses;
+  onboardingState: OnboardingState | null;
+  onboardingErrors: Record<string, string>;
+  // Panel visibility (transient, not persisted)
+  welcomePanelOpen: boolean;
+  setupPanelOpen: boolean;
+  // Actions
+  refreshOnboarding: () => Promise<void>;
+  openWelcome: () => void;
+  closeWelcome: () => void;
+  openSetup: () => void;
+  closeSetup: () => void;
+  markOnboardingWelcomed: (version: string) => Promise<void>;
+  dismissOnboardingWelcome: () => void;
+  markSectionDone: (sectionKey: string) => Promise<void>;
+  installCliShim: () => Promise<void>;
+  removeCliShim: () => Promise<void>;
+  setDefaultHandler: () => Promise<void>;
+  registerFolderContext: () => Promise<void>;
+  unregisterFolderContext: () => Promise<void>;
+}
+
 // ── Tab persistence helpers ────────────────────────────────────────────────
 
 export function filterStaleTabs(
@@ -117,7 +170,7 @@ export function filterStaleTabs(
 
 // ── Combined store ─────────────────────────────────────────────────────────
 
-type Store = WorkspaceSlice & TabsSlice & UISlice & UpdateSlice & WatcherSlice & RecentSlice;
+type Store = WorkspaceSlice & TabsSlice & UISlice & UpdateSlice & WatcherSlice & RecentSlice & OnboardingSlice;
 
 
 export const useStore = create<Store>()(
@@ -222,6 +275,63 @@ export const useStore = create<Store>()(
           const updated = [newItem, ...filtered].slice(0, MAX_RECENT_ITEMS);
           return { recentItems: updated };
         }),
+
+      // Onboarding
+      onboardingStatuses: { cliShim: "pending", defaultHandler: "pending", folderContext: "pending" },
+      onboardingState: null,
+      onboardingErrors: {},
+      welcomePanelOpen: false,
+      setupPanelOpen: false,
+      refreshOnboarding: async () => {
+        const [cli, def, folder, state] = await Promise.allSettled([
+          ipcCliShimStatus(),
+          ipcDefaultHandlerStatus(),
+          ipcFolderContextStatus(),
+          ipcOnboardingState(),
+        ]);
+        // Refresh records errors for status reads that fail; it does NOT clear
+        // action errors (those are cleared by the action wrapper on success).
+        const errors: Record<string, string> = { ...get().onboardingErrors };
+        const mapStatus = (
+          r: PromiseSettledResult<string>,
+          key: OnboardingSectionKey,
+        ): OnboardingStatus => {
+          if (r.status === "rejected") {
+            errors[key] = formatOnboardingError(r.reason);
+            return "error";
+          }
+          if (r.value === "done") return "done";
+          if (r.value === "unsupported") return "unsupported";
+          return "pending";
+        };
+        set({
+          onboardingStatuses: {
+            cliShim: mapStatus(cli, "cliShim"),
+            defaultHandler: mapStatus(def, "defaultHandler"),
+            folderContext: mapStatus(folder, "folderContext"),
+          },
+          onboardingState: state.status === "fulfilled" ? state.value : get().onboardingState,
+          onboardingErrors: errors,
+        });
+      },
+      openWelcome: () => set({ welcomePanelOpen: true }),
+      closeWelcome: () => set({ welcomePanelOpen: false }),
+      openSetup: () => set({ setupPanelOpen: true }),
+      closeSetup: () => set({ setupPanelOpen: false }),
+      markOnboardingWelcomed: async (version) => {
+        await ipcMarkWelcomed(version);
+        await useStore.getState().refreshOnboarding();
+      },
+      dismissOnboardingWelcome: () => set({ welcomePanelOpen: false }),
+      markSectionDone: async (sectionKey) => {
+        await ipcMarkSectionDone(sectionKey);
+        await useStore.getState().refreshOnboarding();
+      },
+      installCliShim: () => runOnboardingAction("cliShim", ipcInstallCliShim),
+      removeCliShim: () => runOnboardingAction("cliShim", ipcRemoveCliShim),
+      setDefaultHandler: () => runOnboardingAction("defaultHandler", ipcSetDefaultHandler),
+      registerFolderContext: () => runOnboardingAction("folderContext", ipcRegisterFolderContext),
+      unregisterFolderContext: () => runOnboardingAction("folderContext", ipcUnregisterFolderContext),
     }),
     {
       name: "mdownreview-ui",
@@ -267,6 +377,65 @@ export async function validatePersistedTabs(
   );
   const result = filterStaleTabs(tabs, activeTabPath, existsMap);
   useStore.setState(result);
+}
+
+// ── Onboarding helpers ────────────────────────────────────────────────────
+
+interface PermissionDeniedError {
+  kind: "permission_denied";
+  path?: string;
+  message?: string;
+}
+
+function isPermissionDeniedError(reason: unknown): reason is PermissionDeniedError {
+  return (
+    typeof reason === "object" &&
+    reason !== null &&
+    (reason as { kind?: unknown }).kind === "permission_denied"
+  );
+}
+
+/** Convert any IPC rejection into a user-facing error string. */
+export function formatOnboardingError(reason: unknown): string {
+  if (isPermissionDeniedError(reason)) {
+    const path = reason.path ?? "the install path";
+    return `Permission denied — try sudo: \`sudo ln -sf ${path}\``;
+  }
+  if (reason instanceof Error) return reason.message;
+  if (typeof reason === "string") return reason;
+  try {
+    return JSON.stringify(reason);
+  } catch {
+    return String(reason);
+  }
+}
+
+/**
+ * Run a per-section onboarding command and chain a status refresh on settle.
+ * Mirrors `useMenuListeners` (`getState()` for actions) so action chaining
+ * stays inside the slice without re-invoking commands.
+ */
+async function runOnboardingAction(
+  sectionKey: OnboardingSectionKey,
+  action: () => Promise<void>,
+): Promise<void> {
+  try {
+    await action();
+    // Clear any prior error for this section on success.
+    const { onboardingErrors } = useStore.getState();
+    if (onboardingErrors[sectionKey]) {
+      const next = { ...onboardingErrors };
+      delete next[sectionKey];
+      useStore.setState({ onboardingErrors: next });
+    }
+  } catch (err) {
+    const { onboardingErrors } = useStore.getState();
+    useStore.setState({
+      onboardingErrors: { ...onboardingErrors, [sectionKey]: formatOnboardingError(err) },
+    });
+  } finally {
+    await useStore.getState().refreshOnboarding();
+  }
 }
 
 // Convenience selector for update state

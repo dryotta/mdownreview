@@ -2,34 +2,40 @@
 //! shipping `.app` bundle. All destructive ops refuse unless the symlink's
 //! canonical target lies inside the canonical app-bundle root.
 
-use super::CliShimStatus;
+use super::{CliShimError, CliShimStatus};
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 const SHIM_PATH: &str = "/usr/local/bin/mdownreview";
 
-fn app_bundle_root(_app: &AppHandle) -> Result<PathBuf, String> {
+fn io_err(e: std::io::Error) -> CliShimError {
+    CliShimError::Io { message: e.to_string() }
+}
+
+fn app_bundle_root(_app: &AppHandle) -> Result<PathBuf, CliShimError> {
     // current_exe() points at .app/Contents/MacOS/mdownreview
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let canonical = std::fs::canonicalize(&exe).map_err(|e| e.to_string())?;
+    let exe = std::env::current_exe().map_err(io_err)?;
+    let canonical = std::fs::canonicalize(&exe).map_err(io_err)?;
     canonical
         .ancestors()
         .nth(3) // .../X.app/Contents/MacOS/mdownreview -> .../X.app
         .map(|p| p.to_path_buf())
-        .ok_or_else(|| "could not resolve .app root".into())
+        .ok_or_else(|| CliShimError::Io {
+            message: "could not resolve .app root".into(),
+        })
 }
 
 pub fn status(app: &AppHandle) -> CliShimStatus {
     status_at(Path::new(SHIM_PATH), app_bundle_root(app).ok().as_deref())
 }
 
-pub fn install(app: &AppHandle) -> Result<(), String> {
+pub fn install(app: &AppHandle) -> Result<(), CliShimError> {
     let root = app_bundle_root(app)?;
     let target = root.join("Contents/MacOS/mdownreview-cli");
     install_at(Path::new(SHIM_PATH), &target)
 }
 
-pub fn remove(app: &AppHandle) -> Result<(), String> {
+pub fn remove(app: &AppHandle) -> Result<(), CliShimError> {
     let root = app_bundle_root(app)?;
     remove_at(Path::new(SHIM_PATH), &root)
 }
@@ -58,27 +64,45 @@ pub fn status_at(shim: &Path, app_root: Option<&Path>) -> CliShimStatus {
     CliShimStatus::Broken
 }
 
-pub fn install_at(shim: &Path, target: &Path) -> Result<(), String> {
-    if shim.exists() {
-        std::fs::remove_file(shim).map_err(|e| e.to_string())?;
+/// Map an `io::Error` to either `PermissionDenied { path }` (for EACCES /
+/// EPERM) or a generic `Io` variant.
+fn map_install_err(e: std::io::Error, shim: &Path) -> CliShimError {
+    use std::io::ErrorKind;
+    match e.kind() {
+        ErrorKind::PermissionDenied => CliShimError::PermissionDenied {
+            path: shim.display().to_string(),
+        },
+        _ => CliShimError::Io { message: e.to_string() },
     }
-    std::os::unix::fs::symlink(target, shim).map_err(|e| e.to_string())
+}
+
+pub fn install_at(shim: &Path, target: &Path) -> Result<(), CliShimError> {
+    if shim.exists() {
+        std::fs::remove_file(shim).map_err(|e| map_install_err(e, shim))?;
+    }
+    std::os::unix::fs::symlink(target, shim).map_err(|e| map_install_err(e, shim))
 }
 
 /// Refuses to remove anything that isn't a symlink whose canonicalized target
 /// lives inside the canonicalized app-bundle root. SECURITY ORACLE: every
 /// refusal path leaves both the shim and its target byte-identical.
-pub fn remove_at(shim: &Path, app_root: &Path) -> Result<(), String> {
-    let meta = std::fs::symlink_metadata(shim).map_err(|e| e.to_string())?;
+pub fn remove_at(shim: &Path, app_root: &Path) -> Result<(), CliShimError> {
+    let meta = std::fs::symlink_metadata(shim).map_err(io_err)?;
     if !meta.file_type().is_symlink() {
-        return Err("refusing: not a symlink".into());
+        return Err(CliShimError::Io {
+            message: "refusing: not a symlink".into(),
+        });
     }
-    let target = std::fs::canonicalize(shim).map_err(|_| "refusing: broken symlink".to_string())?;
-    let canonical_root = std::fs::canonicalize(app_root).map_err(|e| e.to_string())?;
+    let target = std::fs::canonicalize(shim).map_err(|_| CliShimError::Io {
+        message: "refusing: broken symlink".into(),
+    })?;
+    let canonical_root = std::fs::canonicalize(app_root).map_err(io_err)?;
     if !target.starts_with(&canonical_root) {
-        return Err("refusing: target outside app bundle".into());
+        return Err(CliShimError::Io {
+            message: "refusing: target outside app bundle".into(),
+        });
     }
-    std::fs::remove_file(shim).map_err(|e| e.to_string())
+    std::fs::remove_file(shim).map_err(|e| map_install_err(e, shim))
 }
 
 #[cfg(test)]
@@ -94,7 +118,7 @@ mod tests {
         std::fs::write(&shim, b"not a symlink").unwrap();
         let fake_app = dir.path().join("Other.app");
         std::fs::create_dir_all(&fake_app).unwrap();
-        let err = remove_at(&shim, &fake_app).unwrap_err();
+        let err = remove_at(&shim, &fake_app).unwrap_err().to_string();
         assert!(err.contains("not a symlink"), "got: {err}");
         assert!(shim.exists(), "shim must not be deleted on refusal");
         assert_eq!(std::fs::read(&shim).unwrap(), b"not a symlink");
@@ -109,7 +133,7 @@ mod tests {
         symlink(&bystander, &shim).unwrap();
         let fake_app = dir.path().join("Other.app");
         std::fs::create_dir_all(&fake_app).unwrap();
-        let err = remove_at(&shim, &fake_app).unwrap_err();
+        let err = remove_at(&shim, &fake_app).unwrap_err().to_string();
         assert!(err.contains("outside app bundle"), "got: {err}");
         assert!(bystander.exists(), "bystander must not be deleted");
         assert_eq!(std::fs::read(&bystander).unwrap(), b"DO NOT DELETE");
@@ -139,7 +163,7 @@ mod tests {
         symlink(&nonexistent, &shim).unwrap();
         let fake_app = dir.path().join("App");
         std::fs::create_dir_all(&fake_app).unwrap();
-        let err = remove_at(&shim, &fake_app).unwrap_err();
+        let err = remove_at(&shim, &fake_app).unwrap_err().to_string();
         assert!(err.contains("broken symlink"), "got: {err}");
         assert!(shim.exists(), "shim must not be deleted on refusal");
     }

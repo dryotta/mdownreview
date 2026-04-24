@@ -173,9 +173,14 @@ pub fn run() {
                 .build()?;
 
             // Help menu
+            let help_welcome = MenuItem::with_id(app, "help-welcome", "Welcome…", true, None::<&str>)?;
+            let help_setup = MenuItem::with_id(app, "help-setup", "Setup…", true, None::<&str>)?;
             let about_item = MenuItem::with_id(app, "about", "About mdownreview", true, None::<&str>)?;
             let check_updates = MenuItem::with_id(app, "check-updates", "Check for Updates…", true, None::<&str>)?;
             let help_menu = SubmenuBuilder::new(app, "Help")
+                .item(&help_welcome)
+                .item(&help_setup)
+                .separator()
                 .item(&about_item)
                 .separator()
                 .item(&check_updates)
@@ -206,6 +211,8 @@ pub fn run() {
                     "theme-dark" => "menu-theme-dark",
                     "about" => "menu-about",
                     "check-updates" => "menu-check-updates",
+                    "help-welcome" => "menu-help-welcome",
+                    "help-setup" => "menu-help-setup",
                     _ => return,
                 };
                 let _ = window.emit(event_name, ());
@@ -245,6 +252,7 @@ pub fn run() {
                 commands::onboarding::onboarding_state,
                 commands::onboarding::onboarding_mark_welcomed,
                 commands::onboarding::onboarding_skip,
+                commands::onboarding::onboarding_should_welcome,
                 commands::cli_shim::cli_shim_status,
                 commands::cli_shim::install_cli_shim,
                 commands::cli_shim::remove_cli_shim,

@@ -8,6 +8,9 @@ import { useMenuListeners } from "@/hooks/useMenuListeners";
 import { useLaunchArgsBootstrap } from "@/hooks/useLaunchArgsBootstrap";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useApplyTheme } from "@/hooks/useApplyTheme";
+import { useOnboardingBootstrap } from "@/hooks/useOnboardingBootstrap";
+import { FirstRunPanel } from "@/components/onboarding/FirstRunPanel";
+import { SetupPanel } from "@/components/onboarding/SetupPanel";
 import { FolderTree } from "@/components/FolderTree/FolderTree";
 import { TabBar } from "@/components/TabBar/TabBar";
 import { ViewerRouter } from "@/components/viewers/ViewerRouter";
@@ -84,6 +87,9 @@ export default function App() {
 
   // Apply theme class to <html> and listen for OS theme changes
   useApplyTheme(theme);
+
+  // Onboarding: refresh status, maybe auto-show welcome, re-poll on focus
+  useOnboardingBootstrap();
 
   // Background update check — 5 s delay, non-blocking
   useEffect(() => {
@@ -186,6 +192,8 @@ export default function App() {
       </div>
 
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      <FirstRunPanel />
+      <SetupPanel />
     </div>
   );
 }
