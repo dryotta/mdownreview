@@ -24,6 +24,6 @@ The log file lives in the OS-appropriate per-user location; users retrieve it vi
 
 - Single logging chokepoint — rule 2 in [`docs/architecture.md`](../architecture.md). Tests MUST NOT import `@tauri-apps/plugin-log` directly — rule 23 in [`docs/test-strategy.md`](../test-strategy.md).
 - `[web]` prefix on every frontend message — [`docs/design-patterns.md`](../design-patterns.md).
-- Exception capture contract (Rust panic hook + React ErrorBoundary + `window.onerror` + `unhandledrejection`) — [`docs/security.md`](../security.md) + `docs/specs/exception-capture.md` (historical increment spec; check here first for current state).
+- Exception capture contract (Rust panic hook + React ErrorBoundary + `window.onerror` + `unhandledrejection`) — [`docs/security.md`](../security.md).
 - Console silence as a first-class assertion — principle 2 in [`docs/test-strategy.md`](../test-strategy.md).
 - No in-app log viewer; no log upload — [`docs/principles.md`](../principles.md) Non-Goals.

@@ -38,7 +38,7 @@ Canonical for test layering, coverage floors, and mock hygiene. Cite violations 
 4. Every React component with a conditional render branch has a test per branch.
 5. Component tests assert at least one user interaction (click, keyboard, typing) in addition to rendering.
 6. Every user-visible error state (file missing, too large, binary, offline) has a component test asserting the specific error UI.
-7. Every keyboard shortcut documented in `docs/specs/` has a browser E2E test that simulates the key press and asserts the UI outcome.
+7. Every keyboard shortcut documented in `docs/features/` has a browser E2E test that simulates the key press and asserts the UI outcome.
 8. Every anchor-line code path (exact/line/fuzzy/orphan) has an assertion in Rust unit tests and a round-trip MRSF test.
 
 ### IPC mock hygiene
