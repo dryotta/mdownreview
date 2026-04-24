@@ -88,3 +88,15 @@ max_iterations: 50
 - Fix attempts: 1 (post-review: 4 tests for re-anchored reply count, Windows img absolute paths, Shiki+search invariant).
 - Summary: Group A consolidated path->language detection in src/lib/file-types.ts (getShikiLanguage + getFoldLanguage), removing duplicates from useSourceHighlighting and useFolding. Group B+C extracted pure VM hook src/hooks/useSourceLineModel.ts (129 lines) with module-scope EMPTY_THREADS sentinel; SourceView.tsx 212->194 (IIFE removed, useCallback'd handlers handleCommentButtonClick/handleCloseInput/handleRequestInput); SourceLine wrapped in React.memo with regression test enforcing O(changed) re-renders. Group D+E extended useThreadsByLine to return {threadsByLine, commentCountByLine} (single useMemo); created useImgResolver.tsx (stable img Component memoized on filePath); MarkdownViewer 274->245 lines, MD_COMPONENTS now memoized on [img]. Group F added 8 CITATION_RE positive self-tests. Net: large perf win on 5000-line search-typing (only matched lines re-render).
 
+
+
+## Iteration 9 - PASSED
+- Commits: 08117cc
+- ITER_BASE_SHA: 5301c5c
+- CI: pending (in progress at commit 08117cc)
+- Local tests: lint clean (3 stale coverage/ warnings ignored), tsc clean, vitest 774 (+17), e2e 40. Cargo skipped  no Rust changes this iter.
+- Expert review: skipped  goal-assessor recommended STOP at 93%; this iter is the optional polish round identified by the assessor.
+- Goal assessor confidence: 93% (recommended STOP). 3 polish groups identified, all 3 addressed inline.
+- Fix attempts: 0 (single shot).
+- Summary: Group A added unit tests for 4 uncovered tauri-commands wrappers (editComment, deleteComment, setCommentResolved, installUpdate). Group B removed misleading DEPRECATED marker on .md-comment-popover (the class is actively used). Group C codified architecture rule 25  TS MUST NOT write *.review.{yaml,json} sidecars  and added meta-test src/__tests__/no-ts-sidecar-writes.test.ts with 4 self-tests guarding the matcher. Net: +175/-3 lines, 4 files. Goal essentially complete.
+
