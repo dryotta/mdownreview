@@ -404,3 +404,103 @@ Identify the specific risks in this plan and propose concrete mitigations so it 
 <Paste full PLAN here.>
 ```
 Incorporate mitigations into a revised `PLAN` and continue. If the architect judges the approach fundamentally unsound, log `SKIPPED — architect rejected: <reason>` to the state file, go to Step 8 (skip 5–7), then advance iteration.
+
+---
+
+### Step 5 — Implement (parallel by plan group)
+
+For each **independent group** in `PLAN`, spawn ONE `task-implementer`. Send ALL independent groups in one parallel message. Dependent groups wait for their dependency waves.
+
+Each `task-implementer` prompt:
+
+```
+Implement this group of changes for mdownreview.
+
+<Mode-specific header:>
+Issue: #<ISSUE_NUMBER> — <ISSUE_TITLE>
+OR
+Goal: <GOAL_FOR_ASSESSOR>
+<End.>
+
+Iteration: <N>/30
+Group: <group name and dependency note>
+Files: <file list for this group>
+Changes: <exact changes from PLAN>
+Tests: <tests to write — unit + e2e if UI-visible>
+Context: <relevant spec/goal excerpt>
+
+Do NOT touch files outside this group. Do NOT ask clarifying questions — if ambiguous, make the conservative choice and note it.
+Return Implementation Summary: files modified · tests written · decisions made · concerns.
+```
+
+Wait for each dependency wave before spawning the next. Collect every Implementation Summary.
+
+If every implementer in this iteration reports "no changes made or needed": log `SKIPPED — no-op: <reason>` to the state file, do NOT commit or push, advance iteration.
+
+---
+
+### Step 6 — Push + race validate
+
+#### 6a. Push immediately
+
+```bash
+git add <specific files reported by implementers — never git add -A blindly>
+git commit -m "$COMMIT_MESSAGE"
+git push
+```
+
+Commit message (see §Commit conventions for the full table):
+- Issue mode: `feat(#<N>): iter <iteration> — <one-line summary>` with a 2-3 sentence body and `Refs #<N>` trailer.
+- Goal mode: `auto-improve: iter <iteration> — <one-line summary>` with a 2-3 sentence body.
+Both include `Co-authored-by: Claude Opus 4.7 <noreply@anthropic.com>`.
+
+#### 6b. Local validation and CI poll (parallel)
+
+Spawn both in ONE message:
+
+**Agent A** — `implementation-validator`:
+```
+Run the full local test suite in order:
+1. npm run lint
+2. npx tsc --noEmit
+3. cd src-tauri && cargo test
+4. npm test
+5. npm run test:e2e
+6. npm run test:e2e:native
+
+Return PASS or FAIL with full output for every check.
+```
+
+**Agent B** — `general-purpose` (CI poller):
+```
+Poll CI status for PR <PR_NUMBER> every 30 seconds until all checks complete or 30 minutes elapse.
+  gh pr checks <PR_NUMBER>
+Stop when no check shows "pending" or "in_progress".
+Return: PASS (all checks green) or FAIL (list of failed check names with their logs).
+```
+
+Wait for both.
+
+#### 6c. Forward-fix loop (max 5 attempts)
+
+Repeat until both PASS or 5 attempts exhausted:
+
+1. Spawn `task-implementer`:
+   ```
+   Fix the following failures. Do not revert — make a forward fix.
+   Local failures: <full local output>
+   CI failures: <failed check names and logs>
+   Prior attempts in this loop: <summaries>
+
+   Make the minimal change needed to resolve each failure. Prefer tightening existing code over adding new abstractions.
+   Return Implementation Summary.
+   ```
+2. Commit + push:
+   ```bash
+   git add <specific files>
+   git commit -m "fix(iter-<iteration>): <one-line summary>"
+   git push
+   ```
+3. Re-run 6b (local + CI in parallel).
+4. If both PASS: break, proceed to Step 7.
+5. If still failing after attempt 5: log `DEGRADED — could not fix validate/CI after 5 attempts: <summary>`. Do NOT revert commits — leave them for the next iteration's assessor. `degraded_count += 1`. Proceed to Step 7 anyway (expert review still runs).
