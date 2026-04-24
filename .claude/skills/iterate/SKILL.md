@@ -8,7 +8,7 @@ description: Autonomous iteration loop on a single branch and single PR. Accepts
 Runs **one** autonomous iteration loop against **one branch and one PR** until the goal is achieved, the iteration cap is hit, or a terminal block is reached:
 pre-flight → branch → draft PR → for each iteration { rebase → assess → pre-consult → plan → implement → validate (push + CI + local, forward-fix) → expert review → record } → on Done-Achieved, release-gate validation → mark PR ready.
 
-**Fully autonomous after the skill starts — no user interaction.**
+**Clarification questions are allowed ONLY during Phase 0 setup (step 0e).** Once Phase 1 begins, the loop runs fully autonomously through 30 iterations, CI forward-fixes, expert review, and release-gate validation — no further user interaction until it terminates.
 
 **RIGID. Follow every step exactly.**
 
@@ -88,7 +88,33 @@ Find the comment whose body begins with `<!-- mdownreview-spec -->` and capture 
 
 Capture: `ISSUE_TITLE`, `ISSUE_BODY`, `SPEC_MARKDOWN`, `ACCEPTANCE_CRITERIA` (parsed `- [ ]` / `- [x]` checklist items from the spec).
 
-### 0e. Compute branch, PR title, and goal-for-assessor
+### 0e. Clarification questions (last chance for user input)
+
+**This is the ONLY step where the skill may interact with the user. Steps 0f → 9 run fully autonomously.**
+
+Decide whether clarification is needed:
+
+- **Skip entirely** if the goal/spec is concrete — acceptance criteria are specific, files or behaviours are named, and success is observable. The default bias is to skip; every question costs the user time.
+- **Otherwise**, bundle up to **3** genuinely blocking questions into a single `AskUserQuestion` invocation.
+
+Ask only about ambiguities that would waste iterations or produce the wrong feature if guessed wrong. Good examples:
+- Scope boundaries ("Does this apply to `.md` only, or all text files?")
+- Observable success signal ("Toast, log line, or persisted state?")
+- Conflicting constraints inside the spec itself
+
+Do NOT ask about:
+- Implementation details — Step 4 (Plan) decides those.
+- Anything already answered by `docs/principles.md` or the deep-dives.
+- Anything the assessor can discover by reading the code.
+- Style, formatting, naming conventions, test framework choice — all governed by existing docs.
+
+Fold the answers back into the goal so every downstream agent sees them:
+- Goal mode: append `"  (clarifications: <answer summary>)"` to `GOAL_FOR_ASSESSOR`.
+- Issue mode: append a new `### Operator clarifications (captured <ISO date>)` section to the end of `SPEC_MARKDOWN` containing the Q&A verbatim.
+
+Once you advance to step 0f, no further user interaction is permitted for the remainder of the run. Every `task-implementer`, expert, and forward-fix operates on the goal/spec as it stands after this step.
+
+### 0f. Compute branch, PR title, and goal-for-assessor
 
 | Variable | Issue mode | Goal mode |
 |---|---|---|
@@ -99,7 +125,7 @@ Capture: `ISSUE_TITLE`, `ISSUE_BODY`, `SPEC_MARKDOWN`, `ACCEPTANCE_CRITERIA` (pa
 
 Slug rules: lowercase, non-alphanumerics → `-`, collapse runs of `-`, trim leading/trailing `-`.
 
-### 0f. Create branch and draft PR
+### 0g. Create branch and draft PR
 
 ```bash
 git checkout main && git pull --ff-only
@@ -129,7 +155,7 @@ gh pr create --draft --title "$PR_TITLE" --body "$PR_BODY"
 
 Capture `PR_NUMBER` and `PR_URL` from the output.
 
-### 0g. Initialise the state file
+### 0h. Initialise the state file
 
 Write `.claude/iterate-state.md`:
 
@@ -147,7 +173,7 @@ iteration_cap: 30
 # Iteration Log
 ```
 
-### 0h. Print start banner
+### 0i. Print start banner
 
 ```
 [iterate] Mode: <MODE> | Goal: <GOAL_FOR_ASSESSOR>
@@ -878,7 +904,7 @@ No other halts.
 | Rebase-repair commit | Either | `fix(rebase): <summary>` |
 | Release-gate forward-fix | Either | `fix(iter-release): <summary>` |
 
-There is no "final-iteration" commit. When Step 2 returns `achieved`, Steps 3–8 are skipped, so no new commit is produced. Issue closure on merge is driven by the `Closes #<N>` trailer in the PR body (set in Phase 0f), not by commit messages.
+There is no "final-iteration" commit. When Step 2 returns `achieved`, Steps 3–8 are skipped, so no new commit is produced. Issue closure on merge is driven by the `Closes #<N>` trailer in the PR body (set in Phase 0g), not by commit messages.
 
 ---
 
