@@ -330,6 +330,9 @@ Scan `NEXT_REQUIREMENTS` text for domain triggers. For each triggered expert, sp
 | "React component", "hook", "Zustand", `src/components/`, `src/hooks/`, `src/store/` | `react-tauri-expert` |
 | "file read", "file write", "path", "markdown render", `src-tauri/src/core/sidecar.rs`, `MarkdownViewer` | `security-reviewer` |
 | "startup", "debounce", "throttle", "watcher", "large file", "render cost" | `performance-expert` |
+| any source-code change (virtually always) | `test-expert` |
+| change that might affect a `docs/features/` area OR modifies `AGENTS.md`/`BUILDING.md`/`docs/**/*.md` | `documentation-expert` |
+| new dependency in `package.json`/`Cargo.toml`, large new module, significant net-new LOC, or file that might breach a budget in `docs/architecture.md` | `lean-expert` |
 
 Each expert prompt:
 
@@ -516,7 +519,7 @@ git diff $ITER_BASE_SHA HEAD --stat
 git diff $ITER_BASE_SHA HEAD
 ```
 
-Spawn the **6-expert panel** in ONE parallel message:
+Spawn the **9-expert panel** in ONE parallel message:
 
 - `product-improvement-expert`
 - `performance-expert`
@@ -524,13 +527,15 @@ Spawn the **6-expert panel** in ONE parallel message:
 - `react-tauri-expert`
 - `ux-expert`
 - `bug-hunter`
+- `test-expert`
+- `documentation-expert`
+- `lean-expert`
 
-**Conditional experts** — include in the same parallel message when the diff matches:
+**Conditional expert** — include in the same parallel message when the diff matches:
 
 | Condition (match ANY) | Also spawn |
 |---|---|
 | Diff touches `src-tauri/src/commands.rs`, `src-tauri/src/core/sidecar.rs`, any `Path`/`canonicalize` usage, or any markdown-rendering code under `src/components/viewers/` | `security-reviewer` |
-| Diff changes test files, introduces a new UI-visible behaviour without a matching `e2e/browser/` addition, or adds a new Tauri command whose mock in `src/__mocks__/@tauri-apps/api/core.ts` is not updated in the same diff | `test-gap-reviewer` |
 
 Each expert prompt:
 
