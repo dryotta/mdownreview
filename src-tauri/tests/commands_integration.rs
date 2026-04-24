@@ -469,3 +469,51 @@ fn mutate_sidecar_or_create_appends_to_existing() {
     assert_eq!(loaded.comments[0].id, "c1");
     assert_eq!(loaded.comments[1].id, "c2");
 }
+
+#[test]
+fn mutate_sidecar_or_create_error_does_not_write_partial() {
+    use mdown_review_lib::commands::mutate_sidecar_or_create;
+
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("doc.md");
+    std::fs::write(&file, "hello\n").unwrap();
+    let file_path = file.to_str().unwrap().to_string();
+    let sidecar_path = dir.path().join("doc.md.review.yaml");
+
+    // Precondition: no sidecar yet.
+    assert!(!sidecar_path.exists());
+
+    let result = mutate_sidecar_or_create(&file_path, None, |_sidecar| {
+        Err("simulated".to_string())
+    });
+
+    // The mutation closure failed → the helper must propagate the error
+    // and must NOT have written a partial/empty sidecar to disk.
+    assert!(result.is_err(), "expected Err from failing mutate closure");
+    assert_eq!(result.unwrap_err(), "simulated");
+    assert!(
+        !sidecar_path.exists(),
+        "sidecar must not be created when the mutate closure errors out"
+    );
+}
+
+#[test]
+fn mutate_sidecar_or_create_uses_filename_default_when_document_default_is_none() {
+    use mdown_review_lib::commands::mutate_sidecar_or_create;
+
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("notes.md");
+    std::fs::write(&file, "x\n").unwrap();
+    let file_path = file.to_str().unwrap().to_string();
+
+    // Pass document_default = None so the helper falls back to the file's basename.
+    mutate_sidecar_or_create(&file_path, None, |sidecar| {
+        sidecar.comments.push(make_mrsf_comment("c0"));
+        Ok(())
+    })
+    .unwrap();
+
+    let loaded = load_sidecar(&file_path).unwrap().unwrap();
+    assert_eq!(loaded.document, "notes.md");
+    assert_eq!(loaded.comments.len(), 1);
+}
