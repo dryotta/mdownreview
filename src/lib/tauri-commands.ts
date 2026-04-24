@@ -247,6 +247,9 @@ export interface OnboardingState {
 }
 
 export type CliShimStatus = "done" | "missing" | "broken" | "unsupported";
+export type CliShimError =
+  | { kind: "permission_denied"; path: string }
+  | { kind: "io"; message: string };
 export type DefaultHandlerStatus = "done" | "other" | "unknown" | "unsupported";
 export type FolderContextStatus = "done" | "missing" | "unsupported";
 
@@ -258,6 +261,12 @@ export const onboardingMarkWelcomed = (version: string): Promise<void> =>
 
 export const onboardingSkip = (): Promise<void> =>
   invoke<void>("onboarding_skip");
+
+export const onboardingShouldWelcome = (): Promise<boolean> =>
+  invoke<boolean>("onboarding_should_welcome");
+
+export const onboardingMarkSectionDone = (sectionKey: string): Promise<void> =>
+  invoke<void>("onboarding_mark_section_done", { sectionKey });
 
 export const cliShimStatus = (): Promise<CliShimStatus> =>
   invoke<CliShimStatus>("cli_shim_status");

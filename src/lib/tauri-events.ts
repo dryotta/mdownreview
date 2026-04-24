@@ -40,6 +40,8 @@ export interface EventPayloads {
   "menu-theme-dark": void;
   "menu-about": void;
   "menu-check-updates": void;
+  "menu-help-welcome": void;
+  "menu-help-setup": void;
 }
 
 export type EventName = keyof EventPayloads;

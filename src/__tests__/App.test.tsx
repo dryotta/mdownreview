@@ -34,6 +34,25 @@ vi.mock("@/lib/tauri-events", () => ({
 vi.mock("@/lib/tauri-commands", () => ({
   getLaunchArgs: vi.fn().mockResolvedValue({ files: [], folders: [] }),
   showOpenDialog: vi.fn().mockResolvedValue(null),
+  onboardingShouldWelcome: vi.fn().mockResolvedValue(false),
+  cliShimStatus: vi.fn().mockResolvedValue("missing"),
+  defaultHandlerStatus: vi.fn().mockResolvedValue("unknown"),
+  folderContextStatus: vi.fn().mockResolvedValue("missing"),
+  onboardingState: vi.fn().mockResolvedValue({
+    schema_version: 1,
+    last_welcomed_version: null,
+    last_seen_sections: [],
+  }),
+  onboardingMarkWelcomed: vi.fn().mockResolvedValue(undefined),
+  onboardingSkip: vi.fn().mockResolvedValue(undefined),
+  onboardingMarkSectionDone: vi.fn().mockResolvedValue(undefined),
+  installCliShim: vi.fn().mockResolvedValue(undefined),
+  removeCliShim: vi.fn().mockResolvedValue(undefined),
+  setDefaultHandler: vi.fn().mockResolvedValue(undefined),
+  registerFolderContext: vi.fn().mockResolvedValue(undefined),
+  unregisterFolderContext: vi.fn().mockResolvedValue(undefined),
+  getAppVersion: vi.fn().mockResolvedValue("0.0.0-test"),
+  getLogPath: vi.fn().mockResolvedValue("/mock/log.log"),
 }));
 
 vi.mock("@/hooks/useFileWatcher", () => ({
@@ -67,6 +86,12 @@ vi.mock("@/components/UpdateBanner", () => ({
 }));
 vi.mock("@/components/WelcomeView", () => ({
   WelcomeView: () => <div data-testid="welcome-view" />,
+}));
+vi.mock("@/components/onboarding/FirstRunPanel", () => ({
+  FirstRunPanel: () => null,
+}));
+vi.mock("@/components/onboarding/SetupPanel", () => ({
+  SetupPanel: () => null,
 }));
 vi.mock("@/components/Icons", () => ({
   IconFile: () => <span data-testid="icon-file" />,

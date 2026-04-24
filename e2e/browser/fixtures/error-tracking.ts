@@ -61,6 +61,27 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
               if (cmd === "compute_fold_regions") return [];
               if (cmd === "parse_kql") return [];
               if (cmd === "strip_json_comments") return (args as { text?: string })?.text ?? "";
+              // Onboarding (iter 2 + iter 3) — keep welcome auto-show OFF by default.
+              if (
+                cmd === "cli_shim_status" ||
+                cmd === "default_handler_status" ||
+                cmd === "folder_context_status"
+              )
+                return "missing";
+              if (cmd === "onboarding_state")
+                return { schema_version: 1, last_welcomed_version: null, last_seen_sections: [] };
+              if (cmd === "onboarding_should_welcome") return false;
+              if (
+                cmd === "install_cli_shim" ||
+                cmd === "remove_cli_shim" ||
+                cmd === "set_default_handler" ||
+                cmd === "register_folder_context" ||
+                cmd === "unregister_folder_context" ||
+                cmd === "onboarding_mark_welcomed" ||
+                cmd === "onboarding_skip" ||
+                cmd === "onboarding_mark_section_done"
+              )
+                return undefined;
             }
             return result;
           }
@@ -75,6 +96,26 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
           if (cmd === "compute_fold_regions") return [];
           if (cmd === "parse_kql") return [];
           if (cmd === "strip_json_comments") return (args as { text?: string })?.text ?? "";
+          if (
+            cmd === "cli_shim_status" ||
+            cmd === "default_handler_status" ||
+            cmd === "folder_context_status"
+          )
+            return "missing";
+          if (cmd === "onboarding_state")
+            return { schema_version: 1, last_welcomed_version: null, last_seen_sections: [] };
+          if (cmd === "onboarding_should_welcome") return false;
+          if (
+            cmd === "install_cli_shim" ||
+            cmd === "remove_cli_shim" ||
+            cmd === "set_default_handler" ||
+            cmd === "register_folder_context" ||
+            cmd === "unregister_folder_context" ||
+            cmd === "onboarding_mark_welcomed" ||
+            cmd === "onboarding_skip" ||
+            cmd === "onboarding_mark_section_done"
+          )
+            return undefined;
           return null;
         },
       };
