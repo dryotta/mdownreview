@@ -72,17 +72,30 @@ Skills are invoked in a Claude Code session with `/skill-name`. They are defined
 
 ---
 
-#### `/start-feature`
+#### `/iterate`
 
-Starts a task safely by ensuring you're always on a feature branch, never main.
+Autonomously implements a GitHub issue or drives improvement toward a free-text goal, end-to-end, on a single branch and single PR. Supersedes the former `/start-feature`, `/implement-issue`, and `/self-improve-loop` skills.
+
+**Mode is picked from the argument shape:**
+
+| Invocation | Mode |
+|---|---|
+| `/iterate` (no args) | Auto-pick the oldest open `groomed` issue |
+| `/iterate 42` / `/iterate #42` / `/iterate issue-42` / `/iterate <issue URL>` | Issue mode, that issue |
+| `/iterate eliminate all ESLint warnings` | Goal mode, using the text verbatim |
 
 **What it does:**
-1. Checks the working tree is clean (stops if dirty)
-2. Pulls latest main
-3. Creates and checks out a typed branch (`feature/`, `fix/`, or `chore/`)
-4. Prints a reminder of how to push and open a PR when done
+1. Pre-flight (clean tree, on main), creates `feature/issue-<N>-<slug>` or `auto-improve/<slug>-<date>`, opens a draft PR.
+2. Up to 30 iterations of: rebase-with-rerere → `goal-assessor` → demand-driven pre-consult experts → plan → parallel `task-implementer` groups → push + race local validation against CI → 6-expert diff review → record.
+3. Forward-fixes every failure — validate/CI up to 5 attempts, expert review one round. Never aborts a phase; the assessor re-reads code the next iteration.
+4. On `STATUS=achieved`, mirrors the branch tip to `release/iterate-<slug>-<timestamp>`, opens a draft mirror PR to trigger the Release Gate workflow, forward-fixes platform-matrix failures (5 attempts), then closes the mirror PR and marks the iterate PR ready.
 
-**When to use:** at the beginning of any development task before touching code.
+**When to use:**
+- Any groomed GitHub issue (replaces `/implement-issue`).
+- Any free-text improvement goal (replaces `/self-improve-loop`).
+- As a safer alternative to hand-coded branch creation — though a bare `git checkout -b feature/<slug>` is faster for small manual spikes (this replaces `/start-feature`).
+
+**When NOT to use:** reviews (use `/review`), releases (use `/publish-release`), triggering CI only (use `/validate-ci`).
 
 ---
 
@@ -96,22 +109,6 @@ Interactively grooms GitHub issues by brainstorming requirements and attaching a
 - Posts spec as a comment (with HTML marker for re-groom updates)
 - Swaps labels: `needs-grooming` → `groomed`
 - To re-groom: remove `groomed`, add `needs-grooming` — the skill updates the existing spec
-
----
-
-#### `/implement-issues`
-
-Autonomously implements groomed GitHub issues end-to-end without user interaction.
-
-- **Default**: fetches all open issues labeled `groomed`, processes oldest first
-- **With issue numbers** (`/implement-issues #36 #42`): implements those specific issues
-- Reads the spec from the issue comment, consults expert agents for architecture guidance
-- Creates a feature branch per issue, plans with subagents, implements, validates, code-reviews
-- On success: commits and creates a PR that closes the issue
-- On failure: posts a failure comment on the issue, discards the branch, continues to next issue
-- One retry allowed per issue if validation/review fails
-
-**Pipeline**: read spec → consult experts → write plan → implement (subagents) → validate → code review → PR
 
 ---
 
