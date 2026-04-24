@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { resolveLocalAssets } from "@/lib/resolve-html-assets";
+import { resolveHtmlAssets } from "@/lib/tauri-commands";
+import { dirname } from "@/lib/path-utils";
 
 interface Props {
   content: string;
@@ -22,7 +23,7 @@ export function HtmlPreviewView({ content, filePath }: Props) {
     }
     let cancelled = false;
     setResolving(true);
-    resolveLocalAssets(content, filePath)
+    resolveHtmlAssets(content, dirname(filePath))
       .then((resolved) => {
         if (!cancelled) setResolvedContent(resolved);
       })

@@ -46,6 +46,7 @@ clap = { version = "4", features = ["derive"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 uuid = { version = "1", features = ["v4"] }
 url = "2"
+regex = "1"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
@@ -72,4 +73,8 @@ harness = false
 
 [[bench]]
 name = "hot_path_bench"
+harness = false
+
+[[bench]]
+name = "parsers_bench"
 harness = false

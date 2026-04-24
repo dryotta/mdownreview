@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { getLaunchArgs } from "@/lib/tauri-commands";
 import { useStore, openFilesFromArgs } from "@/store";
 
@@ -18,16 +18,9 @@ export function useLaunchArgsBootstrap() {
       })
       .catch(() => {});
 
-    const argsListener = listen<{ files: string[]; folders: string[] }>(
-      "args-received",
-      (event) => {
-        openFilesFromArgs(
-          event.payload.files,
-          event.payload.folders,
-          useStore.getState(),
-        );
-      },
-    );
+    const argsListener = listenEvent("args-received", (payload) => {
+      openFilesFromArgs(payload.files, payload.folders, useStore.getState());
+    });
 
     return () => {
       cancelled = true;

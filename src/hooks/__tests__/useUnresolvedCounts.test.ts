@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { getUnresolvedCounts } from "@/lib/tauri-commands";
 import { useUnresolvedCounts } from "../useUnresolvedCounts";
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((_eventName: string, _callback: unknown) =>
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((_eventName: string, _callback: unknown) =>
     Promise.resolve(() => {})
   ),
 }));
@@ -49,7 +49,7 @@ describe("useUnresolvedCounts", () => {
     expect(result.current).toEqual({ "/a.md": 1 });
 
     // Find the comments-changed listener and invoke it
-    const commentsCall = vi.mocked(listen).mock.calls.find(
+    const commentsCall = vi.mocked(listenEvent).mock.calls.find(
       (c) => c[0] === "comments-changed"
     );
     expect(commentsCall).toBeDefined();
@@ -74,16 +74,14 @@ describe("useUnresolvedCounts", () => {
     expect(result.current).toEqual({ "/a.md": 1 });
 
     // Find the file-changed listener and invoke with kind=review
-    const fileCall = vi.mocked(listen).mock.calls.find(
+    const fileCall = vi.mocked(listenEvent).mock.calls.find(
       (c) => c[0] === "file-changed"
     );
     expect(fileCall).toBeDefined();
-    const fileCallback = fileCall![1] as (event: {
-      payload: { kind: string };
-    }) => void;
+    const fileCallback = fileCall![1] as (payload: { kind: string }) => void;
 
     await act(async () => {
-      fileCallback({ payload: { kind: "review" } });
+      fileCallback({ kind: "review" });
     });
     await act(async () => {});
 
@@ -104,7 +102,7 @@ describe("useUnresolvedCounts", () => {
     expect(firstRef).toEqual(counts);
 
     // Trigger reload via comments-changed
-    const commentsCall = vi.mocked(listen).mock.calls.find(
+    const commentsCall = vi.mocked(listenEvent).mock.calls.find(
       (c) => c[0] === "comments-changed"
     );
     const commentsCallback = commentsCall![1] as () => void;

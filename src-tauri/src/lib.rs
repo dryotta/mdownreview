@@ -225,6 +225,7 @@ pub fn run() {
                 commands::read_dir,
                 commands::read_text_file,
                 commands::read_binary_file,
+                commands::resolve_html_assets,
                 commands::get_launch_args,
                 commands::get_log_path,
                 commands::scan_review_files,

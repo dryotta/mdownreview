@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { useComments } from "../use-comments";
 import {
   getFileComments,
@@ -8,8 +8,8 @@ import {
 } from "@/lib/tauri-commands";
 import { error as logError } from "@/logger";
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((_eventName: string, _callback: unknown) =>
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((_eventName: string, _callback: unknown) =>
     Promise.resolve(() => {})
   ),
 }));
@@ -40,7 +40,7 @@ describe("useComments listener cleanup", () => {
     let resolveCommentsChanged!: (fn: () => void) => void;
 
     // First listen call = comments-changed, second = file-changed
-    vi.mocked(listen)
+    vi.mocked(listenEvent)
       .mockReturnValueOnce(
         new Promise((r) => {
           resolveCommentsChanged = r;
@@ -64,7 +64,7 @@ describe("useComments listener cleanup", () => {
     const mockUnlisten = vi.fn();
     let resolveFileChanged!: (fn: () => void) => void;
 
-    vi.mocked(listen)
+    vi.mocked(listenEvent)
       .mockReturnValueOnce(new Promise(() => {}))
       .mockReturnValueOnce(
         new Promise((r) => {
@@ -86,7 +86,7 @@ describe("useComments listener cleanup", () => {
   it("cleans up listener normally when promise resolves before unmount", async () => {
     const mockUnlisten = vi.fn();
 
-    vi.mocked(listen).mockResolvedValue(mockUnlisten);
+    vi.mocked(listenEvent).mockResolvedValue(mockUnlisten);
 
     const { unmount } = renderHook(() => useComments("/test.md"));
 
@@ -107,7 +107,7 @@ describe("useComments listener cleanup", () => {
     await flushPromises();
 
     // listen should not be called for null filePath (only initial load effect runs)
-    expect(listen).not.toHaveBeenCalled();
+    expect(listenEvent).not.toHaveBeenCalled();
   });
 });
 
@@ -307,14 +307,14 @@ describe("useComments reload", () => {
 // ── Event subscription tests ─────────────────────────────────────────────────
 
 describe("useComments event subscriptions", () => {
-  let commentsChangedCb: ((event: { payload: { file_path: string } }) => void) | null;
-  let fileChangedCb: ((event: { payload: { path: string; kind: string } }) => void) | null;
+  let commentsChangedCb: ((payload: { file_path: string }) => void) | null;
+  let fileChangedCb: ((payload: { path: string; kind: string }) => void) | null;
 
   beforeEach(() => {
     commentsChangedCb = null;
     fileChangedCb = null;
 
-    vi.mocked(listen).mockImplementation(
+    vi.mocked(listenEvent).mockImplementation(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (eventName: string, callback: any) => {
         if (eventName === "comments-changed") commentsChangedCb = callback;
@@ -332,7 +332,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      commentsChangedCb!({ payload: { file_path: "/test.md" } });
+      commentsChangedCb!({ file_path: "/test.md" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(2);
@@ -344,7 +344,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      commentsChangedCb!({ payload: { file_path: "/other.md" } });
+      commentsChangedCb!({ file_path: "/other.md" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(1);
@@ -356,7 +356,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      fileChangedCb!({ payload: { path: "/test.md.review.yaml", kind: "review" } });
+      fileChangedCb!({ path: "/test.md.review.yaml", kind: "review" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(2);
@@ -368,7 +368,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      fileChangedCb!({ payload: { path: "/test.md.review.json", kind: "review" } });
+      fileChangedCb!({ path: "/test.md.review.json", kind: "review" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(2);
@@ -380,7 +380,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      fileChangedCb!({ payload: { path: "/test.md.review.yaml", kind: "content" } });
+      fileChangedCb!({ path: "/test.md.review.yaml", kind: "content" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(1);
@@ -392,7 +392,7 @@ describe("useComments event subscriptions", () => {
     expect(getFileComments).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      fileChangedCb!({ payload: { path: "/other.md.review.yaml", kind: "review" } });
+      fileChangedCb!({ path: "/other.md.review.yaml", kind: "review" });
     });
 
     expect(getFileComments).toHaveBeenCalledTimes(1);

@@ -53,6 +53,9 @@ export const readTextFile = (path: string): Promise<string> =>
 export const readBinaryFile = (path: string): Promise<string> =>
   invoke<string>("read_binary_file", { path });
 
+export const resolveHtmlAssets = (html: string, htmlDir: string): Promise<string> =>
+  invoke<string>("resolve_html_assets", { html, htmlDir });
+
 export const readDir = (path: string): Promise<DirEntry[]> =>
   invoke<DirEntry[]>("read_dir", { path });
 
@@ -62,11 +65,6 @@ export const getLaunchArgs = (): Promise<LaunchArgs> =>
 export const getLogPath = (): Promise<string> =>
   invoke<string>("get_log_path");
 
-
-export interface FileChangeEvent {
-  path: string;
-  kind: "content" | "review" | "deleted";
-}
 
 export const updateWatchedFiles = (paths: string[]): Promise<void> =>
   invoke<void>("update_watched_files", { paths });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import {
   getFileComments,
   type CommentThread,
@@ -56,8 +56,8 @@ export function useComments(filePath: string | null): UseCommentsResult {
   // Listen for comments-changed (from Rust mutation commands)
   useEffect(() => {
     if (!filePath) return;
-    const listenerPromise = listen<{ file_path: string }>("comments-changed", (event) => {
-      if (event.payload.file_path === filePath) {
+    const listenerPromise = listenEvent("comments-changed", (payload) => {
+      if (payload.file_path === filePath) {
         info(`[vm] comments-changed for ${filePath}, reloading`);
         load();
       }
@@ -69,10 +69,10 @@ export function useComments(filePath: string | null): UseCommentsResult {
   // Listen for file-changed (from watcher, for external sidecar changes)
   useEffect(() => {
     if (!filePath) return;
-    const listenerPromise = listen<{ path: string; kind: string }>("file-changed", (event) => {
-      if (event.payload.kind === "review") {
+    const listenerPromise = listenEvent("file-changed", (payload) => {
+      if (payload.kind === "review") {
         // Check if this is the sidecar for our file
-        const sidecarPath = event.payload.path;
+        const sidecarPath = payload.path;
         if (
           sidecarPath === `${filePath}.review.yaml` ||
           sidecarPath === `${filePath}.review.json`

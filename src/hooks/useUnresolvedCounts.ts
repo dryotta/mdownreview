@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { getUnresolvedCounts } from "@/lib/tauri-commands";
 
 /**
@@ -42,14 +42,14 @@ export function useUnresolvedCounts(filePaths: string[]): Record<string, number>
 
   // Reload on comment mutations
   useEffect(() => {
-    const p = listen("comments-changed", () => { setReloadKey(k => k + 1); });
+    const p = listenEvent("comments-changed", () => { setReloadKey(k => k + 1); });
     return () => { p.then(fn => fn()).catch(() => {}); };
   }, []);
 
   // Reload on sidecar changes from watcher
   useEffect(() => {
-    const p = listen<{ kind: string }>("file-changed", (event) => {
-      if (event.payload.kind === "review") setReloadKey(k => k + 1);
+    const p = listenEvent("file-changed", (payload) => {
+      if (payload.kind === "review") setReloadKey(k => k + 1);
     });
     return () => { p.then(fn => fn()).catch(() => {}); };
   }, []);

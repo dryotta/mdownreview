@@ -145,6 +145,14 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
+/// Inline local images as data URIs and stylesheets as `<style>` blocks.
+/// Replaces the previous TS implementation in `src/lib/resolve-html-assets.ts`.
+/// Per-asset failures preserve the original tag (graceful fallback).
+#[tauri::command]
+pub fn resolve_html_assets(html: String, html_dir: String) -> String {
+    crate::core::html_assets::resolve_local_assets(&html, std::path::Path::new(&html_dir))
+}
+
 /// Get (and clear) launch args stored during setup.
 #[tauri::command]
 pub fn get_launch_args(state: State<LaunchArgsState>) -> Result<LaunchArgs, String> {

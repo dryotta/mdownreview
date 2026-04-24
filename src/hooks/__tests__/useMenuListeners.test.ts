@@ -5,8 +5,8 @@ import { useMenuListeners } from "../useMenuListeners";
 const mockUnlisten = vi.fn();
 const listeners = new Map<string, (...args: unknown[]) => void>();
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((event: string, cb: (...args: unknown[]) => void) => {
     listeners.set(event, cb);
     return Promise.resolve(mockUnlisten);
   }),

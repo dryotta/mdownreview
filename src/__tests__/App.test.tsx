@@ -23,9 +23,9 @@ Object.defineProperty(window, "matchMedia", {
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
 
-const eventHandlers: Record<string, (event: { payload: unknown }) => void> = {};
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((event: string, handler: (e: { payload: unknown }) => void) => {
+const eventHandlers: Record<string, (payload: unknown) => void> = {};
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((event: string, handler: (p: unknown) => void) => {
     eventHandlers[event] = handler;
     return Promise.resolve(() => {});
   }),
@@ -367,7 +367,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     await act(async () => {
-      eventHandlers["menu-open-file"]?.({ payload: undefined });
+      eventHandlers["menu-open-file"]?.(undefined);
     });
 
     expect(mockOpen).toHaveBeenCalledWith({ directory: false, multiple: true });
@@ -377,7 +377,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     await act(async () => {
-      eventHandlers["menu-open-folder"]?.({ payload: undefined });
+      eventHandlers["menu-open-folder"]?.(undefined);
     });
 
     expect(mockOpen).toHaveBeenCalledWith({ directory: true, multiple: false });
@@ -388,7 +388,7 @@ describe("App – menu event listeners", () => {
     const before = useStore.getState().commentsPaneVisible;
 
     act(() => {
-      eventHandlers["menu-toggle-comments-pane"]?.({ payload: undefined });
+      eventHandlers["menu-toggle-comments-pane"]?.(undefined);
     });
 
     expect(useStore.getState().commentsPaneVisible).toBe(!before);
@@ -402,7 +402,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     act(() => {
-      eventHandlers["menu-close-tab"]?.({ payload: undefined });
+      eventHandlers["menu-close-tab"]?.(undefined);
     });
 
     expect(useStore.getState().tabs).toEqual([]);
@@ -419,7 +419,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     act(() => {
-      eventHandlers["menu-next-tab"]?.({ payload: undefined });
+      eventHandlers["menu-next-tab"]?.(undefined);
     });
 
     expect(useStore.getState().activeTabPath).toBe("/b.md");
@@ -436,7 +436,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     act(() => {
-      eventHandlers["menu-prev-tab"]?.({ payload: undefined });
+      eventHandlers["menu-prev-tab"]?.(undefined);
     });
 
     expect(useStore.getState().activeTabPath).toBe("/a.md");
@@ -446,7 +446,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     act(() => {
-      eventHandlers["menu-theme-light"]?.({ payload: undefined });
+      eventHandlers["menu-theme-light"]?.(undefined);
     });
 
     expect(useStore.getState().theme).toBe("light");
@@ -456,7 +456,7 @@ describe("App – menu event listeners", () => {
     await renderApp();
 
     act(() => {
-      eventHandlers["menu-about"]?.({ payload: undefined });
+      eventHandlers["menu-about"]?.(undefined);
     });
 
     expect(screen.getByTestId("about-dialog")).toBeInTheDocument();
