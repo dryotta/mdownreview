@@ -72,17 +72,30 @@ Skills are invoked in a Claude Code session with `/skill-name`. They are defined
 
 ---
 
-#### `/start-feature`
+#### `/iterate`
 
-Starts a task safely by ensuring you're always on a feature branch, never main.
+Autonomously implements a GitHub issue or drives improvement toward a free-text goal, end-to-end, on a single branch and single PR. Supersedes the former `/start-feature`, `/implement-issue`, and `/self-improve-loop` skills.
+
+**Mode is picked from the argument shape:**
+
+| Invocation | Mode |
+|---|---|
+| `/iterate` (no args) | Auto-pick the oldest open `groomed` issue |
+| `/iterate 42` / `/iterate #42` / `/iterate issue-42` / `/iterate <issue URL>` | Issue mode, that issue |
+| `/iterate eliminate all ESLint warnings` | Goal mode, using the text verbatim |
 
 **What it does:**
-1. Checks the working tree is clean (stops if dirty)
-2. Pulls latest main
-3. Creates and checks out a typed branch (`feature/`, `fix/`, or `chore/`)
-4. Prints a reminder of how to push and open a PR when done
+1. Pre-flight (clean tree, on main), creates `feature/issue-<N>-<slug>` or `auto-improve/<slug>-<date>`, opens a draft PR.
+2. Up to 30 iterations of: rebase-with-rerere → `goal-assessor` → demand-driven pre-consult experts → plan → parallel `task-implementer` groups → push + race local validation against CI → 6-expert diff review → record.
+3. Forward-fixes every failure — validate/CI up to 5 attempts, expert review one round. Never aborts a phase; the assessor re-reads code the next iteration.
+4. On `STATUS=achieved`, mirrors the branch tip to `release/iterate-<slug>-<timestamp>`, opens a draft mirror PR to trigger the Release Gate workflow, forward-fixes platform-matrix failures (5 attempts), then closes the mirror PR and marks the iterate PR ready.
 
-**When to use:** at the beginning of any development task before touching code.
+**When to use:**
+- Any groomed GitHub issue (replaces `/implement-issue`).
+- Any free-text improvement goal (replaces `/self-improve-loop`).
+- As a safer alternative to hand-coded branch creation — though a bare `git checkout -b feature/<slug>` is faster for small manual spikes (this replaces `/start-feature`).
+
+**When NOT to use:** reviews (use `/review`), releases (use `/publish-release`), triggering CI only (use `/validate-ci`).
 
 ---
 
@@ -96,22 +109,6 @@ Interactively grooms GitHub issues by brainstorming requirements and attaching a
 - Posts spec as a comment (with HTML marker for re-groom updates)
 - Swaps labels: `needs-grooming` → `groomed`
 - To re-groom: remove `groomed`, add `needs-grooming` — the skill updates the existing spec
-
----
-
-#### `/implement-issues`
-
-Autonomously implements groomed GitHub issues end-to-end without user interaction.
-
-- **Default**: fetches all open issues labeled `groomed`, processes oldest first
-- **With issue numbers** (`/implement-issues #36 #42`): implements those specific issues
-- Reads the spec from the issue comment, consults expert agents for architecture guidance
-- Creates a feature branch per issue, plans with subagents, implements, validates, code-reviews
-- On success: commits and creates a PR that closes the issue
-- On failure: posts a failure comment on the issue, discards the branch, continues to next issue
-- One retry allowed per issue if validation/review fails
-
-**Pipeline**: read spec → consult experts → write plan → implement (subagents) → validate → code review → PR
 
 ---
 
@@ -234,7 +231,9 @@ Requires an explicit confirmation step before writing any files — will stop an
 
 ### Expert Subagents
 
-Subagents are specialist Claude instances invoked in parallel by `/expert-review` and `/self-improve`. Defined in `.claude/agents/`.
+Subagents are specialist Claude instances invoked in parallel by the `/iterate` skill (9-expert unconditional panel + 1 conditional per-iteration diff review, plus demand-driven pre-consult). Defined in `.claude/agents/`.
+
+**Review panel (run per iteration diff):**
 
 | Agent | Specialisation |
 |---|---|
@@ -244,11 +243,19 @@ Subagents are specialist Claude instances invoked in parallel by `/expert-review
 | `react-tauri-expert` | React 19 API misuse (missing `useTransition`, stale closures), Tauri v2 pattern correctness, plugin usage |
 | `ux-expert` | Keyboard navigation, loading/error states, comment workflow friction, empty states |
 | `bug-hunter` | Race conditions, async error handling, `listen()` leaks without `unlisten()`, comment anchor edge cases |
-| `task-implementer` | Implements a single scoped task; returns a structured change summary; used by `/self-improve` |
-| `implementation-validator` | Runs TS check → vitest → eslint; returns COMMIT or DO NOT COMMIT verdict; used by `/self-improve` |
-| `security-reviewer` | Tauri IPC handlers, path traversal, XSS in markdown rendering, IPC type mismatches |
+| `test-expert` | Test completeness, pyramid-layer correctness, reliability/flakiness, e2e coverage, IPC-mock hygiene, oracle quality |
+| `documentation-expert` | Doc taxonomy (principles + deep-dives + one evergreen `docs/features/<area>.md`), code/doc drift, rule-citation staleness |
+| `lean-expert` | **Pushes for simpler implementations** — dependency justification, bundle/binary size, dead code, file-size budgets, inlining + collapsing opportunities |
+| `security-reviewer` *(conditional)* | Tauri IPC handlers, path traversal, XSS in markdown rendering, IPC type mismatches — runs when diff touches commands, path handling, or markdown rendering |
+
+**Assessor + workers:**
+
+| Agent | Role |
+|---|---|
+| `goal-assessor` | Reads the code from scratch each iteration, emits fresh requirement specs (Step 2 of `/iterate`) |
+| `task-implementer` | Implements a single scoped task; returns a structured change summary |
 | `e2e-test-writer` | Writes Playwright browser and native tests following the IPC mock pattern |
-| `test-gap-reviewer` | Identifies missing unit test cases for recently changed source files |
+| `implementation-validator` | Runs lint → tsc → cargo test → vitest → browser-e2e → native-e2e; returns PASS/FAIL with full output |
 
 ### Hooks
 
