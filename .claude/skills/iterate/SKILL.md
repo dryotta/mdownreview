@@ -709,27 +709,41 @@ On FAIL:
 5. PASS → proceed to 9d.
 6. Still FAIL after attempt 5: halt as **Done-Blocked** with reason = `release-gate failure after 5 forward-fix attempts`. Leave mirror PR draft. Leave iterate PR draft.
 
-#### 9d. Close the mirror PR on success
+#### 9d. Close the mirror PR and mark the iterate PR ready
 
-```bash
-gh pr close "$RELEASE_PR_NUMBER" --delete-branch
-```
+Execute ALL of the following in order — this block IS the success path:
 
-Append to state file:
-```markdown
-## Release-gate validation — PASSED
-- Mirror PR: <RELEASE_PR_URL>
-- Fix attempts: <N>
-- Commit validated: <iterate branch HEAD SHA>
-```
+1. **Close the mirror PR and delete its branch:**
+   ```bash
+   gh pr close "$RELEASE_PR_NUMBER" --delete-branch
+   ```
 
-Comment on the iterate PR:
-```bash
-gh pr comment <PR_NUMBER> --body "<!-- iterate-release-gate-done -->
-🟢 Release gate validated on commit <sha>. Mirror PR closed."
-```
+2. **Refresh the iterate PR body** — tick every progress item, change the summary to "Ready for review — goal achieved, release gate passed". In issue mode, ensure `Closes #<ISSUE_NUMBER>` remains in the body trailer.
+   ```bash
+   gh pr edit <PR_NUMBER> --body "<final body>"
+   ```
 
-Proceed to Done-Achieved's "mark ready" step.
+3. **Mark the iterate PR ready for review** (this is the only place in the skill that flips the iterate PR out of draft):
+   ```bash
+   gh pr ready <PR_NUMBER>
+   ```
+
+4. **Append to state file:**
+   ```markdown
+   ## Release-gate validation — PASSED
+   - Mirror PR: <RELEASE_PR_URL> (closed with --delete-branch)
+   - Fix attempts: <N>
+   - Commit validated: <iterate branch HEAD SHA>
+   - Iterate PR: <PR_URL> (marked ready for review)
+   ```
+
+5. **Comment on the iterate PR** so the reviewer sees the release-gate result inline:
+   ```bash
+   gh pr comment <PR_NUMBER> --body "<!-- iterate-release-gate-done -->
+   🟢 Release gate validated on commit <sha>. Mirror PR closed. PR marked ready for review."
+   ```
+
+Proceed to **Done-Achieved** — the remaining step is just the success banner.
 
 ---
 
@@ -747,15 +761,9 @@ After a completed iteration (end of Step 8), if `iteration + 1 > 30`, exit via *
 
 ### Done-Achieved
 
-**First, run Step 9 Release-gate validation.** If it halts, you are in Done-Blocked — do not continue here.
+**Step 9 Release-gate validation runs FIRST.** If it halts, you are in Done-Blocked — do not continue here.
 
-Once release gate passes:
-
-```bash
-gh pr ready <PR_NUMBER>
-```
-
-Refresh the PR body: tick every progress item, change summary to "Ready for review — goal achieved, release gate passed". In issue mode, ensure `Closes #<ISSUE_NUMBER>` remains in the body trailer.
+Step 9d (on success) has already closed the mirror PR, refreshed the iterate PR body, and marked the iterate PR ready for review. Nothing more to do here except announce the result.
 
 Print:
 ```
