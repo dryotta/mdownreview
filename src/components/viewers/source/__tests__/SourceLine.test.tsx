@@ -4,8 +4,19 @@ import { SourceLine, type SourceLineProps } from "../SourceLine";
 import type { CommentThread, FoldRegion } from "@/lib/tauri-commands";
 
 vi.mock("@/components/comments/LineCommentMargin", () => ({
-  LineCommentMargin: (props: { lineNumber: number; threads: CommentThread[] }) => (
-    <div data-testid="line-comment-margin" data-line={props.lineNumber} data-thread-count={props.threads.length} />
+  LineCommentMargin: (props: {
+    lineNumber: number;
+    threads: CommentThread[];
+    showInput?: boolean;
+    forceExpanded?: boolean;
+  }) => (
+    <div
+      data-testid="line-comment-margin"
+      data-line={props.lineNumber}
+      data-thread-count={props.threads.length}
+      data-show-input={props.showInput ? "true" : "false"}
+      data-force-expanded={props.forceExpanded ? "true" : "false"}
+    />
   ),
 }));
 
@@ -87,5 +98,36 @@ describe("SourceLine", () => {
     renderLine({ lineNum: 12, onCommentButtonClick });
     fireEvent.click(screen.getByLabelText("Add comment"));
     expect(onCommentButtonClick).toHaveBeenCalledWith(12);
+  });
+
+  it("adds the 'selection-active' class to the line wrapper when isSelectionActive is true", () => {
+    renderLine({ isSelectionActive: true });
+    const wrapper = document.querySelector(".source-line");
+    expect(wrapper).not.toBeNull();
+    expect(wrapper?.classList.contains("selection-active")).toBe(true);
+  });
+
+  it("renders LineCommentMargin with showInput=true when isCommenting is true", () => {
+    renderLine({ isCommenting: true });
+    const margin = screen.getByTestId("line-comment-margin");
+    expect(margin).toBeInTheDocument();
+    expect(margin.getAttribute("data-show-input")).toBe("true");
+  });
+
+  it("renders LineCommentMargin with forceExpanded when isExpanded is true (no threads, not commenting)", () => {
+    renderLine({ isExpanded: true });
+    const margin = screen.getByTestId("line-comment-margin");
+    expect(margin).toBeInTheDocument();
+    expect(margin.getAttribute("data-force-expanded")).toBe("true");
+    expect(margin.getAttribute("data-show-input")).toBe("false");
+  });
+
+  it("shows the ▾ Collapse toggle and no placeholder when foldRegion is present and isCollapsed=false", () => {
+    const foldRegion: FoldRegion = { startLine: 4, endLine: 10 };
+    renderLine({ lineNum: 4, foldRegion, isCollapsed: false });
+    const toggle = screen.getByLabelText("Collapse");
+    expect(toggle).toBeInTheDocument();
+    expect(toggle.textContent).toBe("▾");
+    expect(document.querySelector(".source-fold-placeholder")).toBeNull();
   });
 });
