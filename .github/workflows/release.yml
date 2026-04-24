@@ -109,6 +109,21 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      - name: Verify macOS ad-hoc signature
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app_bundle=$(ls -d ${{ matrix.target_dir }}/bundle/macos/*.app 2>/dev/null | head -1)
+          [ -z "$app_bundle" ] && { echo "::error::.app bundle not found for codesign verify"; exit 1; }
+          echo "Verifying signature on: $app_bundle"
+          output=$(codesign -dv --verbose=4 "$app_bundle" 2>&1)
+          echo "$output"
+          if ! echo "$output" | grep -q "^Signature=adhoc$"; then
+            echo "::error::.app is not ad-hoc signed (expected 'Signature=adhoc' in codesign output)"
+            exit 1
+          fi
+          echo "OK: .app is ad-hoc signed"
+
       - name: Build CLI binary
         shell: bash
         run: |
