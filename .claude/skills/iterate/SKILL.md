@@ -581,3 +581,51 @@ Return Implementation Summary.
 Commit + push (`fix(iter-<iteration>): <summary>`), then re-run Step 6b (local validation + CI poll). Then re-run the SAME expert panel on the updated iteration diff (re-capture `git diff $ITER_BASE_SHA HEAD`).
 
 If experts still BLOCK after ONE fix round: log `DEGRADED — expert review: <issue summaries>`. `degraded_count += 1`. Do NOT revert. Proceed to Step 8.
+
+---
+
+### Step 8 — Record iteration
+
+Append to `.claude/iterate-state.md`:
+
+```markdown
+## Iteration <N> — <PASSED | DEGRADED | SKIPPED>
+- Commits: <list of SHAs from ITER_BASE_SHA to HEAD>
+- Validate+CI: <passed | fixed in K attempts | degraded after 5>
+- Expert review: <A approved / B blocked — list>
+- Goal assessor confidence: <%>
+- Summary: <one sentence>
+<if DEGRADED:>
+- Carry-over issues: <bullet list — read by next iteration's assessor>
+```
+
+**Update PR body and progress**:
+
+- Refresh the PR body's progress list:
+  - Issue mode: tick any AC checkbox that this iteration's assessor confirmed or this iteration's implementers clearly satisfied (cross-reference their Implementation Summaries).
+  - Goal mode: append the iteration's completed requirement groups as ticked items.
+  - Use `gh pr edit <PR_NUMBER> --body "<updated body>"`.
+
+- Post a progress comment:
+  ```bash
+  gh pr comment <PR_NUMBER> --body "$(cat <<'EOF'
+  <!-- iterate-iter-<N> -->
+  ### <✅ PASSED | ⚠️ DEGRADED | ⏭️ SKIPPED> Iteration <N>/30
+
+  **Commits:** <short SHAs>
+  **Files changed:** <count>
+  **Tests added/updated:** <count>
+  <Issue mode: **AC satisfied this iteration:** <bullet list>>
+  <Goal mode: **Requirements completed:** <bullet list>>
+  <If DEGRADED: **Carry-over:** <summary>>
+
+  Next: iteration <N+1> (assessor will re-scan on rebase)
+  EOF
+  )"
+  ```
+
+`iteration += 1`. If `PASSED`, `passed_count += 1`.
+
+**Termination check** (after 8):
+- If `iteration > 30`: go to **Done-TimedOut**.
+- Otherwise: return to Step 1 of the next iteration.
