@@ -42,3 +42,13 @@ max_iterations: 50
 - Goal assessor: 6 groups identified, 3 implemented (Group B plugin IPC, Group A App.tsx hooks, Group D+F FolderTree+JsonTreeView). Skipped: Group C (truncateSelectedText kept as defense-in-depth), Group E (MarkdownViewer at 392 lines, within budget).
 - Fix attempts: 1 (post-expert-review: openExternalUrl URL scheme guard, plugin wrapper unit tests, MarkdownViewer test mock alignment)
 - Summary: Routed 4 plugin imports (clipboard, opener, dialog, process) through tauri-commands.ts chokepoint with URL scheme validation for openExternalUrl. Extracted App.tsx menu/dialog logic into useDialogActions + useMenuListeners hooks (App.tsx down to 239 lines). Extracted FolderTree tree-building into useFolderTree hook + buildFolderTree pure function. Extracted stripJsonComments to src/lib/json-utils.ts. Added 52 new tests (38 from extractions + 14 plugin wrapper tests). Net: +863/-236 lines, 21 files.
+
+## Iteration 5 - PASSED
+- Commits: b0b1384, 6b6309f
+- ITER_BASE_SHA: a2ff4b6
+- CI: pending (in progress at commit 6b6309f)
+- Local tests: all 5 suites passed (lint, tsc, cargo 147, vitest 660, e2e 40)
+- Expert review: 4/4 - architect APPROVED, react-tauri APPROVED, perf APPROVED with 3 follow-ups, test-gap BLOCKED on rule 3 (resolved by regression tests).
+- Goal assessor confidence: 75% pre-iteration; architect estimates 85% post.
+- Fix attempts: 1 (post-expert: useFolding signature simplification, 4 null-IPC regression tests)
+- Summary: Group A trimmed view layer (MarkdownViewer 430->268, App.tsx 266->182). Group C ported fold-regions/kql-parser/json-utils to Rust core (35 new cargo tests, 3 TS files+tests deleted). Group D deduplicated vm/use-comments load logic, extracted useLaunchArgsBootstrap and useGlobalShortcuts hooks. Added convertAssetUrl chokepoint - last direct @tauri-apps/api/core import eliminated. Net: +1638/-911, 33 files. Skipped Group B (event chokepoint) and E (docs) for next iteration.
