@@ -5,7 +5,7 @@ One evergreen file per major user-facing feature area of mdownreview. The taxono
 ## Rules of this directory
 
 - **One file per major area.** A "major area" is a user-visible capability a first-time developer needs to understand — there are ~7 of them, not 70.
-- **Evergreen, not per-increment.** Per-task specs belong in `docs/specs/`; this directory holds the current canonical description.
+- **Evergreen, not per-increment.** Each file describes the current state of the feature; historical per-PR context belongs in `CHANGELOG.md` and the git log.
 - **Reference, don't duplicate.** Every file cites source by path + key class / function / command / hook name. No copied code. Readers navigate to the referenced file if they need implementation detail.
 - **Link to the deep-dives.** Rules come from `docs/principles.md` + `docs/architecture.md` + `docs/performance.md` + `docs/security.md` + `docs/design-patterns.md` + `docs/test-strategy.md`. Feature docs link — they do not restate.
 

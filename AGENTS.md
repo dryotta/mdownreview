@@ -143,18 +143,3 @@ e2e/
 - [Logging](docs/features/logging.md) — frontend + Rust logging chokepoint, exception capture
 
 Taxonomy + drift enforcement is owned by the `documentation-expert` agent (`.claude/agents/documentation-expert.md`).
-
-### Historical per-increment specs
-
-`docs/specs/` holds **born-to-die** specs tied to individual PRs / issues. They are historical reference only — do NOT update them when subsequent changes touch the same area; update the corresponding `docs/features/<area>.md` file instead.
-
-- [App Logging](docs/specs/app-logging.md)
-- [CLI File Open & File Associations](docs/specs/cli-file-open.md)
-- [Document Viewer & Tab System](docs/specs/document-viewer.md)
-- [E2E Test Requirements](docs/specs/e2e-app-tests.md)
-- [Exception Capture](docs/specs/exception-capture.md)
-- [Folder Navigation](docs/specs/folder-navigation.md)
-- [Markdown Rendering](docs/specs/markdown-rendering.md)
-- [Review Comments](docs/specs/review-comments.md)
-- [Test Exception Tracking](docs/specs/test-exception-tracking.md)
-- [Store Unit Tests](docs/specs/unit-store-tests.md)

@@ -31,6 +31,7 @@ test-results/
 __pycache__/
 *.pyc
 .superpowers/
+docs/superpowers/
 .claude/settings.local.json
 .claude/iterate-state.md
 .e2e-native.pid
