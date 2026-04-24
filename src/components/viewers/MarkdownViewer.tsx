@@ -29,6 +29,7 @@ import {
   MdCommentPopover,
 } from "./markdown/CommentableBlocks";
 import { dirname } from "@/lib/path-utils";
+import { parseFrontmatter } from "@/lib/frontmatter";
 import { SIZE_WARN_THRESHOLD } from "@/lib/comment-utils";
 import { useThreadsByLine } from "@/hooks/useThreadsByLine";
 import { useScrollToLine } from "@/hooks/useScrollToLine";
@@ -39,28 +40,6 @@ interface Props {
   content: string;
   filePath: string;
   fileSize?: number;
-}
-
-function parseFrontmatter(content: string): {
-  body: string;
-  data: Record<string, unknown> | null;
-} {
-  if (!content.startsWith("---")) return { body: content, data: null };
-  const nlIdx = content.indexOf("\n");
-  if (nlIdx === -1) return { body: content, data: null };
-  const end = content.indexOf("\n---", nlIdx + 1);
-  if (end === -1) return { body: content, data: null };
-  const yaml = content.slice(nlIdx + 1, end);
-  const body = content.slice(end + 4).trimStart();
-  const data: Record<string, unknown> = {};
-  for (const line of yaml.split("\n")) {
-    const colon = line.indexOf(":");
-    if (colon === -1) continue;
-    const key = line.slice(0, colon).trim();
-    const value = line.slice(colon + 1).trim();
-    if (key) data[key] = value;
-  }
-  return { body, data };
 }
 
 // Shiki highlighter is shared via @/lib/shiki

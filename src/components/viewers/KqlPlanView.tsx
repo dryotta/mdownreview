@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { parseKql, type KqlPipelineStep } from "@/lib/tauri-commands";
+import { formatStepsForDisplay } from "@/lib/kql-format";
 import "@/styles/kql-plan.css";
 
 interface KqlPlanViewProps {
@@ -29,20 +30,6 @@ const KQL_OPERATORS = new Set([
   "make-series",
   "print",
 ]);
-
-/**
- * Format the parsed pipeline back into a multi-line query for display. This is
- * a pure view-layer concern derived from the steps returned by Rust.
- */
-function formatStepsForDisplay(steps: KqlPipelineStep[]): string {
-  if (steps.length === 0) return "";
-  const first = steps[0].operator;
-  const rest = steps.slice(1).map((s) => {
-    const detail = s.details ? ` ${s.details}` : "";
-    return `\n| ${s.operator}${detail}`;
-  });
-  return first + rest.join("");
-}
 
 export function KqlPlanView({ content }: KqlPlanViewProps) {
   const [steps, setSteps] = useState<KqlPipelineStep[]>([]);

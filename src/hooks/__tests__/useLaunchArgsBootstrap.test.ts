@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 
 const mockUnlisten = vi.fn();
-const argsListeners: Array<(event: { payload: { files: string[]; folders: string[] } }) => void> = [];
+const argsListeners: Array<(payload: { files: string[]; folders: string[] }) => void> = [];
 const mockOpenFilesFromArgs = vi.fn();
 const mockGetState = vi.fn(() => ({ __isStoreState: true }));
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((event: string, cb: (event: { payload: { files: string[]; folders: string[] } }) => void) => {
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((event: string, cb: (payload: { files: string[]; folders: string[] }) => void) => {
     if (event === "args-received") argsListeners.push(cb);
     return Promise.resolve(mockUnlisten);
   }),
@@ -65,7 +65,7 @@ describe("useLaunchArgsBootstrap", () => {
     expect(argsListeners.length).toBe(1);
     expect(mockOpenFilesFromArgs).toHaveBeenCalledTimes(1);
 
-    argsListeners[0]({ payload: { files: ["/x.md"], folders: ["/y"] } });
+    argsListeners[0]({ files: ["/x.md"], folders: ["/y"] });
 
     expect(mockOpenFilesFromArgs).toHaveBeenCalledTimes(2);
     expect(mockOpenFilesFromArgs).toHaveBeenLastCalledWith(

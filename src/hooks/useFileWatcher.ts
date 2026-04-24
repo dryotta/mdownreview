@@ -1,8 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { useStore } from "@/store";
 import { updateWatchedFiles, scanReviewFiles } from "@/lib/tauri-commands";
-import type { FileChangeEvent } from "@/lib/tauri-commands";
 import { warn, debug } from "@/logger";
 
 const SAVE_DEBOUNCE_MS = 1500;
@@ -49,8 +48,8 @@ export function useFileWatcher() {
 
   // Listen for file-changed events from Rust
   useEffect(() => {
-    const unlisten = listen<FileChangeEvent>("file-changed", (event) => {
-      const { path, kind } = event.payload;
+    const unlisten = listenEvent("file-changed", (payload) => {
+      const { path, kind } = payload;
       const now = Date.now();
       const lastSave = lastSaveByPathRef.current[path] ?? 0;
 

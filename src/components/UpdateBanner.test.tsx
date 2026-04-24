@@ -5,8 +5,8 @@ import { UpdateBanner } from "./UpdateBanner";
 import { useStore } from "@/store";
 
 vi.mock("@tauri-apps/api/core");
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(() => {}),
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn().mockResolvedValue(() => {}),
 }));
 vi.mock("@/logger");
 

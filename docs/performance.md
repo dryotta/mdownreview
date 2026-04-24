@@ -22,6 +22,9 @@ Unique to performance. Rust-First is a charter meta-principle.
 | `get_file_comments` — 200 comments × 5000 lines | < 20 ms | Yes | `hot_path_bench.rs:64` |
 | `match_comments` — 50 comments × 1000 lines | < 5 ms | Yes | `matching_bench.rs:76` |
 | `scan_review_files` — 10K sidecars | < 500 ms | Yes | `scanner_bench.rs` |
+| `compute_fold_regions` — 100 KB content | < 5 ms (measured ~1.0 ms) | Yes | `parsers_bench.rs:bench_fold_regions` |
+| `parse_kql_pipeline` — 50-step pipeline | < 1 ms (measured ~24 µs) | Yes | `parsers_bench.rs:bench_parse_kql` |
+| `strip_json_comments` — 100 KB JSONC | < 3 ms (measured ~0.23 ms) | Yes | `parsers_bench.rs:bench_strip_json_comments` |
 | Watcher event → `file-changed` emit | ≤ 300 ms + 200 ms | Yes (code) | `watcher.rs:58,70` |
 | Save-loop suppression window | 1500 ms | Yes (code) | `useFileWatcher.ts:7` |
 | Ghost re-scan debounce | 500 ms | Yes (code) | `useFileWatcher.ts:8` |

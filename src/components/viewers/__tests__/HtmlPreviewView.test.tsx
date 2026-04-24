@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { HtmlPreviewView } from "../HtmlPreviewView";
 
-vi.mock("@/lib/resolve-html-assets", () => ({
-  resolveLocalAssets: vi.fn((html: string) => Promise.resolve(html)),
+vi.mock("@/lib/tauri-commands", () => ({
+  resolveHtmlAssets: vi.fn((html: string) => Promise.resolve(html)),
 }));
 
 describe("HtmlPreviewView", () => {

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { useStore } from "@/store";
 
 interface MenuListenerCallbacks {
@@ -21,32 +21,32 @@ export function useMenuListeners({
 }: MenuListenerCallbacks) {
   useEffect(() => {
     const pending = [
-      listen("menu-open-file", () => handleOpenFile()),
-      listen("menu-open-folder", () => handleOpenFolder()),
-      listen("menu-close-folder", () => useStore.getState().closeFolder()),
-      listen("menu-toggle-comments-pane", () => toggleCommentsPane()),
-      listen("menu-close-tab", () => {
+      listenEvent("menu-open-file", () => handleOpenFile()),
+      listenEvent("menu-open-folder", () => handleOpenFolder()),
+      listenEvent("menu-close-folder", () => useStore.getState().closeFolder()),
+      listenEvent("menu-toggle-comments-pane", () => toggleCommentsPane()),
+      listenEvent("menu-close-tab", () => {
         const { activeTabPath, closeTab } = useStore.getState();
         if (activeTabPath) closeTab(activeTabPath);
       }),
-      listen("menu-close-all-tabs", () => useStore.getState().closeAllTabs()),
-      listen("menu-next-tab", () => {
+      listenEvent("menu-close-all-tabs", () => useStore.getState().closeAllTabs()),
+      listenEvent("menu-next-tab", () => {
         const { tabs, activeTabPath, setActiveTab } = useStore.getState();
         if (tabs.length < 2) return;
         const idx = tabs.findIndex((t) => t.path === activeTabPath);
         setActiveTab(tabs[(idx + 1) % tabs.length].path);
       }),
-      listen("menu-prev-tab", () => {
+      listenEvent("menu-prev-tab", () => {
         const { tabs, activeTabPath, setActiveTab } = useStore.getState();
         if (tabs.length < 2) return;
         const idx = tabs.findIndex((t) => t.path === activeTabPath);
         setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length].path);
       }),
-      listen("menu-theme-system", () => setTheme("system")),
-      listen("menu-theme-light", () => setTheme("light")),
-      listen("menu-theme-dark", () => setTheme("dark")),
-      listen("menu-about", () => setAboutOpen(true)),
-      listen("menu-check-updates", () => { checkForUpdate(); }),
+      listenEvent("menu-theme-system", () => setTheme("system")),
+      listenEvent("menu-theme-light", () => setTheme("light")),
+      listenEvent("menu-theme-dark", () => setTheme("dark")),
+      listenEvent("menu-about", () => setAboutOpen(true)),
+      listenEvent("menu-check-updates", () => { checkForUpdate(); }),
     ];
     return () => {
       pending.forEach((p) => p.then((fn) => fn()).catch(() => {}));

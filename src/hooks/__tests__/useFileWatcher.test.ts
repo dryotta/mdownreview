@@ -1,12 +1,12 @@
 import { renderHook, act } from "@testing-library/react";
 import { useStore } from "@/store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listen } from "@tauri-apps/api/event";
+import { listenEvent } from "@/lib/tauri-events";
 import { useFileWatcher } from "../useFileWatcher";
 import { scanReviewFiles } from "@/lib/tauri-commands";
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((_eventName: string, _callback: unknown) =>
+vi.mock("@/lib/tauri-events", () => ({
+  listenEvent: vi.fn((_eventName: string, _callback: unknown) =>
     Promise.resolve(() => {})
   ),
 }));
@@ -65,9 +65,9 @@ describe("WatcherSlice", () => {
 
 // Helper to extract the file-changed listener callback registered by the hook
 function getFileChangedCallback() {
-  const call = vi.mocked(listen).mock.calls.find((c) => c[0] === "file-changed");
-  if (!call) throw new Error("listen('file-changed', ...) was never called");
-  return call[1] as (event: { payload: { path: string; kind: string } }) => void;
+  const call = vi.mocked(listenEvent).mock.calls.find((c) => c[0] === "file-changed");
+  if (!call) throw new Error("listenEvent('file-changed', ...) was never called");
+  return call[1] as (payload: { path: string; kind: string }) => void;
 }
 
 describe("useFileWatcher debounced deletion scan", () => {
@@ -95,7 +95,7 @@ describe("useFileWatcher debounced deletion scan", () => {
     const callback = getFileChangedCallback();
 
     act(() => {
-      callback({ payload: { path: "/some/file.ts", kind: "deleted" } });
+      callback({ path: "/some/file.ts", kind: "deleted" });
     });
 
     // Scan is debounced — not called immediately
@@ -115,7 +115,7 @@ describe("useFileWatcher debounced deletion scan", () => {
     const callback = getFileChangedCallback();
 
     act(() => {
-      callback({ payload: { path: "/some/file.md.review.yaml", kind: "deleted" } });
+      callback({ path: "/some/file.md.review.yaml", kind: "deleted" });
     });
 
     act(() => { vi.advanceTimersByTime(500); });
@@ -131,7 +131,7 @@ describe("useFileWatcher debounced deletion scan", () => {
     const callback = getFileChangedCallback();
 
     act(() => {
-      callback({ payload: { path: "/some/file.md.review.json", kind: "deleted" } });
+      callback({ path: "/some/file.md.review.json", kind: "deleted" });
     });
 
     act(() => { vi.advanceTimersByTime(500); });
@@ -147,7 +147,7 @@ describe("useFileWatcher debounced deletion scan", () => {
     const callback = getFileChangedCallback();
 
     act(() => {
-      callback({ payload: { path: "/some/file.md.review.json", kind: "content" } });
+      callback({ path: "/some/file.md.review.json", kind: "content" });
     });
 
     act(() => { vi.advanceTimersByTime(500); });
@@ -164,11 +164,11 @@ describe("useFileWatcher debounced deletion scan", () => {
 
     // Fire 5 deletions in quick succession
     act(() => {
-      callback({ payload: { path: "/some/a.ts", kind: "deleted" } });
-      callback({ payload: { path: "/some/b.md", kind: "deleted" } });
-      callback({ payload: { path: "/some/c.review.yaml", kind: "deleted" } });
-      callback({ payload: { path: "/some/d.ts", kind: "deleted" } });
-      callback({ payload: { path: "/some/e.review.json", kind: "deleted" } });
+      callback({ path: "/some/a.ts", kind: "deleted" });
+      callback({ path: "/some/b.md", kind: "deleted" });
+      callback({ path: "/some/c.review.yaml", kind: "deleted" });
+      callback({ path: "/some/d.ts", kind: "deleted" });
+      callback({ path: "/some/e.review.json", kind: "deleted" });
     });
 
     act(() => { vi.advanceTimersByTime(500); });
@@ -209,7 +209,7 @@ describe("useFileWatcher save-loop suppression", () => {
 
     // File-changed event arrives for the same path within the debounce window
     act(() => {
-      callback({ payload: { path: "/workspace/file.md", kind: "content" } });
+      callback({ path: "/workspace/file.md", kind: "content" });
     });
 
     // CustomEvent should NOT have been dispatched (save-loop suppression)
@@ -238,7 +238,7 @@ describe("useFileWatcher save-loop suppression", () => {
 
     // File-changed event arrives after the debounce window
     act(() => {
-      callback({ payload: { path: "/workspace/file.md", kind: "content" } });
+      callback({ path: "/workspace/file.md", kind: "content" });
     });
 
     const fileChangedEvents = dispatchSpy.mock.calls.filter(
@@ -263,7 +263,7 @@ describe("useFileWatcher save-loop suppression", () => {
 
     // File-changed event for a file with no save record
     act(() => {
-      callback({ payload: { path: "/workspace/file.md", kind: "content" } });
+      callback({ path: "/workspace/file.md", kind: "content" });
     });
 
     const fileChangedEvents = dispatchSpy.mock.calls.filter(
