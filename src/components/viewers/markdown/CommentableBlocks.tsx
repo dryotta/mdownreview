@@ -42,6 +42,67 @@ export function makeCommentableBlock(Tag: string) {
   };
 }
 
+// Wrap arbitrary inline JSX in the same commentable envelope used by
+// makeCommentableBlock. Used by the markdown `pre` callback (which has to
+// dispatch to HighlightedCode / Mermaid / KaTeX before deciding what to
+// render) so the final tree still carries data-source-line for the gutter
+// and selection layer.
+export function CommentableWrapper({
+  node,
+  children,
+  as = "div",
+}: {
+  node?: ExtraProps["node"];
+  children: React.ReactNode;
+  as?: "div" | "span";
+}) {
+  const line = node?.position?.start.line ?? 0;
+  const { commentCountByLine } = useContext(MdCommentContext);
+  const count = commentCountByLine.get(line) ?? 0;
+  return React.createElement(
+    as,
+    {
+      className: `md-commentable-block${count > 0 ? " has-comments" : ""}`,
+      "data-source-line": line,
+      "data-comment-count": count > 0 ? count : undefined,
+    },
+    children,
+  );
+}
+
+// Cell-level commentable factory for `td` / `th`. Unlike makeCommentableBlock,
+// this MUST apply data attributes inline on the cell — wrapping a `<td>` in a
+// `<div>` would inject a non-cell child into `<tr>` and break the table
+// layout model. Mirrors the inline-attrs pattern from CommentableLi.
+export function CommentableTableCell(Tag: "td" | "th") {
+  return function CommentableCell({
+    children,
+    node,
+    className,
+    ...props
+  }: ComponentPropsWithoutRef<"td"> & ExtraProps) {
+    const line = node?.position?.start.line ?? 0;
+    const { commentCountByLine } = useContext(MdCommentContext);
+    const count = commentCountByLine.get(line) ?? 0;
+    const merged = [
+      className,
+      `md-commentable-cell${count > 0 ? " has-comments" : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return React.createElement(
+      Tag,
+      {
+        ...props,
+        className: merged,
+        "data-source-line": line,
+        "data-comment-count": count > 0 ? count : undefined,
+      },
+      children,
+    );
+  };
+}
+
 export function CommentableLi({ children, node, ...props }: ComponentPropsWithoutRef<"li"> & ExtraProps) {
   const line = node?.position?.start.line ?? 0;
   const { commentCountByLine } = useContext(MdCommentContext);

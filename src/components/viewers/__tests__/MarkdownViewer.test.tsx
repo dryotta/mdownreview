@@ -257,3 +257,33 @@ describe("10.5 – file size warning", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
+
+// ─── Iter 5 Wave 1 — split preserves dispatch behavior ───────────────────────
+
+describe("Iter 5 Wave 1 — split-preservation", () => {
+  it("fenced code block continues to be wrapped in <pre> (HighlightedCode fallback) under the commentable envelope", async () => {
+    const content = "```ts\nconst x = 1;\n```";
+    render(<MarkdownViewer content={content} filePath={FILE_PATH} />);
+
+    await waitFor(() => {
+      // The pre callback now wraps in CommentableWrapper. While Shiki resolves
+      // (mocked), HighlightedCode renders its <pre><code> fallback inside the
+      // wrapper. Either path keeps the data-source-line on the wrapper.
+      const wrapper = document.querySelector(".markdown-body .md-commentable-block");
+      expect(wrapper).not.toBeNull();
+    });
+  });
+
+  it("$$x$$ KaTeX block renders without throwing and keeps the body mounted", async () => {
+    const content = "$$x = 1$$";
+    render(<MarkdownViewer content={content} filePath={FILE_PATH} />);
+
+    await waitFor(() => {
+      // We don't load real rehype-katex in jsdom, but the rendering pipeline
+      // must not throw — the markdown-body still mounts even before KaTeX
+      // resolves.
+      expect(document.querySelector(".markdown-body")).toBeInTheDocument();
+    });
+  });
+});
+

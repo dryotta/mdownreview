@@ -268,7 +268,8 @@
 
 /* Gutter button as ::before pseudo-element — always at left edge */
 .md-commentable-block::before,
-.md-commentable-li::before {
+.md-commentable-li::before,
+.md-commentable-cell::before {
   content: "+";
   position: absolute;
   left: 4px;
@@ -290,15 +291,22 @@
   z-index: 5;
 }
 
+/* Cells need their own positioning context for the ::before badge. */
+.md-commentable-cell {
+  position: relative;
+}
+
 /* Show on hover */
 .md-commentable-block:hover::before,
-.md-commentable-li:hover::before {
+.md-commentable-li:hover::before,
+.md-commentable-cell:hover::before {
   opacity: 0.6;
 }
 
 /* Lines with comments — always visible badge */
 .md-commentable-block.has-comments::before,
-.md-commentable-li.has-comments::before {
+.md-commentable-li.has-comments::before,
+.md-commentable-cell.has-comments::before {
   content: attr(data-comment-count);
   opacity: 0.8;
   background: var(--color-accent, #0969da);
@@ -308,7 +316,8 @@
 }
 
 .md-commentable-block.has-comments:hover::before,
-.md-commentable-li.has-comments:hover::before {
+.md-commentable-li.has-comments:hover::before,
+.md-commentable-cell.has-comments:hover::before {
   opacity: 1;
 }
 
