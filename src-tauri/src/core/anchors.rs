@@ -1,7 +1,60 @@
 use sha2::{Digest, Sha256};
 
+use crate::core::types::Anchor;
+
 /// MRSF §6.2: max selected_text length
 pub const SELECTED_TEXT_MAX_LENGTH: usize = 4096;
+
+/// Outcome of a single anchor-resolve attempt. Per spec §7: every variant
+/// falls back to `Anchor::File` and then `Orphan` if all match strategies
+/// fail. The `FileLevel` rung is the soft fallback before orphaning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchOutcome {
+    Exact,
+    Fuzzy,
+    FileLevel,
+    Orphan,
+}
+
+/// Resolve a Line anchor — wraps the existing line-targeting algorithm
+/// (kept in `crate::core::matching`). Group A wires the dispatch surface;
+/// the dispatch from the matcher will land in Group B.
+// B-wave: real heuristics land in iter <n>; for now the line algorithm
+// is the matcher's responsibility, this stub just classifies outcomes.
+pub fn resolve_line(anchor: &Anchor) -> MatchOutcome {
+    debug_assert!(matches!(anchor, Anchor::Line { .. }));
+    MatchOutcome::Exact
+}
+
+/// Resolve a File anchor — always exact (whole-file scope).
+pub fn resolve_file(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::Exact
+}
+
+// B-wave: real heuristics land in iter <n>.
+pub fn resolve_image_rect(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::FileLevel
+}
+
+// B-wave: real heuristics land in iter <n>.
+pub fn resolve_csv_cell(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::FileLevel
+}
+
+// B-wave: real heuristics land in iter <n>.
+pub fn resolve_json_path(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::FileLevel
+}
+
+// B-wave: real heuristics land in iter <n>.
+pub fn resolve_html_range(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::FileLevel
+}
+
+// B-wave: real heuristics land in iter <n>.
+pub fn resolve_html_element(_anchor: &Anchor) -> MatchOutcome {
+    MatchOutcome::FileLevel
+}
 
 /// Compute SHA-256 hash of selected text, returned as lowercase hex string.
 pub fn compute_selected_text_hash(text: &str) -> String {
