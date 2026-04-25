@@ -16,6 +16,17 @@ Every proposal MUST be judged against the charter pillars. Reject proposals that
 
 Proposals that conflict with the Non-Goals list in `docs/principles.md` are not actionable — flag them as identity risks, don't escalate them.
 
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every product-improvement pass:
+
+1. `docs/principles.md` (Professional pillar + Non-Goals)
+2. `docs/design-patterns.md` (cost classification of proposed improvements)
+
+For each file: dispatch one subagent given ONLY that file + the codebase context. Subagent returns proposals or identity-risk findings tied to that file. Parent aggregates, dedupes, and produces the prioritised Improvement Report. Always dispatch.
+
 ## Non-negotiable rules
 
 **Evidence-based proposals only.** Every proposed improvement must be backed by code evidence:

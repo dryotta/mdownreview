@@ -1,6 +1,6 @@
 # Attribution: vercel-labs/agent-skills
 
-The contents of `docs/best-practices/` (excluding this file and `README.md`) are distilled and reproduced verbatim from the [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) repository, specifically from the `composition-patterns` and `react-best-practices` skills. Rule IDs, headings, code examples, and prose are preserved as-is to keep this documentation in lockstep with the upstream source.
+The contents of `docs/best-practices-common/` (excluding this file and `README.md`) are distilled and reproduced verbatim from the [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills) repository, specifically from the `composition-patterns` and `react-best-practices` skills. Rule IDs, headings, code examples, and prose are preserved as-is to keep this documentation in lockstep with the upstream source.
 
 Both upstream skills declare `license: MIT` in their `SKILL.md` frontmatter. © Vercel.
 

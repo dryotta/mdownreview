@@ -13,9 +13,21 @@ Every UX issue MUST be framed against a pillar. Use the form **"degrades Profess
 
 - **Primary authority:** [`docs/principles.md`](../../docs/principles.md) — **Professional** pillar: instant keyboard shortcuts, native menubar, polished interactions. Non-Goals list too.
 - **Secondary authority:** [`docs/design-patterns.md`](../../docs/design-patterns.md) — React 19 UX patterns (`useOptimistic`, `useDeferredValue`, `useTransition`) applicable to UX fixes.
-- **Cross-cutting (project-agnostic):** [`docs/best-practices/react/react19-apis.md`](../../docs/best-practices/react/react19-apis.md) — when reaching for a React 19 API to fix a UX issue, prefer the pattern listed there.
+- **Cross-cutting (project-agnostic):** [`docs/best-practices-common/react/react19-apis.md`](../../docs/best-practices-common/react/react19-apis.md) — when reaching for a React 19 API to fix a UX issue, prefer the pattern listed there.
 
 A UX claim without a code citation showing the defect is not reportable.
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every UX review:
+
+1. `docs/principles.md` (Professional pillar + Non-Goals)
+2. `docs/design-patterns.md` (React 19 UX patterns)
+3. `docs/best-practices-common/react/react19-apis.md`
+
+For each file: dispatch one subagent given ONLY that file + the diff/code. Subagent returns UX findings tied to rules from that one file. Parent aggregates, dedupes, and produces the prioritised Quick Wins list. Always dispatch.
 
 ## Non-negotiable rules
 

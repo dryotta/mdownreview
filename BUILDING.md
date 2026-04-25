@@ -254,7 +254,7 @@ Subagents are specialist Claude instances invoked in parallel by the `/iterate` 
 | `test-expert` | Test completeness, pyramid-layer correctness, reliability/flakiness, e2e coverage, IPC-mock hygiene, oracle quality |
 | `documentation-expert` | Doc taxonomy (principles + deep-dives + one evergreen `docs/features/<area>.md`), code/doc drift, rule-citation staleness |
 | `lean-expert` | **Pushes for simpler implementations** — dependency justification, bundle/binary size, dead code, file-size budgets, inlining + collapsing opportunities |
-| `security-reviewer` *(conditional)* | Tauri IPC handlers, path traversal, XSS in markdown rendering, IPC type mismatches — runs when diff touches commands, path handling, or markdown rendering |
+| `security-expert` *(conditional)* | Tauri IPC handlers, path traversal, XSS in markdown rendering, IPC type mismatches — runs when diff touches commands, path handling, or markdown rendering |
 
 **Assessor + workers:**
 
@@ -264,6 +264,12 @@ Subagents are specialist Claude instances invoked in parallel by the `/iterate` 
 | `task-implementer` | Implements a single scoped task; returns a structured change summary |
 | `e2e-test-writer` | Writes Playwright browser and native tests following the IPC mock pattern |
 | `implementation-validator` | Runs lint → tsc → cargo test → vitest → browser-e2e → native-e2e; returns PASS/FAIL with full output |
+
+**Shared references** (not invocable as agents — leading `_` prefix):
+
+| File | Purpose |
+|---|---|
+| `_knowledge-review-protocol.md` | Defines the per-knowledge-file dispatch protocol every review agent follows: one subagent per knowledge doc, parent aggregates. Always dispatched, even for a single doc. |
 
 ### Hooks
 

@@ -14,12 +14,28 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Performant + Lean pillars.
 - **Primary authority:** [`docs/performance.md`](../../docs/performance.md) — numeric budgets, watcher debounce rules, render-cost rules, memory ceilings, benchmark requirements.
 - **Cross-cutting (project-agnostic):** rules below override only if `docs/performance.md` is silent.
-  - [`docs/best-practices/react/rerender-optimization.md`](../../docs/best-practices/react/rerender-optimization.md) — selector hygiene, derived state, transitions.
-  - [`docs/best-practices/react/rendering-performance.md`](../../docs/best-practices/react/rendering-performance.md) — `content-visibility`, hoist JSX, conditional render.
-  - [`docs/best-practices/general/javascript-performance.md`](../../docs/best-practices/general/javascript-performance.md) — JS hot-path rules (`js-set-map-lookups`, `js-hoist-regexp`, …).
-  - [`docs/best-practices/vite/bundle-hygiene.md`](../../docs/best-practices/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, …
+  - [`docs/best-practices-common/react/rerender-optimization.md`](../../docs/best-practices-common/react/rerender-optimization.md) — selector hygiene, derived state, transitions.
+  - [`docs/best-practices-common/react/rendering-performance.md`](../../docs/best-practices-common/react/rendering-performance.md) — `content-visibility`, hoist JSX, conditional render.
+  - [`docs/best-practices-common/general/javascript-performance.md`](../../docs/best-practices-common/general/javascript-performance.md) — JS hot-path rules (`js-set-map-lookups`, `js-hoist-regexp`, …).
+  - [`docs/best-practices-common/vite/bundle-hygiene.md`](../../docs/best-practices-common/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, …
+- **Project hot-paths catalogue:** [`docs/best-practices-project/hot-paths.md`](../../docs/best-practices-project/hot-paths.md) — known performance-sensitive areas with what each is sensitive to. Cite as `hot-path: <slug> in docs/best-practices-project/hot-paths.md`.
 
 Claims without a benchmark, profile, or `file:line` code-bound are not reportable (the doc is evidence-based by design).
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every performance review:
+
+1. `docs/performance.md`
+2. `docs/best-practices-common/react/rerender-optimization.md`
+3. `docs/best-practices-common/react/rendering-performance.md`
+4. `docs/best-practices-common/general/javascript-performance.md`
+5. `docs/best-practices-common/vite/bundle-hygiene.md`
+6. `docs/best-practices-project/hot-paths.md`
+
+For each file: dispatch one subagent given ONLY that file + the diff/code. Subagent returns findings citing rules from that one file. Parent aggregates, dedupes, prioritises across docs. Always dispatch.
 
 ## Non-negotiable rules
 
@@ -43,30 +59,11 @@ Rust is faster, runs off the main thread (via Tauri async commands), and does no
 
 ## Known performance-sensitive areas
 
-**React rendering:**
-- `src/components/viewers/MarkdownViewer.tsx` — renders potentially large markdown with shiki syntax highlighting (expensive)
-- `src/components/viewers/MermaidView.tsx` — Mermaid render is synchronous and blocks
-- `src/components/comments/CommentsPanel.tsx` — may re-render on every keystroke
-- `src/store/index.ts` — Zustand store selectors: check for missing fine-grained selectors causing over-render
-
-**Rust / Tauri side:**
-- `src-tauri/src/watcher.rs` — file watcher: debouncing, event flood on large repos
-- `src-tauri/src/commands.rs` — file read commands: streaming vs full-read, large file handling
-- IPC payload size: check if entire file content is sent each change vs diffs
-
-**Frontend data flow:**
-- `src/hooks/useFileContent.ts` — how often does it re-fetch? Is there caching?
-- `src/hooks/useFileWatcher.ts` — how are watcher events throttled on the frontend?
-- `src/lib/comment-anchors.ts` — anchor computation: O(n) on file lines?
+The full hot-paths catalogue — with sensitivities and first-look checks — lives in [`docs/best-practices-project/hot-paths.md`](../../docs/best-practices-project/hot-paths.md). Use that as your primary map. Do not duplicate the list here.
 
 ## How to analyze
 
-1. Read `src-tauri/src/watcher.rs` — check debounce duration, event batching
-2. Read `src-tauri/src/commands.rs` — check for full file re-reads vs incremental
-3. Read `src/hooks/useFileContent.ts` and `useFileWatcher.ts` — check re-render triggers
-4. Read `src/store/index.ts` — check Zustand selector granularity
-5. Read `src/components/viewers/MarkdownViewer.tsx` — check memoization, shiki usage
-6. Check `src/lib/comment-anchors.ts` — check algorithmic complexity
+Read the catalogue first, then walk the diff against it. For each touched file, check whether it appears in a `hot-path:` entry; if so, run the first-look checks specified there before issuing findings.
 
 ## Output format
 

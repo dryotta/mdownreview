@@ -15,11 +15,27 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 - **Primary authority:** [`docs/design-patterns.md`](../../docs/design-patterns.md) — React 19 idioms, Tauri v2 command-vs-event rules, hook composition, persistence pattern.
 - **Secondary authority:** [`docs/architecture.md`](../../docs/architecture.md) — layer boundaries, IPC/logging chokepoints.
 - **Cross-cutting (project-agnostic):** when project docs are silent, fall back to:
-  - [`docs/best-practices/react/react19-apis.md`](../../docs/best-practices/react/react19-apis.md) — `use()`, `useTransition`, `useDeferredValue`, ref-as-prop, `useOptimistic`.
-  - [`docs/best-practices/react/composition-patterns.md`](../../docs/best-practices/react/composition-patterns.md) — composition over boolean props, lifted state.
-  - [`docs/best-practices/react/rerender-optimization.md`](../../docs/best-practices/react/rerender-optimization.md) — selector hygiene, derived state.
+  - [`docs/best-practices-common/react/react19-apis.md`](../../docs/best-practices-common/react/react19-apis.md) — `use()`, `useTransition`, `useDeferredValue`, ref-as-prop, `useOptimistic`.
+  - [`docs/best-practices-common/react/composition-patterns.md`](../../docs/best-practices-common/react/composition-patterns.md) — composition over boolean props, lifted state.
+  - [`docs/best-practices-common/react/rerender-optimization.md`](../../docs/best-practices-common/react/rerender-optimization.md) — selector hygiene, derived state.
+  - [`docs/best-practices-common/tauri/v2-patterns.md`](../../docs/best-practices-common/tauri/v2-patterns.md) — Tauri v2 IPC, events, capabilities, plugins, windows, filesystem audit checklist (`ipc-*`, `events-*`, `caps-*`, `plugins-*`, `windows-*`, `fs-*`).
 
 If you propose a React 19 or Tauri v2 API that the docs don't mention, include a new-rule proposal with evidence.
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every React 19 + Tauri v2 review:
+
+1. `docs/design-patterns.md`
+2. `docs/architecture.md`
+3. `docs/best-practices-common/react/react19-apis.md`
+4. `docs/best-practices-common/react/composition-patterns.md`
+5. `docs/best-practices-common/react/rerender-optimization.md`
+6. `docs/best-practices-common/tauri/v2-patterns.md`
+
+For each file: dispatch one subagent given ONLY that file + the diff/code. Subagent returns findings citing rules from that one file. Parent aggregates, dedupes, identifies cross-doc patterns (e.g. a React 19 API that also resolves a Tauri v2 lifecycle issue). Always dispatch.
 
 ## Non-negotiable rules
 
@@ -48,24 +64,7 @@ If you propose a React 19 or Tauri v2 API that the docs don't mention, include a
 
 ## Tauri v2 — what to check for
 
-**IPC patterns:**
-- Commands should use `#[tauri::command]` with typed parameters — check `src-tauri/src/commands.rs`
-- Event system: `emit()` vs `emit_to()` vs `emit_filter()` — check if app-wide events are used where window-scoped would be safer
-- Check for use of v1 APIs that changed in v2 (e.g., `convertFileSrc`, path APIs, window management)
-
-**Plugin usage (`src/` imports from `@tauri-apps/plugin-*`):**
-- `plugin-clipboard-manager`: is it used correctly (async, proper error handling)?
-- `plugin-dialog`: file open/save dialogs — are they properly typed and using v2 API?
-- `plugin-updater`: update flow — is it checking for updates on the correct lifecycle?
-- `plugin-log`: are log levels used consistently?
-
-**Capability/permission model (v2-specific):**
-- Check `src-tauri/tauri.conf.json` — are capabilities minimal (principle of least privilege)?
-- Are file system scopes properly restricted?
-
-**Window management:**
-- Multi-window support — does the app handle multiple windows or assume single window?
-- `WebviewWindow` vs `Window` usage in v2
+The full Tauri v2 audit checklist (IPC, events, capabilities, plugins, windows, filesystem) lives in [`docs/best-practices-common/tauri/v2-patterns.md`](../../docs/best-practices-common/tauri/v2-patterns.md). Walk the diff against that file's rule families. Do not duplicate the checklist here.
 
 ## How to analyze
 

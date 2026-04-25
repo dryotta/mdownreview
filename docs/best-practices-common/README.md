@@ -12,6 +12,7 @@ This directory complements the project-specific docs:
 |---|---|---|
 | [`general/`](general/) | Language/runtime-agnostic | Any JS/TS project |
 | [`react/`](react/) | React-specific | Any React 18+/19 codebase |
+| [`tauri/`](tauri/) | Tauri v2-specific | Any Tauri v2 desktop app |
 | [`vite/`](vite/) | Vite/Rollup bundler-specific | Any Vite project |
 
 ## Files
@@ -25,12 +26,15 @@ This directory complements the project-specific docs:
 - [`rendering-performance.md`](react/rendering-performance.md) — `content-visibility`, hoisting JSX, conditional render shape, hydration hygiene.
 - [`react19-apis.md`](react/react19-apis.md) — `use()`, `useTransition`, `useDeferredValue`, ref-as-prop, `useOptimistic`.
 
+### `tauri/`
+- [`v2-patterns.md`](tauri/v2-patterns.md) — Tauri v2 IPC, events, capabilities, plugins, windows, filesystem audit checklist.
+
 ### `vite/`
 - [`bundle-hygiene.md`](vite/bundle-hygiene.md) — barrel imports, statically analyzable paths, third-party deferral, link preload.
 
 ## How to consume
 
-1. **Cite a rule** as `violates rule <rule-id> in docs/best-practices/<path>.md` (e.g., `violates rule rerender-defer-reads in docs/best-practices/react/rerender-optimization.md`).
+1. **Cite a rule** as `violates rule <rule-id> in docs/best-practices-common/<path>.md` (e.g., `violates rule rerender-defer-reads in docs/best-practices-common/react/rerender-optimization.md`).
 2. **Each rule has a stable ID** in kebab-case with a category prefix (`architecture-`, `rerender-`, `js-`, `bundle-`, …). IDs are preserved verbatim from upstream sources for portability.
 3. **Project-specific docs override.** If a project-specific doc (e.g. `docs/performance.md`) sets a stricter or different rule, that wins.
 4. **No duplication.** Project-specific docs reference best-practices rules; they do not copy them.

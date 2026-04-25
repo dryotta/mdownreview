@@ -14,8 +14,22 @@ Every confirmed bug MUST name which pillar is degraded and which rule is violate
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — **Zero Bug Policy** (engineering meta-principle). Every bug gets fixed; every fix ships with a failing-then-passing regression test.
 - **Primary authority:** [`docs/test-strategy.md`](../../docs/test-strategy.md) — regression-test-with-every-fix rule (rule 9); your bug reports MUST include the failing test.
 - **Related:** [`docs/security.md`](../../docs/security.md) and [`docs/architecture.md`](../../docs/architecture.md) — bugs often violate a concrete rule in one of these; cite it.
+- **Bug-category catalogue:** [`docs/best-practices-project/bug-categories.md`](../../docs/best-practices-project/bug-categories.md) — high-probability category list for this stack (race conditions, async error handling, subscription leaks, anchoring edge cases, IPC type mismatches, Tauri lifecycle pitfalls). Cite findings as `category: <slug> in docs/best-practices-project/bug-categories.md`.
 
 No failing test = not a confirmed bug. A bug report without a test is incomplete.
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every bug hunt:
+
+1. `docs/best-practices-project/bug-categories.md` — the primary catalogue
+2. `docs/test-strategy.md` — for the failing-test requirement
+3. `docs/security.md` — for security-class bugs
+4. `docs/architecture.md` — for architectural rule violations
+
+For each file: dispatch one subagent given ONLY that file + the diff/code. Subagent returns findings tied to rules or categories from that file. Parent aggregates, dedupes, surfaces cross-doc cycles. Always dispatch.
 
 ## Non-negotiable rules
 
@@ -28,45 +42,13 @@ No failing test = not a confirmed bug. A bug report without a test is incomplete
 
 **Rust-first instinct.** If a bug stems from logic that could be moved to Rust (e.g., path computation, hash validation, text matching), flag it as "Rust-first opportunity" alongside the bug report.
 
-## High-probability bug categories for this stack
+## High-probability bug categories
 
-**Race conditions (async + React state):**
-- File watcher fires → frontend updates state → component unmounts mid-update
-- Multiple rapid file changes causing out-of-order state updates
-- Comment save races with file reload (does re-render clobber unsaved comment text?)
-- Search debounce + file change arriving simultaneously
-
-**Async error handling:**
-- `invoke()` calls without `.catch()` or try/catch — silently fail
-- Tauri event listeners that throw — does the error propagate or get swallowed?
-- File read errors (permission denied, file deleted) — are they surfaced?
-
-**Memory/subscription leaks:**
-- `listen()` subscriptions in `useEffect` without proper cleanup (`unlisten()`)
-- Mermaid diagrams — does the renderer clean up on unmount?
-- Resize observers, intersection observers without cleanup
-
-**Comment anchoring edge cases** (`src/lib/comment-anchors.ts`, `src/lib/comment-matching.ts`):
-- Lines added/removed at the top of file → anchor offsets shift
-- File completely replaced (agent rewrites the whole file) → all anchors become invalid
-- Empty file, file with only whitespace, file with Windows line endings (CRLF)
-
-**IPC type mismatches:**
-- Rust command returns `Option<T>` → TypeScript expects `T` (null handling)
-- Rust returns different error variants → TypeScript has one error type
-
-**Tauri-specific:**
-- `plugin-updater`: what if the update check fires during active review? Does it interrupt?
-- File dialog closing without selection — is null/undefined handled?
-- App closing with unsaved comments — is there a beforeunload guard?
+The full list — including hot-file pointers and failure modes — lives in [`docs/best-practices-project/bug-categories.md`](../../docs/best-practices-project/bug-categories.md). Use that as your primary checklist. Do not duplicate the list here.
 
 ## How to analyze
 
-1. Read all files in `src/hooks/` — focus on `useEffect` cleanup and error paths
-2. Read `src/lib/comment-anchors.ts` and `src/lib/comment-matching.ts` fully
-3. Read `src-tauri/src/commands.rs` — check all `Result<>` return types and error handling
-4. Read `src/lib/tauri-commands.ts` — check error handling on each `invoke()` call
-5. Grep for `listen(` across `src/` and verify each has cleanup
+Follow the "How to read for bugs" section at the bottom of [`docs/best-practices-project/bug-categories.md`](../../docs/best-practices-project/bug-categories.md). Cross-reference each finding to the failing-test requirement in `docs/test-strategy.md` rule 9.
 
 ## Output format
 

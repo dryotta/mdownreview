@@ -12,6 +12,20 @@ Every finding MUST cite a rule from `docs/test-strategy.md` in the form **"viola
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Reliable pillar, Zero Bug Policy.
 - **Primary authority:** [`docs/test-strategy.md`](../../docs/test-strategy.md) — 25 numbered rules (three-layer pyramid, coverage floors, IPC-mock hygiene, console-spy contract, test isolation, fixture hygiene, pre-merge gate).
 - **Cross-refs:** `docs/architecture.md` (rule 1 IPC chokepoint, rule 4 logging chokepoint) for what tests must mock. `docs/performance.md` rules 5-6 for canonical debounce windows tests assert.
+- **Test-pattern catalogue:** [`docs/best-practices-project/test-patterns.md`](../../docs/best-practices-project/test-patterns.md) — IPC mock skeleton, watcher-event simulation, save-call tracking, native fixture wiring, canonical DOM selectors, time/debounce patterns, reliability anti-patterns. Cite as `pattern: <section> in docs/best-practices-project/test-patterns.md`.
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every test review:
+
+1. `docs/test-strategy.md` (the 25 numbered rules)
+2. `docs/best-practices-project/test-patterns.md` (concrete patterns)
+3. `docs/architecture.md` (chokepoint rules tests must respect)
+4. `docs/performance.md` (canonical debounce windows)
+
+For each file: dispatch one subagent given ONLY that file + the diff. Subagent returns findings citing rules or pattern sections from that one file. Parent aggregates, dedupes BLOCK reasons, and produces the final Coverage snapshot. Always dispatch.
 
 ## Your task
 

@@ -14,9 +14,21 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — 5 pillars + 3 meta-principles.
 - **Primary authority:** [`docs/architecture.md`](../../docs/architecture.md) — layer separation, IPC chokepoint (`src/lib/tauri-commands.ts`), logger chokepoint, Zustand slice boundaries, file-size budgets.
 - **Secondary authority:** [`docs/design-patterns.md`](../../docs/design-patterns.md) — hook composition, command-vs-event choice, persistence pattern.
-- **Cross-cutting (project-agnostic):** [`docs/best-practices/react/composition-patterns.md`](../../docs/best-practices/react/composition-patterns.md) — boolean prop proliferation (`architecture-avoid-boolean-props`), compound components, lift state, decouple state implementation. Cite as `violates rule <id> in docs/best-practices/react/composition-patterns.md`.
+- **Cross-cutting (project-agnostic):** [`docs/best-practices-common/react/composition-patterns.md`](../../docs/best-practices-common/react/composition-patterns.md) — boolean prop proliferation (`architecture-avoid-boolean-props`), compound components, lift state, decouple state implementation. Cite as `violates rule <id> in docs/best-practices-common/react/composition-patterns.md`.
 
 Structural proposals you cannot ground in one of these docs are not actionable — either propose a new rule (with evidence) or drop the finding.
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every architecture review:
+
+1. `docs/architecture.md`
+2. `docs/design-patterns.md`
+3. `docs/best-practices-common/react/composition-patterns.md`
+
+For each file: dispatch one subagent given ONLY that file + the diff/code. Subagent returns findings citing rules from that one file. Parent aggregates, dedupes, and identifies cross-doc structural issues. Always dispatch.
 
 ## Non-negotiable rules
 

@@ -13,7 +13,20 @@ Every finding MUST cite either a Lean-pillar rule or a file-size / dependency bu
 
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Lean pillar, applied to *implementation mass*: minimal memory, minimal disk, minimal dependencies, minimal binary size, minimal lines of code for the job. + Never Increase Engineering Debt (delete dead code in the same PR; hold debt flat or reduce).
 - **Secondary:** [`docs/architecture.md`](../../docs/architecture.md) — file-size budgets, layer directionality. [`docs/performance.md`](../../docs/performance.md) — startup/memory budgets that bloat erodes.
-- **Cross-cutting (project-agnostic):** [`docs/best-practices/vite/bundle-hygiene.md`](../../docs/best-practices/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, `bundle-defer-third-party`. [`docs/best-practices/react/composition-patterns.md`](../../docs/best-practices/react/composition-patterns.md) — `architecture-avoid-boolean-props` (a frequent source of code mass).
+- **Cross-cutting (project-agnostic):** [`docs/best-practices-common/vite/bundle-hygiene.md`](../../docs/best-practices-common/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, `bundle-defer-third-party`. [`docs/best-practices-common/react/composition-patterns.md`](../../docs/best-practices-common/react/composition-patterns.md) — `architecture-avoid-boolean-props` (a frequent source of code mass).
+
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every Lean review:
+
+1. `docs/architecture.md` (file-size budgets, layer directionality)
+2. `docs/performance.md` (startup/memory budgets bloat erodes)
+3. `docs/best-practices-common/vite/bundle-hygiene.md`
+4. `docs/best-practices-common/react/composition-patterns.md`
+
+For each file: dispatch one subagent given ONLY that file + the diff. Subagent returns findings citing rules from that one file. Parent aggregates, dedupes BLOCK reasons, and produces the final Bloat snapshot. Always dispatch.
 
 ## The four checks (in order of priority)
 

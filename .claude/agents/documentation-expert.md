@@ -12,13 +12,25 @@ Every finding MUST cite either a taxonomy rule below (form: **"violates taxonomy
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Architecturally Sound + Never Increase Engineering Debt. Stale docs are debt.
 - **Meta:** every source-of-truth claim in a doc MUST be citable back to a file path; every rule reference (e.g. `rule N in docs/X.md`) MUST still point at the same rule after a rename.
 
+## Knowledge-file review protocol
+
+This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.
+
+Knowledge files consulted on every doc review:
+
+1. `docs/principles.md` (charter)
+2. The Doc-taxonomy table below (this agent's own primary authority)
+3. `AGENTS.md` and `BUILDING.md` (inventory drift checks)
+
+For each file: dispatch one subagent given ONLY that file + the diff. Subagent returns drift findings against that one source. Parent aggregates, dedupes, and verifies cross-doc citation chains. Always dispatch.
+
 ## Doc taxonomy (what lives where)
 
 | Location | Purpose | Lifetime | Granularity |
 |---|---|---|---|
 | `docs/principles.md` | Charter: 5 pillars + 3 meta-principles + Non-Goals | Evergreen | Whole product |
 | `docs/architecture.md`, `performance.md`, `security.md`, `design-patterns.md`, `test-strategy.md` | Deep-dives with numbered rules cited throughout the codebase | Evergreen | Whole product |
-| `docs/best-practices/<stack>/<file>.md` | Project-agnostic, stack-specific patterns and rules (composition, rerender, JS perf, bundle hygiene, …). Distilled from external sources with attribution. | Evergreen | Cross-cutting; portable to other projects |
+| `docs/best-practices-common/<stack>/<file>.md` | Project-agnostic, stack-specific patterns and rules (composition, rerender, JS perf, bundle hygiene, …). Distilled from external sources with attribution. | Evergreen | Cross-cutting; portable to other projects |
 | **`docs/features/<area>.md`** | **One file per major feature area. What it is, how it works, which files implement it. Written for a first-time developer reading the repo.** | **Evergreen; revised when the area changes; NEVER forked per increment.** | **User-visible capability (~7–10 total)** |
 | `AGENTS.md`, `BUILDING.md`, `README.md`, `CHANGELOG.md` | Router / how-to / history | Evergreen (CHANGELOG append-only) | Whole product |
 
