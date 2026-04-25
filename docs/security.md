@@ -27,7 +27,7 @@ Canonical for threat-model and safety rules. Cite violations as "violates rule N
 ### Launch-args & CLI handling
 9. The `get_launch_args` handler drains a pending-args queue (`PendingArgsState`) so each batch of launch args is consumed exactly once. (`commands/launch.rs:15-55`.)
 10. Single-instance emits `args-received` only when `get_webview_window("main")` is `Some`. (`lib.rs:95-102`.)
-11. CLI argument parsing canonicalizes every path via `std::fs::canonicalize` and silently drops paths that fail. (`lib.rs:24-44`.)
+11. CLI argument parsing canonicalizes every path via `std::fs::canonicalize` and silently drops paths that fail. (`commands/launch.rs:68-125`; sidecar resolution under `core/paths.rs::resolve_sidecar` adds stricter folder-root containment.)
 
 ### Markdown rendering safety
 12. No `rehype-raw` in markdown rendering; only `remarkGfm` and `rehypeSlug`. (`MarkdownViewer.tsx:387-388`.)

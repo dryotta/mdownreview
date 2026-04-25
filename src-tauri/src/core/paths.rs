@@ -14,43 +14,7 @@
 //! string. No path validation logic should live in the TypeScript or CLI
 //! layers above this module.
 
-use std::io;
 use std::path::{Path, PathBuf};
-
-/// Coarse classification of a filesystem path used by callers that need to
-/// branch on whether a path is a regular file, a directory, or absent.
-#[derive(Debug, PartialEq, Eq)]
-pub enum PathKind {
-    File,
-    Dir,
-    Missing,
-}
-
-/// Resolve `value` against `cwd`. Absolute inputs pass through unchanged;
-/// relative inputs are joined onto `cwd`. The `io::Result` return type is
-/// reserved for future symlink/canonicalize variants — current
-/// implementation is infallible.
-pub fn resolve_relative(cwd: &Path, value: &str) -> io::Result<PathBuf> {
-    let p = Path::new(value);
-    if p.is_absolute() {
-        Ok(p.to_path_buf())
-    } else {
-        Ok(cwd.join(p))
-    }
-}
-
-/// Classify `p` as a file, directory, or missing entry. Any I/O error
-/// (permission denied, broken symlink, etc.) is collapsed to
-/// [`PathKind::Missing`] — callers that need richer error info should call
-/// [`std::fs::metadata`] directly.
-pub fn classify_path(p: &Path) -> PathKind {
-    match std::fs::metadata(p) {
-        Ok(m) if m.is_dir() => PathKind::Dir,
-        Ok(m) if m.is_file() => PathKind::File,
-        Ok(_) => PathKind::Missing,
-        Err(_) => PathKind::Missing,
-    }
-}
 
 /// Resolve a CLI-style path argument.
 ///
@@ -58,7 +22,7 @@ pub fn classify_path(p: &Path) -> PathKind {
 /// - absolute `input` → returned verbatim (folder & cwd ignored)
 /// - relative `input` + `Some(folder)` → joined under folder
 /// - relative `input` + `None` → joined under cwd
-pub fn resolve_path(input: &str, folder: Option<&str>, cwd: &Path) -> PathBuf {
+fn resolve_path(input: &str, folder: Option<&str>, cwd: &Path) -> PathBuf {
     let p = Path::new(input);
     if p.is_absolute() {
         return p.to_path_buf();
@@ -83,15 +47,7 @@ pub fn source_for_sidecar(p: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Construct the preferred sidecar path for a source file by appending
-/// `.review.yaml` (yaml is always preferred — see module docs). Returns
-/// `None` if `p` is not valid UTF-8.
-pub fn sidecar_for_source(p: &Path) -> Option<PathBuf> {
-    let s = p.to_str()?;
-    Some(PathBuf::from(format!("{s}.review.yaml")))
-}
-
-/// Resolve a sidecar path from CLI input, canonicalize it, and verify it
+/// Resolve a sidecar path from CLI input,canonicalize it, and verify it
 /// stays inside `folder` if one was supplied.
 ///
 /// Auto-detect:
@@ -181,35 +137,6 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    // ---- classify_path -------------------------------------------------
-
-    #[test]
-    fn classify_path_returns_file_dir_missing() {
-        let dir = tempdir().unwrap();
-        let file = dir.path().join("a.txt");
-        fs::write(&file, "x").unwrap();
-        assert_eq!(classify_path(&file), PathKind::File);
-        assert_eq!(classify_path(dir.path()), PathKind::Dir);
-        assert_eq!(classify_path(&dir.path().join("nope")), PathKind::Missing);
-    }
-
-    // ---- resolve_relative ----------------------------------------------
-
-    #[test]
-    fn resolve_relative_passes_through_absolute() {
-        let dir = tempdir().unwrap();
-        let abs = dir.path().to_string_lossy().to_string();
-        let r = resolve_relative(Path::new("ignored"), &abs).unwrap();
-        assert_eq!(r, dir.path());
-    }
-
-    #[test]
-    fn resolve_relative_joins_relative_with_cwd() {
-        let cwd = tempdir().unwrap();
-        let r = resolve_relative(cwd.path(), "foo.md").unwrap();
-        assert_eq!(r, cwd.path().join("foo.md"));
-    }
-
     // ---- resolve_path --------------------------------------------------
 
     #[test]
@@ -242,7 +169,7 @@ mod tests {
         assert_eq!(r, cwd.path().join("foo.md"));
     }
 
-    // ---- source_for_sidecar / sidecar_for_source ----------------------
+    // ---- source_for_sidecar -------------------------------------------
 
     #[test]
     fn source_for_sidecar_strips_yaml_suffix() {
@@ -263,14 +190,6 @@ mod tests {
     #[test]
     fn source_for_sidecar_returns_none_for_non_sidecar() {
         assert_eq!(source_for_sidecar(Path::new("c.md")), None);
-    }
-
-    #[test]
-    fn sidecar_for_source_appends_yaml_suffix() {
-        assert_eq!(
-            sidecar_for_source(Path::new("c.md")),
-            Some(PathBuf::from("c.md.review.yaml")),
-        );
     }
 
     // ---- resolve_sidecar ----------------------------------------------
