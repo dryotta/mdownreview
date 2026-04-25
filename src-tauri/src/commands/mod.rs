@@ -24,10 +24,11 @@ pub use crate::core::types::{
 
 // ── Flat re-exports of every command + public helper ──────────────────────
 pub use comments::{
-    add_comment, add_reply, compute_anchor_hash, delete_comment, edit_comment,
-    export_review_summary, export_review_summary_inner, get_file_badges, get_file_badges_inner,
-    get_file_comments, get_unresolved_counts, mutate_sidecar_or_create, set_comment_resolved,
-    update_comment, update_comment_apply, CommentPatch, CommentsChangedEvent, FileBadge,
+    add_comment, add_reply, check_workspace_for, compute_anchor_hash, delete_comment,
+    edit_comment, export_review_summary, export_review_summary_inner, get_file_badges,
+    get_file_badges_inner, get_file_comments, get_unresolved_counts, mutate_sidecar_or_create,
+    set_comment_resolved, update_comment, update_comment_apply, CommentPatch,
+    CommentsChangedEvent, FileBadge,
 };
 pub use config::{set_author, set_author_at, validate_author, ConfigError};
 pub use fs::{check_path_exists, read_binary_file, read_dir, read_text_file, stat_file, stat_file_inner, update_tree_watched_dirs, FileStat, TextFileResult};

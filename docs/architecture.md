@@ -41,7 +41,7 @@ flowchart LR
 ```
 
 1. Every Tauri IPC call goes through a typed wrapper in `src/lib/tauri-commands.ts`; production code never imports `invoke` directly. (`src/lib/tauri-commands.ts:1` is the only non-test `invoke` importer.)
-2. Every new Rust command ships with a matching typed TS wrapper; the wrapper's return type matches the Rust `Result<T, String>` unwrapped `T`. (`commands/comments.rs:109` ↔ `tauri-commands.ts:50`.)
+2. Every new Rust command ships with a matching typed TS wrapper; the wrapper's return type matches the Rust `Result<T, String>` unwrapped `T`. (`commands/comments/mod.rs` ↔ `tauri-commands.ts:50`.)
 3. Every Rust command is registered in `shared_commands!` in `src-tauri/src/lib.rs:222-262`. Commands are grouped under `src-tauri/src/commands/<feature>.rs` (`src-tauri/src/commands/mod.rs:7-15`): `fs` (incl. `update_tree_watched_dirs` for folder-tree watches), `comments`, `search`, `html`, `launch`, `remote_asset` (bounded HTTPS image proxy — `fetch_remote_asset`; bounds in rule 27 of [`docs/security.md`](security.md)), plus the iter-2 onboarding/platform-integration set (`onboarding` ×3, `cli_shim` ×3, `default_handler` ×2, `folder_context` ×3 — see [`docs/features/installation.md`](features/installation.md)). Path resolution shared by both the GUI and CLI binaries lives in `src-tauri/src/core/paths.rs`.
 
    *Structured-return chokepoint.* When a single command's caller needs the bytes AND cheap-to-compute metadata (size, line count, …), return a struct that carries both rather than forcing a second IPC round-trip. Canonical example: `read_text_file` returns `TextFileResult { content, size_bytes, line_count }` (`commands/fs.rs:71-109`) so the StatusBar reads from a Zustand-cached `fileMetaByPath` populated by `useFileContent` — neither component issues its own metadata IPC. See rule 2 in [`docs/performance.md`](performance.md).
@@ -51,9 +51,9 @@ flowchart LR
 
 ### MRSF ownership (Rust is the source of truth)
 7. MRSF sidecar read/write/serde/reparenting lives in Rust (`src-tauri/src/core/sidecar.rs`, `core/comments.rs`); TypeScript never parses or serializes sidecars.
-8. Sidecar-mutating commands emit `comments-changed` after save. (`commands/comments.rs:13` `with_sidecar_mut`; atomic write via `core/atomic.rs::write_atomic`.)
-9. The 4-step re-anchoring algorithm is a single Rust pipeline exposed via `get_file_comments`. (`commands/comments.rs:78`.)
-10. SHA-256 of `selected_text` is computed in Rust via `compute_anchor_hash`. (`commands/comments.rs:208`.)
+8. Sidecar-mutating commands emit `comments-changed` after save. (`commands/comments/mod.rs` `with_sidecar_mut`; atomic write via `core/atomic.rs::write_atomic`.)
+9. The 4-step re-anchoring algorithm is a single Rust pipeline exposed via `get_file_comments`. (`commands/comments/mod.rs`.)
+10. SHA-256 of `selected_text` is computed in Rust via `compute_anchor_hash`. (`commands/comments/mod.rs`.)
 
 ### Commands vs events
 11. Launch args flow through a pending-args queue in Rust (`src-tauri/src/commands/launch.rs::PendingArgsState`). First-instance bootstrap, second-instance forwarding, and macOS `RunEvent::Opened` all push onto the queue. Frontend drains via `get_launch_args` IPC; the `args-received` event is signal-only (no payload). The IPC return type stays `LaunchArgs` (single struct with merged `files`/`folders` fields) — the queue is purely Rust-internal. (`useLaunchArgsBootstrap.ts:14,21`; `lib.rs:101`; `commands/launch.rs:15`.)
@@ -74,7 +74,7 @@ flowchart LR
 22. `read_dir` filters out sidecar files (`.review.yaml`, `.review.json`) before returning. (`commands/fs.rs:49-51`.)
 
 ### File-size budgets
-23. Any file >400 lines in `src/components/` or `src-tauri/src/` is a structural smell and must be split. Shared-chokepoint files (`src/store/index.ts`, `src/App.tsx`, `src-tauri/src/lib.rs`) get a 500-line budget. The old `src-tauri/src/commands.rs` god-file was deleted in iter 2 and is now the `commands/` folder; no single feature file should exceed the 400-line threshold (current snapshot: `core/html_assets.rs` 353, `core/comments.rs` 332, `core/sidecar.rs` 321, `core/fold_regions.rs` 303, `lib.rs` 288, `core/matching.rs` 284, `MarkdownViewer.tsx` 454, `commands/comments.rs` 217, `store/tabs.ts` ~230, `store/index.ts` 438). `MarkdownViewer.tsx` is now over budget after the iter-2 footnote/math/zoom additions and is queued for extraction (the in-doc link handler and rehype-pipeline memo are the natural split points).
+23. Any file >400 lines in `src/components/` or `src-tauri/src/` is a structural smell and must be split. Shared-chokepoint files (`src/store/index.ts`, `src/App.tsx`, `src-tauri/src/lib.rs`) get a 500-line budget. The old `src-tauri/src/commands.rs` god-file was deleted in iter 2 and is now the `commands/` folder; iter-1 of #71 further split `commands/comments.rs` and `core/types.rs` to keep every file under the 400-line threshold (current snapshot: `core/html_assets.rs` 353, `core/comments.rs` 332, `core/types.rs` 328, `core/sidecar.rs` 321, `core/fold_regions.rs` 303, `lib.rs` 288, `core/matching.rs` 284, `MarkdownViewer.tsx` 454, `commands/comments/mod.rs` ~270, `store/tabs.ts` ~230, `store/index.ts` 438). `MarkdownViewer.tsx` is now over budget after the iter-2 footnote/math/zoom additions and is queued for extraction (the in-doc link handler and rehype-pipeline memo are the natural split points).
 
 ### Native menu
 24. Native OS menu events are forwarded as `menu-*` Tauri events handled in `src/hooks/useMenuListeners.ts`, not invoked as commands. (`lib.rs:193-212`; `useMenuListeners.ts:22-54`.)

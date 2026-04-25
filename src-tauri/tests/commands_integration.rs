@@ -588,8 +588,8 @@ fn stat_file_rejects_path_outside_workspace() {
 mod f0_iter1 {
     use super::{make_mrsf_comment, watcher_state_allowing};
     use mdown_review_lib::commands::{
-        export_review_summary_inner, get_file_badges_inner, set_author_at, update_comment_apply,
-        validate_author, CommentPatch, ConfigError,
+        check_workspace_for, export_review_summary_inner, get_file_badges_inner, set_author_at,
+        update_comment_apply, validate_author, CommentPatch, ConfigError,
     };
     use mdown_review_lib::core::sidecar::{load_sidecar, save_sidecar};
     use mdown_review_lib::core::severity::Severity;
@@ -765,6 +765,207 @@ mod f0_iter1 {
         match validate_author("   ").unwrap_err() {
             ConfigError::InvalidAuthor { reason } => assert_eq!(reason, "empty"),
             _ => panic!("wrong variant"),
+        }
+    }
+
+    // ── Workspace-path guard (bug-hunter HIGH #1+#2) ─────────────────────
+    //
+    // Every retrofitted comment-mutation command must reject paths whose
+    // PARENT directory canonicalizes outside the workspace, but ALLOW
+    // mutations against paths whose underlying file is just deleted /
+    // renamed / swapped — those are routine for the orphan-comment and
+    // DeletedFileViewer flows. The guard string is exact-matched so the
+    // renderer can branch on it.
+
+    fn outside_path() -> (tempfile::TempDir, std::path::PathBuf) {
+        let outside = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(outside.path()).unwrap();
+        let path = canonical.join("doc.md");
+        std::fs::write(&path, b"x\n").unwrap();
+        (outside, path)
+    }
+
+    /// Parametrised: every retrofitted command name must surface the same
+    /// "path not in workspace" error when handed a path whose parent
+    /// canonicalizes outside the workspace.
+    #[test]
+    fn workspace_guard_rejects_outside_path_for_every_retrofitted_command() {
+        let workspace = tempfile::tempdir().unwrap();
+        let state = watcher_state_allowing(workspace.path());
+        let (_keep, outside) = outside_path();
+        let outside_str = outside.to_str().unwrap();
+        for cmd in [
+            "add_comment",
+            "add_reply",
+            "edit_comment",
+            "delete_comment",
+            "set_comment_resolved",
+            "update_comment",
+            "export_review_summary",
+            "get_file_badges",
+            "get_unresolved_counts",
+        ] {
+            let err = check_workspace_for(cmd, &state, outside_str).unwrap_err();
+            assert_eq!(
+                err, "path not in workspace",
+                "command `{cmd}` did not surface the canonical guard error",
+            );
+        }
+    }
+
+    /// Regression: the workspace guard MUST accept paths whose underlying
+    /// file is missing as long as the parent dir lies under the workspace.
+    /// Without this, `edit_comment` / `update_comment` against orphan or
+    /// just-deleted files would silently fail with "path not in workspace"
+    /// and break the DeletedFileViewer flow (bug-hunter HIGH #1).
+    #[test]
+    fn workspace_guard_accepts_deleted_file_inside_workspace() {
+        let workspace = tempfile::tempdir().unwrap();
+        let state = watcher_state_allowing(workspace.path());
+        let canonical = std::fs::canonicalize(workspace.path()).unwrap();
+        let ghost = canonical.join("just-deleted.md");
+        // File never existed; parent dir IS in the workspace.
+        check_workspace_for("edit_comment", &state, ghost.to_str().unwrap())
+            .expect("ghost path inside workspace must be accepted");
+    }
+
+    /// `edit_comment` must succeed even when the underlying file was deleted
+    /// between create and edit. Uses `update_comment_apply` because it's the
+    /// pure helper version of the same path; the workspace guard for
+    /// `edit_comment` itself is covered by the parametrised test above.
+    #[test]
+    fn update_comment_succeeds_on_deleted_underlying_file() {
+        let workspace = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(workspace.path()).unwrap();
+        let file_path_buf = canonical.join("doc.md");
+        let file_path = file_path_buf.to_str().unwrap().to_string();
+        std::fs::write(&file_path_buf, "x\n").unwrap();
+        save_sidecar(&file_path, "doc.md", &[make_mrsf_comment("c1")]).unwrap();
+        // Simulate editor save / OneDrive swap: file is gone, sidecar remains.
+        std::fs::remove_file(&file_path_buf).unwrap();
+
+        let state = watcher_state_allowing(workspace.path());
+        check_workspace_for("update_comment", &state, &file_path)
+            .expect("orphan path must pass workspace guard");
+
+        update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: true })
+            .expect("update_comment must succeed against orphan path");
+
+        let loaded = load_sidecar(&file_path).unwrap().unwrap();
+        assert!(loaded.comments[0].resolved);
+    }
+
+    /// `get_file_badges` must surface badges for orphan-only paths (file
+    /// deleted, sidecar still present) — otherwise unresolved comments on
+    /// just-deleted files vanish from the tree pane (bug-hunter HIGH #2).
+    #[test]
+    fn get_file_badges_includes_orphan_only_paths() {
+        let workspace = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(workspace.path()).unwrap();
+        let file = canonical.join("ghost.md");
+        let file_path = file.to_str().unwrap().to_string();
+        std::fs::write(&file, "alpha\n").unwrap();
+        let mut high = make_mrsf_comment("h");
+        high.severity = Some("high".into());
+        save_sidecar(&file_path, "ghost.md", &[high]).unwrap();
+        std::fs::remove_file(&file).unwrap(); // orphan now
+
+        let state = watcher_state_allowing(workspace.path());
+        let badges = get_file_badges_inner(&state, &[file_path.clone()]);
+        let badge = badges
+            .get(&file_path)
+            .expect("orphan-only files must still produce a badge");
+        assert_eq!(badge.count, 1);
+        assert_eq!(badge.max_severity, Severity::High);
+    }
+
+    /// Cap: more than `MAX_BADGE_PATHS` paths must be rejected with
+    /// "too many paths" (bug-hunter #11). Mirrors the watcher's
+    /// `MAX_TREE_WATCHED_DIRS` posture.
+    #[test]
+    fn get_file_badges_rejects_oversized_input() {
+        use mdown_review_lib::commands::comments::badges::{
+            enforce_badge_input_cap, MAX_BADGE_PATHS,
+        };
+        assert!(enforce_badge_input_cap(&vec![]).is_ok());
+        let small: Vec<String> = (0..MAX_BADGE_PATHS).map(|i| format!("/p/{i}")).collect();
+        assert!(enforce_badge_input_cap(&small).is_ok());
+        let too_many: Vec<String> =
+            (0..(MAX_BADGE_PATHS + 1)).map(|i| format!("/p/{i}")).collect();
+        assert_eq!(
+            enforce_badge_input_cap(&too_many).unwrap_err(),
+            "too many paths"
+        );
+    }
+
+    /// Compare-then-write: `SetResolved` applied with the comment's current
+    /// state must NOT mutate the sidecar (and so will not emit
+    /// `comments-changed`). Verified by the `update_comment_apply` return
+    /// value: `Ok(false)` ⇒ no save, no emit (bug-hunter #9).
+    #[test]
+    fn set_resolved_no_op_skips_save_and_emit() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, "x\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+        let mut c = make_mrsf_comment("c1");
+        c.resolved = false;
+        save_sidecar(&file_path, "doc.md", &[c]).unwrap();
+        let sidecar_path = dir.path().join("doc.md.review.yaml");
+        let mtime_before = std::fs::metadata(&sidecar_path).unwrap().modified().unwrap();
+
+        // Sleep briefly so any rewrite would visibly bump mtime.
+        std::thread::sleep(std::time::Duration::from_millis(20));
+
+        // SetResolved=false on an already-false comment ⇒ no-op.
+        let mutated =
+            update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: false })
+                .unwrap();
+        assert!(!mutated, "no-op SetResolved must report unchanged");
+        let mtime_after = std::fs::metadata(&sidecar_path).unwrap().modified().unwrap();
+        assert_eq!(
+            mtime_before, mtime_after,
+            "no-op SetResolved must NOT rewrite the sidecar"
+        );
+    }
+
+    /// v1.0 sidecar round-trip: load + save must preserve `mrsf_version: 1.0`
+    /// and never leak v1.1 keys. Not byte-identical (the YAML serialiser
+    /// normalises whitespace and quoting); the contract we lock in is "no
+    /// downgrade or upgrade, no leaked fields".
+    #[test]
+    fn v1_0_fixture_round_trips_without_version_drift() {
+        let fixture = include_str!("fixtures/mrsf/v1.0/basic.mrsf.md");
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("basic.md");
+        std::fs::write(&file, "line1\nline2\n").unwrap();
+        let yaml_path = dir.path().join("basic.md.review.yaml");
+        std::fs::write(&yaml_path, fixture).unwrap();
+
+        let file_path = file.to_str().unwrap().to_string();
+        let loaded = load_sidecar(&file_path).unwrap().unwrap();
+        assert_eq!(loaded.mrsf_version, "1.0");
+        assert_eq!(loaded.comments.len(), 2);
+        // Save round-trips through the writer's version selector.
+        save_sidecar(&file_path, &loaded.document, &loaded.comments).unwrap();
+        let reread = std::fs::read_to_string(&yaml_path).unwrap();
+        assert!(
+            reread.contains("mrsf_version: '1.0'") || reread.contains("mrsf_version: \"1.0\"") || reread.contains("mrsf_version: 1.0"),
+            "v1.0 round-trip must preserve mrsf_version=1.0; got: {reread}"
+        );
+        for forbidden in [
+            "anchor_kind",
+            "image_rect",
+            "csv_cell",
+            "json_path",
+            "html_range",
+            "html_element",
+            "reactions",
+        ] {
+            assert!(
+                !reread.contains(forbidden),
+                "v1.0 round-trip leaked v1.1 field `{forbidden}`: {reread}"
+            );
         }
     }
 }

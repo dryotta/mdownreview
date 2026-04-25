@@ -1,43 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// MRSF schema version emitted when WRITING new sidecars that DON'T use any
-/// v1.1-only fields. Use [`mrsf_version_for`] to pick the correct version
-/// per-sidecar so v1.0-pure sidecars don't leak a `1.1` declaration.
-pub const MRSF_VERSION_DEFAULT: &str = "1.0";
-
-/// MRSF schema version emitted when a sidecar carries any v1.1-only field
-/// (variant anchor, reactions, anchor_history, …).
-pub const MRSF_VERSION_V1_1: &str = "1.1";
-
-/// Backwards-compat alias retained for code paths that haven't been migrated
-/// to [`mrsf_version_for`]. Defaults to v1.1 since that's what the previous
-/// constant value was — emitting v1.0 unconditionally for legacy callers
-/// would risk truncating already-emitted v1.1 fields.
-#[deprecated(note = "use `mrsf_version_for(&comments)` to pick per-sidecar")]
-pub const MRSF_VERSION_WRITE: &str = MRSF_VERSION_V1_1;
-
-/// Pick the MRSF schema version to write for a given set of comments.
-/// Returns "1.0" when every comment is purely v1.0-shaped (no anchor_kind,
-/// no variant anchor payload, no reactions); "1.1" otherwise. Prevents
-/// pristine v1.0 sidecars from being rewritten with a `mrsf_version: "1.1"`
-/// declaration just because the writer constant moved on (advisory #5).
-pub fn mrsf_version_for(comments: &[MrsfComment]) -> &'static str {
-    let any_v1_1 = comments.iter().any(|c| {
-        c.anchor_kind.is_some()
-            || c.image_rect.is_some()
-            || c.csv_cell.is_some()
-            || c.json_path.is_some()
-            || c.html_range.is_some()
-            || c.html_element.is_some()
-            || c.reactions.as_ref().is_some_and(|r| !r.is_empty())
-    });
-    if any_v1_1 {
-        MRSF_VERSION_V1_1
-    } else {
-        MRSF_VERSION_DEFAULT
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirEntry {
     pub name: String,
@@ -363,57 +325,4 @@ mod mrsf_v1_1_tests {
         assert_eq!(sidecar.comments, sidecar2.comments);
     }
 
-    #[test]
-    fn write_constant_is_v1_1() {
-        // Legacy callers still see v1.1; new callers should use mrsf_version_for.
-        #[allow(deprecated)]
-        {
-            assert_eq!(MRSF_VERSION_WRITE, "1.1");
-        }
-    }
-
-    #[test]
-    fn version_selector_prefers_v1_0_for_pure_legacy_comments() {
-        let json = r#"{
-            "mrsf_version": "1.0",
-            "document": "test.md",
-            "comments": [{
-                "id": "c1","author":"a","timestamp":"2025-01-01T00:00:00Z",
-                "text":"x","resolved":false,"line":1
-            }]
-        }"#;
-        let s: MrsfSidecar = serde_json::from_str(json).unwrap();
-        assert_eq!(mrsf_version_for(&s.comments), "1.0");
-    }
-
-    #[test]
-    fn version_selector_promotes_to_v1_1_when_variant_anchor_present() {
-        let mut c = MrsfComment::default();
-        c.anchor_kind = Some("image-rect".into());
-        c.image_rect = Some(ImageRectAnchor {
-            x_pct: 1.0,
-            y_pct: 2.0,
-            w_pct: None,
-            h_pct: None,
-        });
-        assert_eq!(mrsf_version_for(&[c]), "1.1");
-    }
-
-    #[test]
-    fn version_selector_promotes_to_v1_1_when_reactions_present() {
-        let mut c = MrsfComment::default();
-        c.reactions = Some(vec![Reaction {
-            user: "u".into(),
-            kind: "thumbs_up".into(),
-            ts: "2025-01-01T00:00:00Z".into(),
-        }]);
-        assert_eq!(mrsf_version_for(&[c]), "1.1");
-    }
-
-    #[test]
-    fn version_selector_treats_empty_reactions_as_v1_0() {
-        let mut c = MrsfComment::default();
-        c.reactions = Some(vec![]);
-        assert_eq!(mrsf_version_for(&[c]), "1.0");
-    }
 }

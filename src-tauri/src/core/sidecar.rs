@@ -1,4 +1,5 @@
-use crate::core::types::{mrsf_version_for, CommentMutation, MrsfComment, MrsfSidecar};
+use crate::core::mrsf_version::mrsf_version_for;
+use crate::core::types::{CommentMutation, MrsfComment, MrsfSidecar};
 use std::fmt;
 use std::path::Path;
 

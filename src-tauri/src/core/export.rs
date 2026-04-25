@@ -15,6 +15,8 @@ use crate::core::types::CommentThread;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Per-file digest input: the file's absolute path and its current threads.
 pub type WorkspaceThreads<'a> = BTreeMap<&'a str, &'a [CommentThread]>;
@@ -55,19 +57,47 @@ pub fn export_summary(workspace: &Path, threads: &WorkspaceThreads) -> String {
                 sev,
                 thread.root.matched_line_number
             );
-            let _ = writeln!(out, "\n```mdr-thread-{}", nonce);
-            out.push_str(&r.text);
+            // Build full thread body first so we can pick a fence that's
+            // longer than any backtick run inside it (CommonMark fenced
+            // code-block rule). Without this, a comment containing ```
+            // would terminate the digest's wrapping fence early.
+            let mut body = String::new();
+            body.push_str(&r.text);
             if !r.text.ends_with('\n') {
-                out.push('\n');
+                body.push('\n');
             }
             for reply in &thread.replies {
-                let _ = writeln!(out, "---");
-                let _ = writeln!(out, "↳ {}: {}", reply.comment.author, reply.comment.text);
+                body.push_str("---\n");
+                let _ = writeln!(body, "↳ {}: {}", reply.comment.author, reply.comment.text);
             }
-            let _ = writeln!(out, "```\n");
+            let fence = fence_for(&body);
+            let _ = writeln!(out, "\n{}mdr-thread-{}", fence, nonce);
+            out.push_str(&body);
+            let _ = writeln!(out, "{}\n", fence);
         }
     }
     out
+}
+
+/// Pick a fence length one longer than the longest run of backticks that
+/// appears at the start of any line of `body`, with a floor of 3 backticks.
+/// Mirrors CommonMark §4.5: a closing fence must be at least as long as the
+/// opening, so the opening must out-rank any fence-shaped content within.
+fn fence_for(body: &str) -> String {
+    let max = body
+        .split_terminator('\n')
+        .filter_map(|l| {
+            let trimmed = l.trim_start();
+            let count = trimmed.bytes().take_while(|b| *b == b'`').count();
+            if count >= 3 {
+                Some(count)
+            } else {
+                None
+            }
+        })
+        .max()
+        .unwrap_or(2);
+    "`".repeat(max + 1)
 }
 
 fn relative(workspace: &Path, file: &Path) -> String {
@@ -76,36 +106,29 @@ fn relative(workspace: &Path, file: &Path) -> String {
         .unwrap_or_else(|_| file.to_string_lossy().into_owned())
 }
 
-/// 8-char Crockford-ish base32 nonce (alphabet excludes ambiguous I/L/O/U) so
-/// the fence is human-distinct across exports without pulling in a uuid dep
-/// for this single use.
+/// 8-char Crockford-ish base32 nonce (alphabet excludes ambiguous I/L/O/U)
+/// so the fence is human-distinct across exports without pulling in a uuid
+/// dep for this single use. Uses a process-wide atomic counter mixed with
+/// the wall-clock nanosecond reading to guarantee monotonic uniqueness even
+/// when called twice within the same nanosecond bucket.
 fn random_nonce_8() -> String {
-    const ALPHABET: &[u8; 32] = b"ABCDEFGHJKMNPQRSTVWXYZ0123456789";
-    let mut buf = [0u8; 8];
-    // Mix two independent low-entropy sources: nanos (high resolution) +
-    // pointer of a fresh allocation (ASLR slide on most platforms). This is
-    // not cryptographic — collisions would only mar a digest's prettiness.
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.subsec_nanos() as u64)
+    static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
+    const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
         .unwrap_or(0);
-    let aslr = Box::into_raw(Box::new(0u8)) as usize as u64;
-    let mut state = nanos.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(aslr);
-    for slot in buf.iter_mut() {
-        // Reclaim the box's memory: re-box and drop. (Avoids leaking 1 byte
-        // per call.)
-        state ^= state << 13;
-        state ^= state >> 7;
-        state ^= state << 17;
-        *slot = ALPHABET[(state as usize) & 31];
+    let counter = NONCE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut v = nanos
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(counter);
+    let mut out = [0u8; 8];
+    for slot in out.iter_mut() {
+        *slot = ALPHABET[(v & 0x1F) as usize];
+        v >>= 5;
     }
-    // Reclaim the heap byte from `aslr` to avoid leaking it.
-    // Safety: we created the Box above and have exclusive ownership of the
-    // raw pointer; reconstructing and dropping it is sound.
-    unsafe {
-        let _ = Box::from_raw(aslr as *mut u8);
-    }
-    String::from_utf8(buf.to_vec()).expect("ALPHABET is ASCII")
+    String::from_utf8(out.to_vec()).expect("ALPHABET is ASCII")
 }
 
 #[cfg(test)]
@@ -158,24 +181,53 @@ mod tests {
     }
 
     #[test]
-    fn nonces_differ_across_runs() {
-        let threads = vec![thread("c1", 1, None, "x")];
-        let mut map: WorkspaceThreads = BTreeMap::new();
-        map.insert("/ws/a.md", &threads);
-        let a = export_summary(Path::new("/ws"), &map);
-        // Yield the timer + bump heap allocator so nanos+aslr differ.
-        for _ in 0..10 {
-            std::hint::black_box(Box::new(0u8));
+    fn nonces_are_unique_across_many_calls() {
+        // Counter mixed into the seed guarantees monotonic uniqueness even
+        // when nanos clock-bucket collides. 1000 calls in a tight loop must
+        // produce >= 995 distinct nonces; the spread isn't actually
+        // probabilistic since the counter alone makes them differ.
+        let mut seen = std::collections::HashSet::new();
+        for _ in 0..1000 {
+            seen.insert(random_nonce_8());
         }
-        std::thread::sleep(std::time::Duration::from_millis(2));
-        let b = export_summary(Path::new("/ws"), &map);
-        let extract = |s: &str| {
-            s.lines()
-                .find(|l| l.starts_with("```mdr-thread-"))
-                .unwrap()
-                .to_string()
-        };
-        assert_ne!(extract(&a), extract(&b), "nonces should differ");
+        assert!(
+            seen.len() > 995,
+            "nonces must be near-universally unique: got {} unique / 1000",
+            seen.len()
+        );
+    }
+
+    #[test]
+    fn export_escapes_triple_backtick_in_comment_body() {
+        // A comment containing a line that STARTS with ``` must NOT
+        // prematurely close the fence. CommonMark only treats fences at
+        // the start of a (possibly indented) line as fences, so
+        // mid-line backtick runs don't matter.
+        let mut t = thread("c1", 1, None, "see");
+        t.root.comment.text =
+            "see ```rust\nlet x=1;\n```\n````also-fences-here\nbody\n````".into();
+        let mut map: WorkspaceThreads = BTreeMap::new();
+        let v = vec![t];
+        map.insert("/ws/a.md", &v);
+        let out = export_summary(Path::new("/ws"), &map);
+        // The longest line-start run inside the body is ```` (4) so the
+        // wrapping fence must be at least 5 backticks long.
+        let fence_line = out
+            .lines()
+            .find(|l| l.contains("mdr-thread-"))
+            .expect("fence not found");
+        let opening_ticks = fence_line.bytes().take_while(|b| *b == b'`').count();
+        assert!(
+            opening_ticks >= 5,
+            "opening fence must out-rank line-start ```` run, got {}: {fence_line}",
+            opening_ticks
+        );
+        // A matching closing fence must appear afterwards.
+        let closing = "`".repeat(opening_ticks);
+        assert!(
+            out.matches(closing.as_str()).count() >= 2,
+            "matching closing fence missing: {out}"
+        );
     }
 
     #[test]

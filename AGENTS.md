@@ -120,7 +120,8 @@ src/
 
 src-tauri/src/
   commands/                 ← Tauri commands grouped by feature area:
-    fs.rs · comments.rs · search.rs · html.rs · launch.rs
+    fs.rs · comments/ · search.rs · html.rs · launch.rs
+    config.rs               ← author / preferences IPC (set_author)
     onboarding.rs           ← onboarding state IPC (load/save/skip)
     cli_shim.rs             ← CLI shim install/status/remove (+ macos/windows/unsupported submodules)
     default_handler.rs      ← .md default-handler status + open System Settings (+ os submodules)
@@ -128,8 +129,9 @@ src-tauri/src/
     mod.rs                  ← flat re-exports so lib.rs/tests keep using commands::xxx paths
   watcher.rs                ← file system watcher (notify-debouncer-mini, 300 ms)
   lib.rs                    ← plugin registration, setup hook, panic hook
-  core/                     ← anchors, atomic (write_atomic helper), comments, matching,
-                              onboarding (schema-versioned state), paths, scanner, sidecar, threads, types
+  core/                     ← anchors, atomic (write_atomic helper), comments, export, matching,
+                              mrsf_version, onboarding (schema-versioned state), paths, scanner,
+                              severity, sidecar, threads, types
   installer/installer-hooks.nsh ← NSIS POST/PREINSTALL hooks (HKCU PATH + folder context)
   dmg/                      ← DMG layout assets (background image, README.txt)
 
