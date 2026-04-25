@@ -50,19 +50,12 @@ pub fn export_review_summary_inner(workspace: &str) -> String {
         if let Some(target_canonical) = single_file_canonical.as_ref() {
             // Compare canonical forms of both sides so the filter still
             // matches when `workspace` and the scanner-derived path differ
-            // only in casing or separator style.
+            // only in casing or separator style. `canonicalize_string`
+            // already falls back to the raw input on Err, so the inner
+            // raw-equality re-check is dead — drop it (B6).
             let scanned_canonical = canonicalize_string(&file_path);
             if &scanned_canonical != target_canonical {
-                // Last-resort fallback to raw equality — guards against
-                // platforms/filesystems where canonicalize behaves
-                // unexpectedly (e.g. removed file mid-scan).
-                if let Some(raw_target) = single_file.as_ref() {
-                    if &file_path != raw_target {
-                        continue;
-                    }
-                } else {
-                    continue;
-                }
+                continue;
             }
         }
         let sidecar = match crate::core::sidecar::load_sidecar(&file_path) {

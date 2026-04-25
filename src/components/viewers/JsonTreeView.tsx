@@ -23,21 +23,18 @@ interface PathThreadIndex {
 }
 
 /**
- * Compute the JSON-path segment for an array element. If the element is an
- * object that carries an obvious id field (`id`, `key`, `name`), encode it
- * as `[<field>=<value>]` so reorderings can still be located by that key.
- * Otherwise fall back to the index form `[idx]`.
+ * Compute the JSON-path segment for an array element.
+ *
+ * B5 (iter 7 forward-fix) — emit numeric-index segments only (`[idx]`).
+ * Semantic-key predicates such as `[id=42]` / `[key=k]` / `[name=n]`
+ * are deferred until the Rust resolver
+ * (`src-tauri/src/core/anchors/json_path.rs::dot_to_pointer`) can
+ * translate them to a JSON Pointer that traverses arrays by predicate.
+ * Today that resolver strips predicates entirely, so emitting them here
+ * produced anchors that resolved to the wrong JSON Pointer (and thus
+ * orphaned the comment). Numeric indices round-trip through Rust today.
  */
-function arraySegment(item: unknown, idx: number): string {
-  if (item && typeof item === "object" && !Array.isArray(item)) {
-    const obj = item as Record<string, unknown>;
-    for (const field of ["id", "key", "name"] as const) {
-      const v = obj[field];
-      if (v !== undefined && (typeof v === "string" || typeof v === "number")) {
-        return `[${field}=${String(v)}]`;
-      }
-    }
-  }
+function arraySegment(_item: unknown, idx: number): string {
   return `[${idx}]`;
 }
 

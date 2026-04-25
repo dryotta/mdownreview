@@ -1,8 +1,8 @@
 import "@/styles/viewer-toolbar.css";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { ZoomControl } from "./ZoomControl";
 import { useStore } from "@/store";
-import { workspaceHasOtherUnresolved } from "@/store/comments";
+import { useFileBadges } from "@/hooks/useFileBadges";
 
 /**
  * L5 — share the same prop shape as `ZoomControl`. Callers spread it directly
@@ -52,14 +52,20 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
   // and tab count straight from the Zustand store (MVVM rule 9 single-field
   // selectors).
   //
-  // A4 (iter 7) — the disabled state used to be a coarse "any other tab
-  // open?" heuristic. It now consults `workspaceHasOtherUnresolved`, which
-  // checks `threadsByFile` for actually-unresolved threads in other tabs
-  // and falls back to the heuristic only when those tabs haven't been
-  // loaded yet (lazy-load semantics).
+  // B2 (iter 7 forward-fix) — the disabled state now consults the existing
+  // `useFileBadges` hook (reactive per-path unresolved counts via
+  // `get_file_badges` IPC + `comments-changed` listener) instead of a
+  // duplicate per-file thread cache. The button is enabled iff any
+  // *other* tab has an unresolved badge count.
   const nextUnresolvedAcrossFiles = useStore((s) => s.nextUnresolvedAcrossFiles);
-  const canNextUnresolved = useStore((s) =>
-    workspaceHasOtherUnresolved(s, s.activeTabPath),
+  const tabs = useStore((s) => s.tabs);
+  const activePath = useStore((s) => s.activeTabPath);
+  // Memoise the path-array so `useFileBadges` sees stable input even though
+  // each `tabs` slice change otherwise produces a fresh `.map` array.
+  const stablePaths = useMemo(() => tabs.map((t) => t.path), [tabs]);
+  const badges = useFileBadges(stablePaths);
+  const canNextUnresolved = Object.entries(badges).some(
+    ([p, b]) => p !== activePath && (b?.count ?? 0) > 0,
   );
 
   if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile) return null;

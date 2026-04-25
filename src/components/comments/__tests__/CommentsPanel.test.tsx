@@ -490,6 +490,9 @@ describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
 
   // A3 (iter 7) — token race guard. If a slow first click resolves AFTER
   // a fast second click, only the second click's status must be visible.
+  // B4 (iter 7 forward-fix) — additionally, the stale first export must
+  // NOT write its (stale) markdown to the clipboard after the second
+  // click has already settled. Token check moved before `clipboard.writeText`.
   it("ignores the first export's resolution when a second click resolves first", async () => {
     const { invoke } = await import("@tauri-apps/api/core");
     vi.mocked(invoke).mockClear();
@@ -524,6 +527,11 @@ describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
 
     expect(screen.getByText(/export failed/i)).toBeInTheDocument();
     expect(screen.queryByText(/exported to clipboard/i)).toBeNull();
+
+    // B4 — the stale first export's markdown must NEVER reach the clipboard.
+    // The second export rejected (no markdown to write). Therefore
+    // `clipboard.writeText` must not have been called at all in this scenario.
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
   });
 });
 

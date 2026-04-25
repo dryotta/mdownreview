@@ -128,19 +128,19 @@ describe("JsonTreeView — rendering (existing behaviour)", () => {
 });
 
 describe("JsonTreeView — Group C iter 7 (commentable paths)", () => {
-  it("encodes array elements with id-bearing objects as `[id=N]` predicates", async () => {
+  it("encodes array elements with numeric-index segments (B5: predicates deferred)", async () => {
     const content = JSON.stringify({ users: [{ id: 42, name: "x" }, { id: 7 }] });
     const { container } = render(<JsonTreeView content={content} path="/data.json" />);
     // Wait for tree to render.
     await screen.findByText(/2 items/);
     // Expand the first array element so its inner path is rendered too.
-    const expandButtons = Array.from(container.querySelectorAll("[data-json-path='users[id=42]'] button.json-toggle"));
+    const expandButtons = Array.from(container.querySelectorAll("[data-json-path='users[0]'] button.json-toggle"));
     if (expandButtons.length > 0) fireEvent.click(expandButtons[0]);
     const paths = Array.from(container.querySelectorAll("[data-json-path]"))
       .map((el) => el.getAttribute("data-json-path"));
-    expect(paths).toContain("users[id=42]");
-    expect(paths).toContain("users[id=42].name");
-    expect(paths).toContain("users[id=7]");
+    expect(paths).toContain("users[0]");
+    expect(paths).toContain("users[0].name");
+    expect(paths).toContain("users[1]");
   });
 
   it("falls back to numeric-index segments when an array element has no id-like field", async () => {
@@ -153,14 +153,46 @@ describe("JsonTreeView — Group C iter 7 (commentable paths)", () => {
     expect(paths).toContain("tags[1]");
   });
 
+  // B1.b (iter 7 forward-fix) — predicate priority, recast for B5: every
+  // shape MUST emit numeric-index paths regardless of inner key/name/id.
+  it("array of {key:...} objects → uses [0] (no [key=...] predicate)", async () => {
+    const content = JSON.stringify({ items: [{ key: "alpha", v: 1 }] });
+    const { container } = render(<JsonTreeView content={content} path="/d.json" />);
+    await screen.findByText(/1 items/);
+    const paths = Array.from(container.querySelectorAll("[data-json-path]"))
+      .map((el) => el.getAttribute("data-json-path"));
+    expect(paths).toContain("items[0]");
+    expect(paths.some((p) => p?.includes("[key="))).toBe(false);
+  });
+
+  it("array of {name:...} objects → uses [0] (no [name=...] predicate)", async () => {
+    const content = JSON.stringify({ items: [{ name: "x", v: 1 }] });
+    const { container } = render(<JsonTreeView content={content} path="/d.json" />);
+    await screen.findByText(/1 items/);
+    const paths = Array.from(container.querySelectorAll("[data-json-path]"))
+      .map((el) => el.getAttribute("data-json-path"));
+    expect(paths).toContain("items[0]");
+    expect(paths.some((p) => p?.includes("[name="))).toBe(false);
+  });
+
+  it("array of {id, key, name} → uses [0] (no predicate of any kind)", async () => {
+    const content = JSON.stringify({ items: [{ id: 1, key: "k", name: "n" }] });
+    const { container } = render(<JsonTreeView content={content} path="/d.json" />);
+    await screen.findByText(/1 items/);
+    const paths = Array.from(container.querySelectorAll("[data-json-path]"))
+      .map((el) => el.getAttribute("data-json-path"));
+    expect(paths).toContain("items[0]");
+    expect(paths.some((p) => p && /\[(id|key|name)=/.test(p))).toBe(false);
+  });
+
   it("clicking '+' on a path calls addComment with the json_path anchor and (for scalars) scalar_text", async () => {
     const content = JSON.stringify({ users: [{ id: 42, name: "alice" }] });
     const { container } = render(<JsonTreeView content={content} path="/data.json" />);
     await screen.findByText(/1 items/);
-    // Expand `users[id=42]` so its `name` child is rendered.
-    const objToggle = container.querySelector("[data-json-path='users[id=42]'] button.json-toggle") as HTMLButtonElement;
+    // Expand `users[0]` so its `name` child is rendered.
+    const objToggle = container.querySelector("[data-json-path='users[0]'] button.json-toggle") as HTMLButtonElement;
     fireEvent.click(objToggle);
-    const node = container.querySelector('[data-json-path="users[id=42].name"]')!;
+    const node = container.querySelector('[data-json-path="users[0].name"]')!;
     const addBtn = node.querySelector(":scope > .json-node-row > button.json-path-add") as HTMLButtonElement;
     expect(addBtn).toBeTruthy();
     fireEvent.click(addBtn);
@@ -173,7 +205,7 @@ describe("JsonTreeView — Group C iter 7 (commentable paths)", () => {
     expect(text).toBe("typo?");
     expect(anchor).toEqual({
       kind: "json_path",
-      json_path: "users[id=42].name",
+      json_path: "users[0].name",
       scalar_text: "alice",
     });
   });

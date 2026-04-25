@@ -136,6 +136,47 @@ describe("MermaidView", () => {
     expect(addCommentMock.mock.calls[0][2]).toBeUndefined();
   });
 
+  // B1.a (iter 7 forward-fix) — heuristic step 2: when the SVG node id does
+  // NOT match the `flowchart-X-N` pattern, fall back to label-text substring
+  // match against each source line. The walked node should still get a
+  // `data-source-line` attribute and addComment must dispatch
+  // `{kind:"line", line: <expected>}`.
+  it("F1 — heuristic step 2: label-text substring fallback maps node to line", async () => {
+    const fakeSvg = `
+      <svg>
+        <g class="node" id="some-other-id"><text>Charlie</text></g>
+      </svg>
+    `;
+    (mermaid.render as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ svg: fakeSvg });
+
+    const content = "graph TD\n  Alpha --> Beta\n  Beta --> Charlie\n";
+    render(<MermaidView content={content} path="/diagram.mmd" />);
+
+    const node = await waitFor(() => {
+      const n = document.querySelector('g.node[id="some-other-id"]') as SVGGElement | null;
+      if (!n) throw new Error("node not yet rendered");
+      return n;
+    });
+
+    // Step 1 fails (id doesn't match `flowchart-X-N`); step 2 substring-matches
+    // "Charlie" in the third source line → data-source-line === "3".
+    await waitFor(() => {
+      expect(node.getAttribute("data-source-line")).toBe("3");
+    });
+
+    fireEvent.click(node);
+    const textarea = await screen.findByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "review charlie" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(addCommentMock).toHaveBeenCalledTimes(1);
+    });
+    const callArgs = addCommentMock.mock.calls[0];
+    expect(callArgs[0]).toBe("/diagram.mmd");
+    expect(callArgs[2]).toEqual({ kind: "line", line: 3 });
+  });
+
   it("F1 — comment UI is hidden when no path is provided (markdown-embed mode)", async () => {
     const fakeSvg = `<svg><g class="node" id="mermaid-x-flowchart-A-0"><text>X</text></g></svg>`;
     (mermaid.render as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ svg: fakeSvg });

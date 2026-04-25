@@ -6,6 +6,13 @@ import { useStore } from "@/store";
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
 
+// B2 (iter 7 forward-fix) — `ViewerToolbar` now reads per-tab badge counts
+// via `useFileBadges`. Stub it so router tests don't depend on the IPC mock
+// surface for the comments-changed / file-changed listeners.
+vi.mock("@/hooks/useFileBadges", () => ({
+  useFileBadges: () => ({}),
+}));
+
 // Mock child viewers as simple test stubs
 vi.mock("../EnhancedViewer", () => ({
   EnhancedViewer: ({ filePath, fileSize, onCommentOnFile }: { filePath: string; fileSize?: number; onCommentOnFile?: () => void }) => (

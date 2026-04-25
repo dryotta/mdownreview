@@ -2,6 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+
+// B2 (iter 7 forward-fix) — `ViewerToolbar` consults `useFileBadges` for the
+// "Next unresolved" disabled state. Mock the hook so each test can dictate
+// the per-path unresolved counts deterministically.
+const useFileBadgesMock = vi.fn<(paths: string[]) => Record<string, { count: number; max_severity: string }>>();
+vi.mock("@/hooks/useFileBadges", () => ({
+  useFileBadges: (paths: string[]) => useFileBadgesMock(paths),
+}));
+
 import { ViewerToolbar } from "../ViewerToolbar";
 import { useStore } from "@/store";
 import { invoke } from "@tauri-apps/api/core";
@@ -10,6 +19,12 @@ vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
 
 describe("ViewerToolbar", () => {
+  beforeEach(() => {
+    // Default: empty badge map. The "Next unresolved" describe overrides
+    // this for its specific cases.
+    useFileBadgesMock.mockReturnValue({});
+  });
+
   it("renders source and visual toggle buttons", () => {
     render(<ViewerToolbar activeView="source" onViewChange={vi.fn()} />);
     expect(screen.getByRole("button", { name: /source/i })).toBeInTheDocument();
@@ -105,7 +120,10 @@ describe("ViewerToolbar", () => {
   describe("Next unresolved (workspace) (iter 6 F8)", () => {
     beforeEach(() => {
       vi.mocked(invoke).mockReset();
-      useStore.setState({ tabs: [], activeTabPath: null, focusedThreadId: null, threadsByFile: {} });
+      useFileBadgesMock.mockReset();
+      // Default: no unresolved anywhere.
+      useFileBadgesMock.mockReturnValue({});
+      useStore.setState({ tabs: [], activeTabPath: null, focusedThreadId: null });
     });
 
     it("renders the button when onCommentOnFile is wired", () => {
@@ -129,6 +147,9 @@ describe("ViewerToolbar", () => {
         tabs: [{ path: "/only.md", scrollTop: 0, lastAccessedAt: 0 }],
         activeTabPath: "/only.md",
       });
+      // Even if the active tab itself has unresolved, the button only counts
+      // *other* tabs.
+      useFileBadgesMock.mockReturnValue({ "/only.md": { count: 5, max_severity: "low" } });
       render(
         <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
       );
@@ -146,12 +167,16 @@ describe("ViewerToolbar", () => {
         activeTabPath: "/clean.md",
         focusedThreadId: null,
       });
+      useFileBadgesMock.mockReturnValue({
+        "/clean.md": { count: 0, max_severity: "low" },
+        "/has.md": { count: 2, max_severity: "low" },
+      });
       vi.mocked(invoke).mockImplementation(async (cmd, args) => {
         if (cmd === "get_file_comments") {
           return [];
         }
         if (cmd === "get_file_badges") {
-          // Other paths excluding active.
+          // The action's own follow-up badge query (slice still uses IPC).
           const paths = (args as { filePaths: string[] }).filePaths;
           const out: Record<string, { count: number; max_severity: "low" }> = {};
           for (const p of paths) {
@@ -170,36 +195,19 @@ describe("ViewerToolbar", () => {
       await waitFor(() => expect(useStore.getState().activeTabPath).toBe("/has.md"));
     });
 
-    // A4 (iter 7) — precise disabled state: when other tabs' threads are
-    // loaded into `threadsByFile`, the button reflects the *actual* presence
-    // of unresolved threads, not just `tabs.length > 1`.
-    it("is disabled when other tabs are loaded but have NO unresolved threads", () => {
+    // B2 (iter 7 forward-fix) — precise disabled state via `useFileBadges`:
+    // when other tabs report zero unresolved badges, the button is disabled.
+    it("is disabled when other tabs report zero unresolved badges", () => {
       useStore.setState({
         tabs: [
           { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
           { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
         ],
         activeTabPath: "/a.md",
-        // Other tab loaded — only resolved threads. Heuristic-style code
-        // would leave the button enabled; precise selector must disable.
-        threadsByFile: {
-          "/b.md": [
-            {
-              root: {
-                id: "r1",
-                author: "u",
-                timestamp: "2025-01-01T00:00:00Z",
-                text: "done",
-                resolved: true,
-                line: 1,
-                matchedLineNumber: 1,
-                isOrphaned: false,
-                anchor: { kind: "line", line: 1 },
-              },
-              replies: [],
-            },
-          ],
-        },
+      });
+      useFileBadgesMock.mockReturnValue({
+        "/a.md": { count: 1, max_severity: "low" },
+        "/b.md": { count: 0, max_severity: "low" },
       });
       render(
         <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
@@ -209,31 +217,17 @@ describe("ViewerToolbar", () => {
       ).toBeDisabled();
     });
 
-    it("is enabled when another tab is loaded with at least one unresolved thread", () => {
+    it("is enabled when another tab reports at least one unresolved badge", () => {
       useStore.setState({
         tabs: [
           { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
           { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
         ],
         activeTabPath: "/a.md",
-        threadsByFile: {
-          "/b.md": [
-            {
-              root: {
-                id: "r1",
-                author: "u",
-                timestamp: "2025-01-01T00:00:00Z",
-                text: "todo",
-                resolved: false,
-                line: 1,
-                matchedLineNumber: 1,
-                isOrphaned: false,
-                anchor: { kind: "line", line: 1 },
-              },
-              replies: [],
-            },
-          ],
-        },
+      });
+      useFileBadgesMock.mockReturnValue({
+        "/a.md": { count: 0, max_severity: "low" },
+        "/b.md": { count: 1, max_severity: "low" },
       });
       render(
         <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,

@@ -93,6 +93,11 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
     const token = ++exportTokenRef.current;
     try {
       const markdown = await exportReviewSummary(exportWorkspace);
+      // B4 (iter 7 forward-fix) — check the token BEFORE writing to the
+      // clipboard. Otherwise a slow first export can land its stale
+      // markdown on the clipboard after a faster second export already
+      // wrote the user's intended content.
+      if (token !== exportTokenRef.current) return;
       await navigator.clipboard.writeText(markdown);
       if (token === exportTokenRef.current) {
         setExportStatus("Exported to clipboard");

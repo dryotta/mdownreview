@@ -108,12 +108,12 @@ test.describe("Iter 7 Group C — comment-on-json-path", () => {
     await page.locator(".folder-tree").getByText("data.json").click();
     await expect(page.locator(".json-tree")).toBeVisible();
 
-    // Expand `users[id=42]` so its `name` child renders.
-    const objToggle = page.locator("[data-json-path='users[id=42]'] > .json-node-row > button.json-toggle");
+    // Expand `users[0]` so its `name` child renders.
+    const objToggle = page.locator("[data-json-path='users[0]'] > .json-node-row > button.json-toggle");
     await objToggle.click();
 
     // Hover the row to reveal the "+" button.
-    const nameRow = page.locator("[data-json-path='users[id=42].name']");
+    const nameRow = page.locator("[data-json-path='users[0].name']");
     await nameRow.hover();
     const addBtn = nameRow.locator("> .json-node-row > button.json-path-add");
     // CSS hover-reveal can be flaky in Playwright; force-click bypasses
@@ -131,7 +131,7 @@ test.describe("Iter 7 Group C — comment-on-json-path", () => {
     expect(last.text).toBe("typo?");
     expect(last.anchor).toEqual({
       kind: "json_path",
-      json_path: "users[id=42].name",
+      json_path: "users[0].name",
       scalar_text: "alice",
     });
 
@@ -142,9 +142,9 @@ test.describe("Iter 7 Group C — comment-on-json-path", () => {
     await page.reload();
     await page.locator(".folder-tree").getByText("data.json").click();
     await expect(page.locator(".json-tree")).toBeVisible();
-    const objToggle2 = page.locator("[data-json-path='users[id=42]'] > .json-node-row > button.json-toggle");
+    const objToggle2 = page.locator("[data-json-path='users[0]'] > .json-node-row > button.json-toggle");
     await objToggle2.click();
-    const nameRowReloaded = page.locator("[data-json-path='users[id=42].name']");
+    const nameRowReloaded = page.locator("[data-json-path='users[0].name']");
     await expect(nameRowReloaded.locator("> .json-node-row .tree-comment-badge")).toBeVisible();
   });
 });
