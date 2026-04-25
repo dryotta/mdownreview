@@ -372,22 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_launch_args_handles_five_positional_files() {
-        let cwd = tempdir().unwrap();
-        let names = ["a.md", "b.md", "c.md", "d.md", "e.md"];
-        for n in &names {
-            fs::write(cwd.path().join(n), "x").unwrap();
-        }
-        let args: Vec<String> = names.iter().map(|n| s(n)).collect();
-        let out = parse_launch_args(&args, cwd.path());
-
-        let expected: Vec<String> = names.iter().map(|n| canon(cwd.path().join(n))).collect();
-        assert_eq!(out.files.len(), 5);
-        assert_eq!(out.files, expected);
-    }
-
-    #[test]
-    fn parse_launch_args_handles_ten_positional_files() {
+    fn parse_launch_args_handles_many_positional_files() {
         let cwd = tempdir().unwrap();
         let names = ["a.md","b.md","c.md","d.md","e.md","f.md","g.md","h.md","i.md","j.md"];
         for n in &names {
