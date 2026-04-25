@@ -12,7 +12,7 @@ Anchoring survives file edits through a 4-step algorithm — exact match at orig
 
 ### Anchor variants (v1.1)
 
-Beyond the v1.0 `Line` anchor, MRSF v1.1 adds five non-line variants for content where line numbers don't apply: `Image_rect` (percentage-coordinate region on a bitmap), `Csv_cell` (row + col + header + optional primary key), `Json_path` (JSONPath + optional scalar value), `Html_range` (CSS selector + offset range + selected text), and `Html_element` (CSS selector + tag + preview). A sixth variant, `File`, anchors a comment to the whole file. The wire layout is FLAT (`anchor_kind` discriminator + per-variant payload sibling) so the v1.0 round-trip stays byte-identical for pure line anchors; the in-memory canonical form is the tagged `Anchor` enum (`src/types/comments.ts`, `src-tauri/src/core/types/mod.rs`). When a file is refactored and a v1.1 anchor cannot resolve, the matcher falls back to `anchor_history` (FIFO cap of 3 prior positions); if every history entry also fails, the comment becomes file-level rather than orphaned.
+Beyond the v1.0 `Line` anchor, MRSF v1.1 adds six non-line variants for content where line numbers don't apply: `Image_rect` (percentage-coordinate region on a bitmap), `Csv_cell` (row + col + header + optional primary key), `Json_path` (JSONPath + optional scalar value), `Html_range` (CSS selector + offset range + selected text), `Html_element` (CSS selector + tag + preview), and `Word_range`. `Word_range` pins comments to a UAX#29-tokenized span (start..end word indices on the line) plus a normalized text snippet — see `core/word_tokens.rs` and `core/types/mod.rs::WordRangePayload`. A further variant, `File`, anchors a comment to the whole file. The wire layout is FLAT (`anchor_kind` discriminator + per-variant payload sibling) so the v1.0 round-trip stays byte-identical for pure line anchors; the in-memory canonical form is the tagged `Anchor` enum (`src/types/comments.ts`, `src-tauri/src/core/types/mod.rs`). When a file is refactored and a v1.1 anchor cannot resolve, the matcher falls back to `anchor_history` (FIFO cap of 3 prior positions); if every history entry also fails, the comment becomes file-level rather than orphaned. Anchor moves from the UI route through `update_comment` with `CommentPatch::MoveAnchor`, which auto-pushes the prior anchor through the FIFO `push_anchor_history` chokepoint (cap 3) before installing the new one.
 
 The UI surface is a selection toolbar that appears on text selection, a comment input, a threaded reply view, and an aggregated panel that summarises unresolved counts across the workspace. Line-gutter indicators in `SourceView` make every anchored comment discoverable at a glance.
 
@@ -45,12 +45,12 @@ sequenceDiagram
 
 ## Key source
 
-- **UI components:** `src/components/comments/{CommentInput,CommentThread,CommentsPanel,LineCommentMargin,SelectionToolbar}.tsx`; `src/components/SettingsDialog.tsx` (display-name field)
+- **UI components:** `src/components/comments/{CommentInput,CommentThread,CommentsPanel,CommentBadge,LineCommentMargin,SelectionToolbar}.tsx`; `src/components/SettingsDialog.tsx` (display-name field)
 - **TypeScript types:** `src/types/comments.ts` — Anchor discriminated union, `MrsfComment`, `deriveAnchor` adapter (mirrors Rust `core/types/wire.rs`)
-- **Hooks:** `src/hooks/{useSelectionToolbar,useThreadsByLine,useUnresolvedCounts}.ts`; `src/lib/vm/useAuthor.ts` (display-name VM, hydrates `authorName` on launch)
+- **Hooks:** `src/hooks/{useSelectionToolbar,useThreadsByLine,useFileBadges}.ts`; `src/lib/vm/useAuthor.ts` (display-name VM, hydrates `authorName` on launch)
 - **Store slice:** `src/store/index.ts` — `commentsSlice`
-- **Rust core:** `src-tauri/src/core/{comments.rs,threads.rs,anchors.rs,matching.rs,sidecar.rs,types.rs,severity.rs,export.rs,mrsf_version.rs}`
-- **Commands:** `src-tauri/src/commands/comments/{mod.rs,badges.rs,export.rs,update.rs}` — `get_file_comments`, `add_comment`, `add_reply`, `edit_comment`, `delete_comment`, `compute_anchor_hash`, `get_unresolved_counts`, `update_comment`, `get_file_badges`, `export_review_summary`; `src-tauri/src/commands/config.rs` — `set_author`, `get_author`; `src-tauri/src/commands/launch.rs` — `scan_review_files`
+- **Rust core:** `src-tauri/src/core/{anchors,matching,sidecar/,types/,word_tokens,comments,threads,severity,export,mrsf_version}.rs`
+- **Commands:** `src-tauri/src/commands/comments/{mod.rs,badges.rs,export.rs,update.rs}` — `get_file_comments`, `add_comment`, `add_reply`, `edit_comment`, `delete_comment`, `compute_anchor_hash`, `tokenize_words`, `get_unresolved_counts`, `update_comment`, `get_file_badges`, `export_review_summary`; `src-tauri/src/commands/config.rs` — `set_author`, `get_author`; `src-tauri/src/commands/launch.rs` — `scan_review_files`
 
 ## Related rules
 

@@ -113,7 +113,7 @@ src/
       ViewerRouter.tsx      ← routes to appropriate viewer (incl. ghost detection)
       BinaryPlaceholder.tsx
       MermaidView.tsx
-    comments/               ← CommentInput, CommentThread, CommentsPanel, LineCommentMargin, SelectionToolbar
+    comments/               ← CommentInput, CommentThread, CommentsPanel, CommentBadge, LineCommentMargin, SelectionToolbar
     AboutDialog.tsx
     ErrorBoundary.tsx
   store/                    ← Zustand slices
@@ -127,12 +127,13 @@ src-tauri/src/
     cli_shim.rs             ← CLI shim install/status/remove (+ macos/windows/unsupported submodules)
     default_handler.rs      ← .md default-handler status + open System Settings (+ os submodules)
     folder_context.rs       ← Windows folder context menu register/unregister/status (+ os submodules)
+    word_tokens.rs          ← UAX#29 word segmentation IPC (tokenize_words) — peer of compute_anchor_hash
     mod.rs                  ← flat re-exports so lib.rs/tests keep using commands::xxx paths
   watcher.rs                ← file system watcher (notify-debouncer-mini, 300 ms)
   lib.rs                    ← plugin registration, setup hook, panic hook
   core/                     ← anchors, atomic (write_atomic helper), comments, export, matching,
                               mrsf_version, onboarding (schema-versioned state), paths, scanner,
-                              severity, sidecar, threads, types
+                              severity, sidecar, threads, types, word_tokens
   installer/installer-hooks.nsh ← NSIS POST/PREINSTALL hooks (HKCU PATH + folder context)
   dmg/                      ← DMG layout assets (background image, README.txt)
 
