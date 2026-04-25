@@ -3,7 +3,7 @@ import { useShallow } from "zustand/shallow";
 import { useStore } from "@/store";
 import { useAboutInfo } from "@/hooks/useAboutInfo";
 import { SectionShell } from "./SectionShell";
-import { buildFirstRunSections, type OnboardingActions } from "./sections";
+import { buildFirstRunSections, buildOnboardingActions } from "./sections";
 import "@/styles/onboarding.css";
 
 const FALLBACK_VERSION = "0.3.4";
@@ -43,13 +43,7 @@ export function FirstRunPanel() {
     ? `What's new in v${currentVersion}`
     : "Welcome to mDown reView";
 
-  const actions: OnboardingActions = {
-    installCliShim: () => useStore.getState().installCliShim(),
-    removeCliShim: () => useStore.getState().removeCliShim(),
-    setDefaultHandler: () => useStore.getState().setDefaultHandler(),
-    registerFolderContext: () => useStore.getState().registerFolderContext(),
-    unregisterFolderContext: () => useStore.getState().unregisterFolderContext(),
-  };
+  const actions = buildOnboardingActions();
 
   const sections = buildFirstRunSections({
     statuses: onboardingStatuses,
@@ -87,19 +81,9 @@ export function FirstRunPanel() {
           </button>
         </div>
         <div className="onboarding-body">
-          {sections.map((s) => {
-            const isNew = isWhatsNew && s.newInVersion === currentVersion;
-            // In what's-new mode, collapse anything not flagged as new in this version.
-            const collapsedByDefault = isWhatsNew && !isNew;
-            return (
-              <SectionShell
-                key={s.key}
-                {...s.shellProps}
-                badge={isNew ? "new" : undefined}
-                collapsedByDefault={collapsedByDefault}
-              />
-            );
-          })}
+          {sections.map((s) => (
+            <SectionShell key={s.key} {...s.shellProps} />
+          ))}
         </div>
         <div className="onboarding-footer">
           <div className="onboarding-footer-actions">

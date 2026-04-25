@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import type { SectionShellProps } from "./SectionShell";
-import type {
-  OnboardingSectionKey,
-  OnboardingStatuses,
+import {
+  useStore,
+  type OnboardingSectionKey,
+  type OnboardingStatuses,
 } from "@/store";
 
 /**
@@ -27,11 +28,26 @@ export interface OnboardingActions {
   unregisterFolderContext: () => Promise<void>;
 }
 
+/**
+ * Build the standard `OnboardingActions` adapter from the live store state.
+ * Reads `useStore.getState()` at call time, so it must be invoked during
+ * render (not a hook — no subscriptions). Both panels share this builder to
+ * avoid duplicating the 5-line literal.
+ */
+export function buildOnboardingActions(): OnboardingActions {
+  const s = useStore.getState();
+  return {
+    installCliShim: () => s.installCliShim(),
+    removeCliShim: () => s.removeCliShim(),
+    setDefaultHandler: () => s.setDefaultHandler(),
+    registerFolderContext: () => s.registerFolderContext(),
+    unregisterFolderContext: () => s.unregisterFolderContext(),
+  };
+}
+
 export interface SectionConfig {
   key: "whatIsThis" | "cliShim" | "skills" | "defaultHandler" | "folderContext";
-  shellProps: Omit<SectionShellProps, "badge">;
-  /** Section is highlighted with a "New" badge when this matches currentVersion. */
-  newInVersion?: string;
+  shellProps: SectionShellProps;
 }
 
 export interface BuildSectionsInput {

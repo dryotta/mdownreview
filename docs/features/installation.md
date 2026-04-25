@@ -87,11 +87,11 @@ The frontend reads via the `OnboardingSlice` in the Zustand store (`src/store/in
 
 ## Platform integration commands
 
-11 IPC commands expose the iter-2 onboarding/integration surface (registered in `src-tauri/src/lib.rs:245-255`, typed wrappers in `src/lib/tauri-commands.ts:253-284`). All status enums are `lowercase`-serialized to keep the TS union minimal.
+11 IPC commands expose the iter-2 onboarding/integration surface (registered in `src-tauri/src/lib.rs` `shared_commands!` block, typed wrappers in `src/lib/tauri-commands.ts`). All status enums are `lowercase`-serialized to keep the TS union minimal.
 
 | Group | Commands | Behavior |
 |---|---|---|
-| **Onboarding** (`commands/onboarding.rs`) | `onboarding_state`, `onboarding_mark_welcomed(version)`, `onboarding_skip` | Load/save the state above; `_skip` is a deliberate no-op kept as the IPC chokepoint for "user dismissed". |
+| **Onboarding** (`commands/onboarding.rs`) | `onboarding_state`, `onboarding_mark_welcomed(version)`, `onboarding_should_welcome` | Load/save the state above; "Skip for now" is a pure-frontend dismissal that intentionally does **not** call `mark_welcomed`. |
 | **CLI shim** (`commands/cli_shim.rs`) | `cli_shim_status` → `Done \| Missing \| Broken \| Unsupported`, `install_cli_shim`, `remove_cli_shim` | macOS: manages `/usr/local/bin/mdownreview` symlink into the `.app` bundle; **destructive ops refuse unless the symlink's canonical target is inside the canonical app-bundle root** (`commands/cli_shim/macos.rs:71-82`). Windows: status only — detects `mdownreview-cli.exe` next to the app exe and the install dir on `HKCU\Environment\Path` via `winreg`; install/remove are no-ops (the NSIS hooks own PATH mutation). |
 | **Default handler** (`commands/default_handler.rs`) | `default_handler_status` → `Done \| Other \| Unknown \| Unsupported`, `set_default_handler` | Windows: reads `HKCU\…\FileExts\.md\UserChoice\ProgId` via `winreg` and matches `mdownreview`. macOS: returns `Unknown` (programmatic `LSCopyDefaultRoleHandlerForContentType` requires `core-foundation` FFI; deferred). `set_*` always punts to the OS UI (`ms-settings:defaultapps` / `x-apple.systempreferences:com.apple.preference.general`) via `tauri-plugin-opener` — UserChoice is hash-protected since Win10 and cannot be set programmatically. |
 | **Folder context** (`commands/folder_context.rs`) | `folder_context_status` → `Done \| Missing \| Unsupported`, `register_folder_context`, `unregister_folder_context` | Windows-only. Writes `HKCU\Software\Classes\Directory\shell\Open with mdownreview` (and the `Directory\Background\shell` twin) with the running exe path; `unregister` deletes both subtrees. Other platforms report `Unsupported`. |

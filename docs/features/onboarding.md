@@ -10,7 +10,7 @@ It is deliberately **skippable**, **non-blocking**, and **idempotent**: every se
 
 ## How it works
 
-A small Rust ViewModel (`core/onboarding.rs`, persisted at `app_config_dir/onboarding.json`) owns the "have we welcomed this user / which sections have they seen" state. The frontend reads it once on mount via `useOnboarding`, and each setup section reads its **live** OS status through a dedicated IPC command — never from the persisted state. This means a user who installs the CLI from the terminal and re-opens the app sees that section as `Done` without ever clicking the in-app button.
+A small Rust ViewModel (`core/onboarding.rs`, persisted at `app_config_dir/onboarding.json`) owns the "have we welcomed this user / which sections have they seen" state. The frontend reads it once on mount via `useOnboardingBootstrap`, and each setup section reads its **live** OS status through a dedicated IPC command — never from the persisted state. This means a user who installs the CLI from the terminal and re-opens the app sees that section as `Done` without ever clicking the in-app button.
 
 ```mermaid
 sequenceDiagram
@@ -28,7 +28,7 @@ sequenceDiagram
   Panel->>Mut: user clicks "Install" / "Register" / "Set default"
   Mut-->>Panel: Result<(), String>
   Panel->>SS: re-poll → Done
-  Panel->>App: onboarding_mark_welcomed(version) / onboarding_skip
+  Panel->>App: onboarding_mark_welcomed(version) / dismissOnboardingWelcome (no-op IPC)
 ```
 
 ## Components
@@ -49,9 +49,9 @@ sequenceDiagram
 | **MdDefault** | `default_handler_status` | `set_default_handler` | Windows reads `HKCU\…\FileExts\.md\UserChoice\ProgId`; `set_*` opens `ms-settings:defaultapps` because Win10+ hash-protects UserChoice — we cannot complete this programmatically. macOS returns `Unknown` (LaunchServices FFI deferred). The panel re-polls on `window.focus` so the status flips to `Done` as soon as the user comes back from System Settings. |
 | **FolderOpen** | `folder_context_status` | `register_folder_context`, `unregister_folder_context` | Windows-only. Writes `HKCU\Software\Classes\Directory\shell\Open with mdownreview` (and the `Directory\Background\shell` twin). Other platforms render `Unsupported`. |
 
-## Backed by (12 IPC commands)
+## Backed by (11 IPC commands)
 
-- `commands/onboarding.rs` — `onboarding_state`, `onboarding_mark_welcomed(version)`, `onboarding_skip`, `onboarding_should_welcome`
+- `commands/onboarding.rs` — `onboarding_state`, `onboarding_mark_welcomed(version)`, `onboarding_should_welcome`
 - `commands/cli_shim.rs` — `cli_shim_status`, `install_cli_shim`, `remove_cli_shim`
 - `commands/default_handler.rs` — `default_handler_status`, `set_default_handler`
 - `commands/folder_context.rs` — `folder_context_status`, `register_folder_context`, `unregister_folder_context`
@@ -60,7 +60,7 @@ All four feature modules follow the platform sub-module pattern (rule 26 in [`do
 
 ## "Skip for now" semantics
 
-`onboarding_skip` is a deliberate **no-op** at the persistence layer (it does not call `mark_welcomed`). The panel closes for this session, but `onboarding_should_welcome` will still return `true` on the next launch. This is the contract specified in the iter-2 acceptance criteria — a user who isn't ready to set things up should not be silently opted out. The IPC command exists so that "user dismissed" remains a single chokepoint we can observe and evolve (rate-limit, log, change semantics) without touching the UI.
+"Skip for now" is a pure-frontend state change: it sets `welcomePanelOpen=false` via `dismissOnboardingWelcome` without calling `mark_welcomed`. The panel closes for this session, but `onboarding_should_welcome` still returns `true` on the next launch — a user who isn't ready to set things up is not silently opted out. Iter-3 deleted the dedicated `onboarding_skip` IPC since the no-op had no FE caller; the contract is preserved purely in the slice action.
 
 ## "What's new" mode
 
@@ -81,10 +81,11 @@ Writes go through `core/atomic.rs::write_atomic` (temp-file + rename) so a crash
 ## Key source
 
 - `src-tauri/src/core/onboarding.rs` — schema-versioned persisted state
-- `src-tauri/src/commands/{onboarding,cli_shim,default_handler,folder_context}.rs` — 12 IPC commands
+- `src-tauri/src/commands/{onboarding,cli_shim,default_handler,folder_context}.rs` — 11 IPC commands
 - `src/components/onboarding/{FirstRunPanel,SetupPanel,SectionShell,sections/*}.tsx` — UI
-- `src/lib/vm/use-onboarding.ts` — read-side ViewModel
-- `src/lib/tauri-commands.ts:253-284` — typed IPC wrappers
+- `src/hooks/useOnboardingBootstrap.ts` — read-side ViewModel hook
+- `src/store/index.ts` — `OnboardingSlice` (statuses, errors, panel flags, mutators)
+- `src/lib/tauri-commands.ts` — typed IPC wrappers
 
 ## Related rules
 

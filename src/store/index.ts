@@ -6,13 +6,13 @@ import {
   defaultHandlerStatus as ipcDefaultHandlerStatus,
   folderContextStatus as ipcFolderContextStatus,
   installCliShim as ipcInstallCliShim,
-  onboardingMarkSectionDone as ipcMarkSectionDone,
   onboardingMarkWelcomed as ipcMarkWelcomed,
   onboardingState as ipcOnboardingState,
   registerFolderContext as ipcRegisterFolderContext,
   removeCliShim as ipcRemoveCliShim,
   setDefaultHandler as ipcSetDefaultHandler,
   unregisterFolderContext as ipcUnregisterFolderContext,
+  type CliShimError,
   type OnboardingState,
 } from "@/lib/tauri-commands";
 
@@ -125,7 +125,7 @@ export interface OnboardingStatuses {
   folderContext: OnboardingStatus;
 }
 
-/** Section keys used as map keys in onboardingErrors and as args to markSectionDone. */
+/** Section keys used as map keys in onboardingErrors. */
 export type OnboardingSectionKey = "cliShim" | "defaultHandler" | "folderContext";
 
 interface OnboardingSlice {
@@ -144,7 +144,6 @@ interface OnboardingSlice {
   closeSetup: () => void;
   markOnboardingWelcomed: (version: string) => Promise<void>;
   dismissOnboardingWelcome: () => void;
-  markSectionDone: (sectionKey: string) => Promise<void>;
   installCliShim: () => Promise<void>;
   removeCliShim: () => Promise<void>;
   setDefaultHandler: () => Promise<void>;
@@ -314,19 +313,15 @@ export const useStore = create<Store>()(
           onboardingErrors: errors,
         });
       },
-      openWelcome: () => set({ welcomePanelOpen: true }),
+      openWelcome: () => set({ welcomePanelOpen: true, setupPanelOpen: false }),
       closeWelcome: () => set({ welcomePanelOpen: false }),
-      openSetup: () => set({ setupPanelOpen: true }),
+      openSetup: () => set({ welcomePanelOpen: false, setupPanelOpen: true }),
       closeSetup: () => set({ setupPanelOpen: false }),
       markOnboardingWelcomed: async (version) => {
         await ipcMarkWelcomed(version);
         await useStore.getState().refreshOnboarding();
       },
       dismissOnboardingWelcome: () => set({ welcomePanelOpen: false }),
-      markSectionDone: async (sectionKey) => {
-        await ipcMarkSectionDone(sectionKey);
-        await useStore.getState().refreshOnboarding();
-      },
       installCliShim: () => runOnboardingAction("cliShim", ipcInstallCliShim),
       removeCliShim: () => runOnboardingAction("cliShim", ipcRemoveCliShim),
       setDefaultHandler: () => runOnboardingAction("defaultHandler", ipcSetDefaultHandler),
@@ -381,25 +376,25 @@ export async function validatePersistedTabs(
 
 // ── Onboarding helpers ────────────────────────────────────────────────────
 
-interface PermissionDeniedError {
-  kind: "permission_denied";
-  path?: string;
-  message?: string;
-}
-
-function isPermissionDeniedError(reason: unknown): reason is PermissionDeniedError {
-  return (
-    typeof reason === "object" &&
-    reason !== null &&
-    (reason as { kind?: unknown }).kind === "permission_denied"
-  );
+function isCliShimError(r: unknown): r is CliShimError {
+  if (typeof r !== "object" || r === null || !("kind" in r)) return false;
+  const kind = (r as { kind: unknown }).kind;
+  return kind === "permission_denied" || kind === "io";
 }
 
 /** Convert any IPC rejection into a user-facing error string. */
 export function formatOnboardingError(reason: unknown): string {
-  if (isPermissionDeniedError(reason)) {
-    const path = reason.path ?? "the install path";
-    return `Permission denied — try sudo: \`sudo ln -sf ${path}\``;
+  if (isCliShimError(reason)) {
+    switch (reason.kind) {
+      case "permission_denied":
+        return `Permission denied — try sudo: \`sudo ln -sf ${reason.path}\``;
+      case "io":
+        return reason.message;
+      default: {
+        const _exhaustive: never = reason;
+        return String(_exhaustive);
+      }
+    }
   }
   if (reason instanceof Error) return reason.message;
   if (typeof reason === "string") return reason;
