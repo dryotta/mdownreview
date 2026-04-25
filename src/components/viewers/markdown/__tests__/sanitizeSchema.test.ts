@@ -99,4 +99,45 @@ describe("sanitizeSchema", () => {
     expect(out).toContain('src="./demo.webm"');
     expect(out).toContain('type="video/webm"');
   });
+
+  // B3: KaTeX-emitted output must survive sanitization. KaTeX produces a
+  // styled-HTML twin (span.katex / .katex-html) AND a parallel MathML twin
+  // (.katex-mathml > math > semantics > …) for accessibility. Both have to
+  // make it through the schema or the math will render blank or bare.
+  it("preserves a KaTeX-shaped HTML+MathML fragment", () => {
+    const fragment =
+      '<span class="katex">' +
+        '<span class="katex-mathml">' +
+          '<math xmlns="http://www.w3.org/1998/Math/MathML">' +
+            '<semantics>' +
+              '<mrow><mi>E</mi><mo>=</mo><mi>m</mi><msup><mi>c</mi><mn>2</mn></msup></mrow>' +
+              '<annotation encoding="application/x-tex">E=mc^2</annotation>' +
+            '</semantics>' +
+          '</math>' +
+        '</span>' +
+        '<span class="katex-html" aria-hidden="true">' +
+          '<span class="base" style="height:0.8641em">' +
+            '<span class="mord mathnormal">E</span>' +
+          '</span>' +
+        '</span>' +
+      '</span>';
+    const out = sanitize(fragment);
+
+    // HTML twin survived with its classes and inline style.
+    expect(out).toContain('class="katex"');
+    expect(out).toContain('class="katex-html"');
+    expect(out).toContain('class="katex-mathml"');
+    expect(out).toContain('class="base"');
+    expect(out).toContain('style="height:0.8641em"');
+    expect(out).toMatch(/aria-hidden="true"/);
+
+    // MathML twin survived with semantics + annotation.
+    expect(out).toContain("<math");
+    expect(out).toContain("<semantics");
+    expect(out).toContain("<mrow");
+    expect(out).toContain("<msup");
+    expect(out).toContain("<annotation");
+    expect(out).toContain('encoding="application/x-tex"');
+    expect(out).toContain("E=mc^2");
+  });
 });
