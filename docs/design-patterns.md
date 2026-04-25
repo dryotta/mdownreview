@@ -26,7 +26,7 @@ Structural chokepoints (IPC, logger) are canonical in [`docs/architecture.md`](a
 6. Every `useEffect` subscribing to a `Promise<UnlistenFn>` adds `.catch(() => {})` on the unlisten rejection to avoid unhandled-rejection noise on hot-reload. (`App.tsx:108,248`.)
 
 ### React 19 idioms
-7. In-flight async work in effects uses a `cancelled` flag to drop stale responses. (`useFileContent.ts:44-59`; `useUnresolvedCounts.ts:22-41`.)
+7. In-flight async work in effects uses a `cancelled` flag to drop stale responses. (`useFileContent.ts:44-59`; `useFileBadges.ts:20-44`.)
 8. Debounced timers in hooks live in a `useRef` and clear on unmount. (`useFileWatcher.ts:16,77`.)
 9. Store reads inside imperative handlers use `useStore.getState()`; subscriptions use narrow selectors or `useShallow`. (`App.tsx:3,55-62,159,164`.)
 10. DOM-attribute external stores are read with `useSyncExternalStore`, not `useEffect`-polled state. (`useTheme.ts:1-22`.)
