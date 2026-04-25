@@ -5,7 +5,7 @@ import {
   addReply as addReplyCmd,
   editComment as editCommentCmd,
   deleteComment as deleteCommentCmd,
-  setCommentResolved,
+  updateComment,
   computeAnchorHash,
   type CommentAnchor,
 } from "@/lib/tauri-commands";
@@ -114,7 +114,10 @@ export function useCommentActions(): UseCommentActionsResult {
   const resolveComment = useCallback(
     async (filePath: string, commentId: string) => {
       try {
-        await setCommentResolved(filePath, commentId, true);
+        await updateComment(filePath, commentId, {
+          kind: "set_resolved",
+          data: { resolved: true },
+        });
       } catch (e) {
         error(`[vm] Failed to resolve comment: ${e}`);
         throw e;
@@ -126,7 +129,10 @@ export function useCommentActions(): UseCommentActionsResult {
   const unresolveComment = useCallback(
     async (filePath: string, commentId: string) => {
       try {
-        await setCommentResolved(filePath, commentId, false);
+        await updateComment(filePath, commentId, {
+          kind: "set_resolved",
+          data: { resolved: false },
+        });
       } catch (e) {
         error(`[vm] Failed to unresolve comment: ${e}`);
         throw e;

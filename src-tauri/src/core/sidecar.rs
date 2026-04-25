@@ -3,6 +3,26 @@ use crate::core::types::{CommentMutation, MrsfComment, MrsfSidecar};
 use std::fmt;
 use std::path::Path;
 
+/// Hard cap on sidecar size (10 MB). Protects every reader
+/// (`load_sidecar`, `patch_comment`, `get_file_comments`, `get_file_badges`,
+/// `export_review_summary`) against OOM from a maliciously-crafted or
+/// pathologically-large sidecar.
+const SIDECAR_MAX_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Read a sidecar file, refusing anything larger than [`SIDECAR_MAX_BYTES`].
+/// Surfaces the size-cap rejection as an `InvalidData` IO error so it flows
+/// through the existing `From<std::io::Error>` plumbing as `SidecarError::Io`.
+fn read_capped(path: &str) -> std::io::Result<String> {
+    let meta = std::fs::metadata(path)?;
+    if meta.len() > SIDECAR_MAX_BYTES {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "sidecar exceeds 10 MB cap",
+        ));
+    }
+    std::fs::read_to_string(path)
+}
+
 #[derive(Debug)]
 pub enum SidecarError {
     Io(std::io::Error),
@@ -40,7 +60,7 @@ pub fn load_sidecar(file_path: &str) -> Result<Option<MrsfSidecar>, SidecarError
     let yaml_path = format!("{}.review.yaml", file_path);
     let json_path = format!("{}.review.json", file_path);
 
-    match std::fs::read_to_string(&yaml_path) {
+    match read_capped(&yaml_path) {
         Ok(content) => {
             let sidecar: MrsfSidecar =
                 serde_yaml_ng::from_str(&content).map_err(SidecarError::YamlParse)?;
@@ -52,7 +72,7 @@ pub fn load_sidecar(file_path: &str) -> Result<Option<MrsfSidecar>, SidecarError
         _ => {} // Not found, try JSON
     }
 
-    match std::fs::read_to_string(&json_path) {
+    match read_capped(&json_path) {
         Ok(content) => {
             let sidecar: MrsfSidecar =
                 serde_json::from_str(&content).map_err(SidecarError::JsonParse)?;
@@ -102,10 +122,10 @@ pub fn patch_comment(
     let json_path = format!("{}.review.json", file_path);
 
     // Determine which file exists and load as Value
-    let (content, _source_path) = match std::fs::read_to_string(&yaml_path) {
+    let (content, _source_path) = match read_capped(&yaml_path) {
         Ok(c) => (c, yaml_path.clone()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            match std::fs::read_to_string(&json_path) {
+            match read_capped(&json_path) {
                 Ok(c) => {
                     // Convert JSON to YAML Value
                     let json_val: serde_json::Value =
@@ -398,5 +418,30 @@ comments:
             &[CommentMutation::SetResolved(true)],
         );
         assert!(matches!(result, Err(SidecarError::CommentNotFound(_))));
+    }
+
+    #[test]
+    fn load_sidecar_rejects_file_over_cap() {
+        // Write a YAML sidecar that's exactly 10 MB + 1 byte. The cap must
+        // refuse it before any parse work happens, surfacing as
+        // `SidecarError::Io` (kind = `InvalidData`). Without this guard a
+        // hostile sidecar could OOM the renderer through `get_file_comments`,
+        // `get_file_badges`, or `export_review_summary`.
+        let tmp = TempDir::new().unwrap();
+        let file_path = tmp.path().join("huge.md");
+        let yaml_path = tmp.path().join("huge.md.review.yaml");
+        std::fs::write(&file_path, "# huge").unwrap();
+
+        let oversized = vec![b'a'; (10 * 1024 * 1024 + 1) as usize];
+        std::fs::write(&yaml_path, &oversized).unwrap();
+
+        let err = load_sidecar(file_path.to_str().unwrap()).unwrap_err();
+        match err {
+            SidecarError::Io(io) => {
+                assert_eq!(io.kind(), std::io::ErrorKind::InvalidData);
+                assert!(io.to_string().contains("10 MB cap"));
+            }
+            other => panic!("expected SidecarError::Io, got {:?}", other),
+        }
     }
 }

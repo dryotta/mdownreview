@@ -6,7 +6,7 @@ import {
   addReply as addReplyCmd,
   editComment as editCommentCmd,
   deleteComment as deleteCommentCmd,
-  setCommentResolved,
+  updateComment,
   computeAnchorHash,
 } from "@/lib/tauri-commands";
 import { useStore } from "@/store";
@@ -24,7 +24,7 @@ vi.mock("@/lib/tauri-commands", () => ({
   addReply: vi.fn().mockResolvedValue(undefined),
   editComment: vi.fn().mockResolvedValue(undefined),
   deleteComment: vi.fn().mockResolvedValue(undefined),
-  setCommentResolved: vi.fn().mockResolvedValue(undefined),
+  updateComment: vi.fn().mockResolvedValue(undefined),
   computeAnchorHash: vi.fn().mockResolvedValue("auto-hash-123"),
 }));
 
@@ -338,19 +338,22 @@ describe("useCommentActions", () => {
   // ── resolveComment ───────────────────────────────────────────────────────
 
   describe("resolveComment", () => {
-    it("calls setCommentResolved with resolved=true", async () => {
+    it("dispatches updateComment with set_resolved patch (true)", async () => {
       const { result } = renderHook(() => useCommentActions());
 
       await act(async () => {
         await result.current.resolveComment("/test.md", "c1");
       });
 
-      expect(setCommentResolved).toHaveBeenCalledWith("/test.md", "c1", true);
+      expect(updateComment).toHaveBeenCalledWith("/test.md", "c1", {
+        kind: "set_resolved",
+        data: { resolved: true },
+      });
     });
 
     it("throws on failure", async () => {
       const err = new Error("resolve failed");
-      vi.mocked(setCommentResolved).mockRejectedValueOnce(err);
+      vi.mocked(updateComment).mockRejectedValueOnce(err);
 
       const { result } = renderHook(() => useCommentActions());
 
@@ -371,19 +374,22 @@ describe("useCommentActions", () => {
   // ── unresolveComment ─────────────────────────────────────────────────────
 
   describe("unresolveComment", () => {
-    it("calls setCommentResolved with resolved=false", async () => {
+    it("dispatches updateComment with set_resolved patch (false)", async () => {
       const { result } = renderHook(() => useCommentActions());
 
       await act(async () => {
         await result.current.unresolveComment("/test.md", "c1");
       });
 
-      expect(setCommentResolved).toHaveBeenCalledWith("/test.md", "c1", false);
+      expect(updateComment).toHaveBeenCalledWith("/test.md", "c1", {
+        kind: "set_resolved",
+        data: { resolved: false },
+      });
     });
 
     it("throws on failure", async () => {
       const err = new Error("unresolve failed");
-      vi.mocked(setCommentResolved).mockRejectedValueOnce(err);
+      vi.mocked(updateComment).mockRejectedValueOnce(err);
 
       const { result } = renderHook(() => useCommentActions());
 

@@ -188,34 +188,6 @@ describe("comment-mutation wrappers", () => {
       commentId: "c2",
     });
   });
-
-  it("setCommentResolved forwards resolved flag to invoke", async () => {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const m = invoke as ReturnType<typeof vi.fn>;
-    m.mockClear();
-    m.mockResolvedValueOnce(undefined);
-    const { setCommentResolved } = await import("../tauri-commands");
-    await setCommentResolved("/p/file.md", "c3", true);
-    expect(m).toHaveBeenCalledWith("set_comment_resolved", {
-      filePath: "/p/file.md",
-      commentId: "c3",
-      resolved: true,
-    });
-  });
-
-  it("setCommentResolved supports false for unresolve", async () => {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const m = invoke as ReturnType<typeof vi.fn>;
-    m.mockClear();
-    m.mockResolvedValueOnce(undefined);
-    const { setCommentResolved } = await import("../tauri-commands");
-    await setCommentResolved("/p/file.md", "c4", false);
-    expect(m).toHaveBeenCalledWith("set_comment_resolved", {
-      filePath: "/p/file.md",
-      commentId: "c4",
-      resolved: false,
-    });
-  });
 });
 
 describe("installUpdate", () => {
@@ -410,6 +382,21 @@ describe("F0 IPC surface", () => {
     });
   });
 
+  it("updateComment forwards set_resolved=false for unresolve", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    const { updateComment } = await import("../tauri-commands");
+    await updateComment("/ws/a.md", "c2", {
+      kind: "set_resolved",
+      data: { resolved: false },
+    });
+    expect(invoke).toHaveBeenCalledWith("update_comment", {
+      filePath: "/ws/a.md",
+      commentId: "c2",
+      patch: { kind: "set_resolved", data: { resolved: false } },
+    });
+  });
+
   it("getFileBadges dispatches to get_file_badges with filePaths", async () => {
     const { invoke } = await import("@tauri-apps/api/core");
     vi.mocked(invoke).mockClear();
@@ -450,6 +437,96 @@ describe("F0 IPC surface", () => {
       kind: "add_reaction",
       data: { user: "u", kind: "thumbs_up", ts: "2025-01-01T00:00:00Z" },
     });
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
+// ── Iter 2 / Group B — Anchor discriminated union ────────────────────────
+//
+// `MrsfComment.anchor` is a tagged union whose `kind` matches the Rust
+// serde wire `anchor_kind` (snake_case). These tests exercise the IPC
+// mock fixture path: the wrapper returns shapes carrying `anchor` so
+// downstream consumers can discriminate on `anchor.kind` instead of the
+// removed flat sibling fields.
+
+describe("getFileComments — Anchor discriminated union", () => {
+  async function getInvoke() {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const m = invoke as ReturnType<typeof vi.fn>;
+    m.mockClear();
+    return m;
+  }
+
+  it("returns comments with anchor.kind === 'line' for line-anchored fixture", async () => {
+    const m = await getInvoke();
+    m.mockResolvedValueOnce([
+      {
+        root: {
+          id: "c-line",
+          author: "tester",
+          timestamp: "2025-01-01T00:00:00Z",
+          text: "line-anchored",
+          resolved: false,
+          line: 7,
+          matchedLineNumber: 7,
+          isOrphaned: false,
+          anchor: { kind: "line", line: 7 },
+        },
+        replies: [],
+      },
+    ]);
+    const { getFileComments } = await import("../tauri-commands");
+    const threads = await getFileComments("/ws/a.md");
+    expect(threads).toHaveLength(1);
+    const root = threads[0].root;
+    expect(root.anchor.kind).toBe("line");
+    if (root.anchor.kind === "line") {
+      expect(root.anchor.line).toBe(7);
+    }
+  });
+
+  it("returns comments with anchor.kind === 'image_rect' for image-anchored fixture", async () => {
+    const m = await getInvoke();
+    m.mockResolvedValueOnce([
+      {
+        root: {
+          id: "c-img",
+          author: "tester",
+          timestamp: "2025-01-01T00:00:00Z",
+          text: "image-anchored",
+          resolved: false,
+          matchedLineNumber: 0,
+          isOrphaned: false,
+          anchor: {
+            kind: "image_rect",
+            x_pct: 0.25,
+            y_pct: 0.5,
+            w_pct: 0.1,
+            h_pct: 0.1,
+          },
+        },
+        replies: [],
+      },
+    ]);
+    const { getFileComments } = await import("../tauri-commands");
+    const threads = await getFileComments("/ws/img.png");
+    expect(threads).toHaveLength(1);
+    const root = threads[0].root;
+    expect(root.anchor.kind).toBe("image_rect");
+    if (root.anchor.kind === "image_rect") {
+      expect(root.anchor.x_pct).toBeCloseTo(0.25);
+      expect(root.anchor.y_pct).toBeCloseTo(0.5);
+    }
+  });
+
+  it("does not log to console.error during the dispatch happy path", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const m = await getInvoke();
+    m.mockResolvedValueOnce([]);
+    const { getFileComments } = await import("../tauri-commands");
+    const threads = await getFileComments("/ws/empty.md");
+    expect(threads).toEqual([]);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });

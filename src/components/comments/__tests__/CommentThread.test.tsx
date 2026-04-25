@@ -38,6 +38,7 @@ function makeComment(overrides: Partial<MatchedComment> = {}): MatchedComment {
     line: 1,
     matchedLineNumber: 1,
     isOrphaned: false,
+    anchor: { kind: "line", line: 1 },
     ...overrides,
   };
 }

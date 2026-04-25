@@ -799,7 +799,6 @@ mod f0_iter1 {
             "add_reply",
             "edit_comment",
             "delete_comment",
-            "set_comment_resolved",
             "update_comment",
             "export_review_summary",
             "get_file_badges",

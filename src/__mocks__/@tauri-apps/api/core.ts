@@ -68,6 +68,7 @@ export const invoke = vi.fn<(cmd: string, args?: Record<string, unknown>) => Pro
     // Iter 1 / F0 defaults — return empty/no-op shapes so consumers don't
     // need to special-case them. Tests override via mockResolvedValueOnce.
     if (cmd === "get_file_badges") return {} as Record<string, FileBadge>;
+    if (cmd === "get_file_comments") return [] as CommentThread[];
     if (cmd === "export_review_summary") return "";
     if (cmd === "update_comment") return undefined;
     if (cmd === "set_author") return "";

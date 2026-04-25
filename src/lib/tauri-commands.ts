@@ -22,88 +22,21 @@ export interface LaunchArgs {
   folders: string[];
 }
 
-export interface ImageRectAnchor {
-  x_pct: number;
-  y_pct: number;
-  w_pct?: number;
-  h_pct?: number;
-}
-
-export interface CsvCellAnchor {
-  row_idx: number;
-  col_idx: number;
-  col_header: string;
-  primary_key_col?: string;
-  primary_key_value?: string;
-}
-
-export interface JsonPathAnchor {
-  json_path: string;
-  scalar_text?: string;
-}
-
-export interface HtmlRangeAnchor {
-  selector_path: string;
-  start_offset: number;
-  end_offset: number;
-  selected_text: string;
-}
-
-export interface HtmlElementAnchor {
-  selector_path: string;
-  tag: string;
-  text_preview: string;
-}
-
-export interface Reaction {
-  user: string;
-  kind: string;
-  ts: string;
-}
-
-export type AnchorKind =
-  | "line"
-  | "file"
-  | "image-rect"
-  | "csv-cell"
-  | "json-path"
-  | "html-range"
-  | "html-element";
-
-export interface MrsfComment {
-  id: string;
-  author: string;
-  timestamp: string;
-  text: string;
-  resolved: boolean;
-  line?: number;
-  end_line?: number;
-  start_column?: number;
-  end_column?: number;
-  selected_text?: string;
-  anchored_text?: string;
-  selected_text_hash?: string;
-  commit?: string;
-  type?: "suggestion" | "issue" | "question" | "accuracy" | "style" | "clarity";
-  severity?: "low" | "medium" | "high";
-  reply_to?: string;
-  // ── MRSF v1.1 additive fields ────────────────────────────────────────────
-  // All optional; absent on v1.0 sidecars. `anchor_history` is deferred to
-  // Group B (lands with the Anchor enum).
-  anchor_kind?: AnchorKind;
-  image_rect?: ImageRectAnchor;
-  csv_cell?: CsvCellAnchor;
-  json_path?: JsonPathAnchor;
-  html_range?: HtmlRangeAnchor;
-  html_element?: HtmlElementAnchor;
-  reactions?: Reaction[];
-}
-
-export interface MrsfSidecar {
-  mrsf_version: string;
-  document: string;
-  comments: MrsfComment[];
-}
+// MRSF comment + anchor types live in `@/types/comments` (canonical home,
+// added in iter 2 Group B). Re-exported here for back-compat with existing
+// imports `from "@/lib/tauri-commands"`.
+export type {
+  Anchor,
+  CsvCellAnchor,
+  HtmlElementAnchor,
+  HtmlRangeAnchor,
+  ImageRectAnchor,
+  JsonPathAnchor,
+  MrsfComment,
+  MrsfSidecar,
+  Reaction,
+} from "@/types/comments";
+import type { MrsfComment } from "@/types/comments";
 
 // ── Typed wrappers ─────────────────────────────────────────────────────────
 
@@ -235,13 +168,6 @@ export const deleteComment = (
   commentId: string
 ): Promise<void> =>
   invoke<void>("delete_comment", { filePath, commentId });
-
-export const setCommentResolved = (
-  filePath: string,
-  commentId: string,
-  resolved: boolean
-): Promise<void> =>
-  invoke<void>("set_comment_resolved", { filePath, commentId, resolved });
 
 export const computeAnchorHash = (text: string): Promise<string> =>
   invoke<string>("compute_anchor_hash", { text });

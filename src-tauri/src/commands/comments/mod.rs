@@ -239,27 +239,6 @@ pub fn delete_comment(
     })
 }
 
-/// Resolve or unresolve a comment, save to sidecar.
-#[tauri::command]
-pub fn set_comment_resolved(
-    app: tauri::AppHandle,
-    state: State<'_, WatcherState>,
-    file_path: String,
-    comment_id: String,
-    resolved: bool,
-) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
-    with_sidecar_mut(&app, &file_path, |sidecar| {
-        let comment = sidecar
-            .comments
-            .iter_mut()
-            .find(|c| c.id == comment_id)
-            .ok_or_else(|| format!("comment {} not found", comment_id))?;
-        comment.resolved = resolved;
-        Ok(())
-    })
-}
-
 /// Compute SHA-256 hash for selected text anchor.
 #[tauri::command]
 pub fn compute_anchor_hash(text: String) -> String {

@@ -35,7 +35,7 @@ function setupCommentMock(page: Page, comments: unknown) {
           return null;
         }
         if (cmd === "get_file_comments") return toThreads(comments as Record<string, unknown> | null);
-        if (cmd === "set_comment_resolved") {
+        if (cmd === "update_comment") {
           ((window as Record<string, unknown>).__RESOLVE_CALLS__ as unknown[]).push(args);
           return null;
         }
@@ -178,7 +178,7 @@ test.describe("Comments Lifecycle", () => {
     await expect(page.getByText("Already addressed")).toBeVisible();
   });
 
-  test("23.7 - set_comment_resolved is called when comment is resolved", async ({ page }) => {
+  test("23.7 - update_comment is called when comment is resolved", async ({ page }) => {
     await setupCommentMock(page, {
       mrsf_version: "1.0",
       document: "sample.md",
@@ -207,12 +207,16 @@ test.describe("Comments Lifecycle", () => {
     // Wait for IPC call to complete
     await page.waitForTimeout(1500);
 
-    // Verify set_comment_resolved was called
+    // Verify update_comment was called
     const resolveCalls = await page.evaluate(
       () => (window as Record<string, unknown>).__RESOLVE_CALLS__
     );
     expect(Array.isArray(resolveCalls)).toBe(true);
     expect((resolveCalls as unknown[]).length).toBeGreaterThanOrEqual(1);
+    const first = (resolveCalls as Array<Record<string, unknown>>)[0];
+    const patch = first.patch as { kind: string; data: { resolved: boolean } };
+    expect(patch.kind).toBe("set_resolved");
+    expect(patch.data.resolved).toBe(true);
   });
 });
 

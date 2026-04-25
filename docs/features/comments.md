@@ -45,7 +45,7 @@ sequenceDiagram
 - **Hooks:** `src/hooks/{useSelectionToolbar,useThreadsByLine,useUnresolvedCounts}.ts`; `src/lib/vm/useAuthor.ts` (display-name VM, hydrates `authorName` on launch)
 - **Store slice:** `src/store/index.ts` — `commentsSlice`
 - **Rust core:** `src-tauri/src/core/{comments.rs,threads.rs,anchors.rs,matching.rs,sidecar.rs,types.rs,severity.rs,export.rs,mrsf_version.rs}`
-- **Commands:** `src-tauri/src/commands/comments/{mod.rs,badges.rs,export.rs,update.rs}` — `get_file_comments`, `add_comment`, `add_reply`, `edit_comment`, `delete_comment`, `set_comment_resolved`, `compute_anchor_hash`, `get_unresolved_counts`, `update_comment`, `get_file_badges`, `export_review_summary`; `src-tauri/src/commands/config.rs` — `set_author`, `get_author`; `src-tauri/src/commands/launch.rs` — `scan_review_files`
+- **Commands:** `src-tauri/src/commands/comments/{mod.rs,badges.rs,export.rs,update.rs}` — `get_file_comments`, `add_comment`, `add_reply`, `edit_comment`, `delete_comment`, `compute_anchor_hash`, `get_unresolved_counts`, `update_comment`, `get_file_badges`, `export_review_summary`; `src-tauri/src/commands/config.rs` — `set_author`, `get_author`; `src-tauri/src/commands/launch.rs` — `scan_review_files`
 
 ## Related rules
 

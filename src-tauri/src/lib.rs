@@ -206,7 +206,6 @@ pub fn run() {
                 commands::comments::add_reply,
                 commands::comments::edit_comment,
                 commands::comments::delete_comment,
-                commands::comments::set_comment_resolved,
                 commands::comments::compute_anchor_hash,
                 commands::comments::badges::get_unresolved_counts,
                 commands::comments::update::update_comment,
