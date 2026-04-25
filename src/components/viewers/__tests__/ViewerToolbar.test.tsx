@@ -61,4 +61,38 @@ describe("ViewerToolbar", () => {
     expect(screen.queryByRole("button", { name: /open in default app/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /open externally/i })).toBeNull();
   });
+
+  // ── Iter 5 Group B: Comment on file button ────────────────────────────────
+  describe("onCommentOnFile (iter 5 group B)", () => {
+    it("does NOT render the button when no callback is provided", () => {
+      render(<ViewerToolbar activeView="source" onViewChange={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: /comment on file/i })).toBeNull();
+    });
+
+    it("renders the button when a callback is provided", () => {
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      expect(screen.getByRole("button", { name: /comment on file/i })).toBeInTheDocument();
+    });
+
+    it("invokes onCommentOnFile when clicked", () => {
+      const onCommentOnFile = vi.fn();
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={onCommentOnFile} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+      expect(onCommentOnFile).toHaveBeenCalledTimes(1);
+    });
+
+    it("renders the toolbar (and button) even when hidden, no wrap toggle, and no zoom — entry point must be universal", () => {
+      const { container } = render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} hidden onCommentOnFile={vi.fn()} />,
+      );
+      expect(container.querySelector(".viewer-toolbar")).not.toBeNull();
+      expect(screen.getByRole("button", { name: /comment on file/i })).toBeInTheDocument();
+      // The Source/Visual toggle is still suppressed when `hidden` is set.
+      expect(screen.queryByRole("button", { name: /^source$/i })).toBeNull();
+    });
+  });
 });

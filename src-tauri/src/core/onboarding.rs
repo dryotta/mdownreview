@@ -76,9 +76,11 @@ mod tests {
     fn save_then_load_roundtrip() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("onboarding.json");
-        let mut original = OnboardingState::default();
-        original.last_welcomed_version = Some("0.3.4".into());
-        original.last_seen_sections = vec!["cli".into(), "default-handler".into()];
+        let original = OnboardingState {
+            last_welcomed_version: Some("0.3.4".into()),
+            last_seen_sections: vec!["cli".into(), "default-handler".into()],
+            ..Default::default()
+        };
         save_at(&path, &original).unwrap();
         let loaded = load_at(&path);
         assert_eq!(loaded.last_welcomed_version, Some("0.3.4".into()));

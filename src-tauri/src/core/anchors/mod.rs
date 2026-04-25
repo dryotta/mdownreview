@@ -1,5 +1,8 @@
 use std::cell::OnceCell;
 
+#[cfg(test)]
+use std::cell::Cell;
+
 use sha2::{Digest, Sha256};
 
 use crate::core::types::Anchor;
@@ -9,6 +12,15 @@ mod html;
 mod image_rect;
 mod json_path;
 mod word_range;
+
+#[cfg(test)]
+thread_local! {
+    /// Test-only counter incremented every time `LazyParsedDoc::lines()`
+    /// initializes its `OnceCell` line cache. Per-thread so concurrent unit
+    /// tests cannot pollute each other's reads (cargo runs tests in
+    /// parallel by default; a `static AtomicUsize` raced).
+    pub static LINES_INIT_COUNT: Cell<usize> = const { Cell::new(0) };
+}
 
 /// Per-file lazily-parsed view of bytes used by [`resolve_anchor`]. Each
 /// representation (UTF-8 line split, CSV, JSON, HTML tag soup) is computed
@@ -39,6 +51,8 @@ impl LazyParsedDoc {
 
     pub fn lines(&self) -> &[String] {
         self.line_cache.get_or_init(|| {
+            #[cfg(test)]
+            LINES_INIT_COUNT.with(|c| c.set(c.get() + 1));
             String::from_utf8_lossy(&self.bytes)
                 .lines()
                 .map(|l| l.to_string())
@@ -236,7 +250,10 @@ mod tests {
         let text = "hello world";
         let anchor = create_selection_anchor(1, 2, 0, 5, text);
         let expected_hash = compute_selected_text_hash(text);
-        assert_eq!(anchor.selected_text_hash.as_deref(), Some(expected_hash.as_str()));
+        assert_eq!(
+            anchor.selected_text_hash.as_deref(),
+            Some(expected_hash.as_str())
+        );
     }
 
     #[test]

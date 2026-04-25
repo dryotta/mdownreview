@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use mdown_review_lib::core::types::{MatchedComment, MrsfComment};
 use mdown_review_lib::core::threads;
+use mdown_review_lib::core::types::{MatchedComment, MrsfComment};
 
 fn make_matched(id: &str, reply_to: Option<&str>, line: u32) -> MatchedComment {
     MatchedComment {

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CommentsPanel } from "../CommentsPanel";
 import { useComments } from "@/lib/vm/use-comments";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
+import { useStore } from "@/store";
 import type { MatchedComment, CommentThread as CommentThreadType } from "@/lib/tauri-commands";
 
 vi.mock("@tauri-apps/api/core");
@@ -11,18 +13,23 @@ vi.mock("@/lib/vm/use-comments", () => ({
   useComments: vi.fn(() => ({ threads: [], comments: [], loading: false, reload: vi.fn() })),
 }));
 
+const mockAddComment = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("@/lib/vm/use-comment-actions", () => ({
   useCommentActions: vi.fn(() => ({
-    addComment: vi.fn(),
+    addComment: mockAddComment,
     addReply: vi.fn(),
     editComment: vi.fn().mockResolvedValue(undefined),
     deleteComment: vi.fn().mockResolvedValue(undefined),
     resolveComment: vi.fn().mockResolvedValue(undefined),
     unresolveComment: vi.fn().mockResolvedValue(undefined),
+    commitMoveAnchor: vi.fn().mockResolvedValue(undefined),
+    resolveFocusedThread: vi.fn().mockResolvedValue(undefined),
   })),
 }));
 
 const mockUseComments = vi.mocked(useComments);
+const mockUseCommentActions = vi.mocked(useCommentActions);
 
 const FILE = "/docs/README.md";
 
@@ -64,7 +71,19 @@ function setMockComments(threads: CommentThreadType[]) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockAddComment.mockReset().mockResolvedValue(undefined);
+  mockUseCommentActions.mockReturnValue({
+    addComment: mockAddComment,
+    addReply: vi.fn(),
+    editComment: vi.fn().mockResolvedValue(undefined),
+    deleteComment: vi.fn().mockResolvedValue(undefined),
+    resolveComment: vi.fn().mockResolvedValue(undefined),
+    unresolveComment: vi.fn().mockResolvedValue(undefined),
+    commitMoveAnchor: vi.fn().mockResolvedValue(undefined),
+    resolveFocusedThread: vi.fn().mockResolvedValue(undefined),
+  });
   mockUseComments.mockReturnValue({ threads: [], comments: [], loading: false, reload: vi.fn() });
+  useStore.setState({ pendingFileLevelInputFor: null });
 });
 
 // ─── 14.3: CommentsPanel behavior ────────────────────────────────────────────
@@ -294,5 +313,71 @@ describe("14.3 – CommentsPanel", () => {
 
     expect(screen.getByText("Good point!")).toBeInTheDocument();
     expect(screen.getByText("I agree")).toBeInTheDocument();
+  });
+});
+
+// ─── Iter 5 Group B: file-level comment entry point ──────────────────────────
+
+describe("CommentsPanel — file-level comment entry (iter 5 group B)", () => {
+  it("'+' button is disabled when filePath is empty", () => {
+    render(<CommentsPanel filePath="" />);
+    const addBtn = screen.getByRole("button", { name: /comment on file/i });
+    expect(addBtn).toBeDisabled();
+  });
+
+  it("'+' button is enabled when filePath is non-empty", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    const addBtn = screen.getByRole("button", { name: /comment on file/i });
+    expect(addBtn).not.toBeDisabled();
+  });
+
+  it("clicking '+' opens an inline CommentInput above the thread list", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("Save calls addComment with { kind: 'file' } anchor", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "high-level note" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(mockAddComment).toHaveBeenCalledWith(FILE, "high-level note", { kind: "file" });
+  });
+
+  it("Save closes the inline input", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("Cancel hides the inline input without saving", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(mockAddComment).not.toHaveBeenCalled();
+  });
+
+  it("auto-opens input when pendingFileLevelInputFor === filePath and clears the flag", () => {
+    useStore.setState({ pendingFileLevelInputFor: FILE });
+    render(<CommentsPanel filePath={FILE} />);
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
+    expect(useStore.getState().pendingFileLevelInputFor).toBeNull();
+  });
+
+  it("does NOT auto-open input when pendingFileLevelInputFor targets a different file", () => {
+    useStore.setState({ pendingFileLevelInputFor: "/some/other.md" });
+    render(<CommentsPanel filePath={FILE} />);
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    // Foreign request must not be consumed by us
+    expect(useStore.getState().pendingFileLevelInputFor).toBe("/some/other.md");
   });
 });

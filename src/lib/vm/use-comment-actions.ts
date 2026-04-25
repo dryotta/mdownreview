@@ -12,11 +12,32 @@ import {
 import type { Anchor } from "@/types/comments";
 import { error } from "@/logger";
 
+/**
+ * Anchor argument accepted by `addComment`. We accept either:
+ * - the legacy IPC-shape `CommentAnchor` (line + selected_text), used by the
+ *   line-margin and selection-anchor entry points; or
+ * - the discriminated `Anchor` union, used by the iter-5 file-level entry
+ *   points (`{ kind: "file" }`) and any future typed-anchor authoring path.
+ */
+export type AddCommentAnchor = CommentAnchor | Anchor;
+
+/**
+ * Narrow `AddCommentAnchor` to the line-shaped subset that carries a
+ * `selected_text_hash` field — i.e. legacy `CommentAnchor` (no `kind`) or the
+ * tagged `{ kind: "line", ... }` variant. Used to short-circuit the
+ * hash-computation branch for non-line tagged anchors.
+ */
+function isLineShapedAnchor(
+  a: AddCommentAnchor,
+): a is CommentAnchor | Extract<Anchor, { kind: "line" }> {
+  return !("kind" in a) || a.kind === "line";
+}
+
 interface UseCommentActionsResult {
   addComment: (
     filePath: string,
     text: string,
-    anchor?: CommentAnchor,
+    anchor?: AddCommentAnchor,
     commentType?: string,
     severity?: string,
     document?: string
@@ -34,6 +55,13 @@ interface UseCommentActionsResult {
   deleteComment: (filePath: string, commentId: string) => Promise<void>;
   resolveComment: (filePath: string, commentId: string) => Promise<void>;
   unresolveComment: (filePath: string, commentId: string) => Promise<void>;
+  /**
+   * F1 — resolve the currently-focused thread (driven by the `R`
+   * keyboard shortcut). Reads `focusedThreadId` + `activeTabPath`
+   * from the store at call time and routes through the existing
+   * `update_comment` chokepoint. No-op when nothing is focused.
+   */
+  resolveFocusedThread: () => Promise<void>;
   /**
    * Re-anchor a comment thread to a new Anchor. Dispatches the
    * `move_anchor` CommentPatch via `update_comment`; the Rust command
@@ -55,14 +83,19 @@ export function useCommentActions(): UseCommentActionsResult {
     async (
       filePath: string,
       text: string,
-      anchor?: CommentAnchor,
+      anchor?: AddCommentAnchor,
       commentType?: string,
       severity?: string,
       document?: string
     ) => {
       try {
-        let resolvedAnchor = anchor;
-        if (anchor?.selected_text && !anchor.selected_text_hash) {
+        let resolvedAnchor: AddCommentAnchor | undefined = anchor;
+        // Compute the selected_text hash for line-shaped anchors (legacy
+        // `CommentAnchor` and the tagged `{ kind: "line", ... }` variant) when
+        // text is present but the hash is missing. Non-line tagged anchors
+        // (`file`, `image_rect`, ...) carry no `selected_text_hash`, so we
+        // pass them through untouched.
+        if (anchor && isLineShapedAnchor(anchor) && anchor.selected_text && !anchor.selected_text_hash) {
           const hash = await computeAnchorHash(anchor.selected_text);
           resolvedAnchor = { ...anchor, selected_text_hash: hash };
         }
@@ -164,6 +197,20 @@ export function useCommentActions(): UseCommentActionsResult {
     []
   );
 
+  const resolveFocusedThread = useCallback(async () => {
+    const { focusedThreadId, activeTabPath } = useStore.getState();
+    if (!focusedThreadId || !activeTabPath) return;
+    try {
+      await updateComment(activeTabPath, focusedThreadId, {
+        kind: "set_resolved",
+        data: { resolved: true },
+      });
+    } catch (e) {
+      error(`[vm] Failed to resolve focused thread: ${e}`);
+      throw e;
+    }
+  }, []);
+
   return {
     addComment,
     addReply,
@@ -172,5 +219,6 @@ export function useCommentActions(): UseCommentActionsResult {
     resolveComment,
     unresolveComment,
     commitMoveAnchor,
+    resolveFocusedThread,
   };
 }

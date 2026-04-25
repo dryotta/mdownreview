@@ -73,7 +73,11 @@ pub(crate) fn resolve(p: &CsvCellAnchor, doc: Option<&CsvDoc>) -> MatchOutcome {
             None => return MatchOutcome::Orphan,
         };
         for (ri, row) in doc.rows.iter().enumerate().skip(1) {
-            if row.get(pk_ci).map(|v| v == pk_val.as_str()).unwrap_or(false) {
+            if row
+                .get(pk_ci)
+                .map(|v| v == pk_val.as_str())
+                .unwrap_or(false)
+            {
                 return if row.get(p.col_idx as usize).is_some() {
                     if ri == p.row_idx as usize {
                         MatchOutcome::Exact

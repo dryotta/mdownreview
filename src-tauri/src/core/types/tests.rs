@@ -118,7 +118,14 @@ fn discriminator_payload_mismatch_is_rejected() {
 /// — every typed variant must reject its discriminator without payload.
 #[test]
 fn discriminator_missing_payload_rejected_for_all_typed_variants() {
-    for kind in ["image_rect", "csv_cell", "json_path", "html_range", "html_element", "word_range"] {
+    for kind in [
+        "image_rect",
+        "csv_cell",
+        "json_path",
+        "html_range",
+        "html_element",
+        "word_range",
+    ] {
         let body = format!(
             r#"{{"id":"c1","author":"a","timestamp":"t","text":"x","resolved":false,"anchor_kind":"{kind}"}}"#
         );
@@ -342,7 +349,6 @@ fn word_range_promotes_to_v1_1() {
     assert_eq!(mrsf_version_for(&[c]), "1.1");
 }
 
-
 //  Wave 0a: selected_text clamp on the wire ─
 //
 // `truncate_selected_text` clamps to SELECTED_TEXT_MAX_LENGTH (4096 chars).
@@ -360,7 +366,11 @@ fn try_from_mrsf_comment_repr_line_clamps_selected_text() {
     match &c.anchor {
         Anchor::Line { selected_text, .. } => {
             let s = selected_text.as_ref().expect("selected_text present");
-            assert_eq!(s.chars().count(), 4096, "Line selected_text must clamp to 4096 chars");
+            assert_eq!(
+                s.chars().count(),
+                4096,
+                "Line selected_text must clamp to 4096 chars"
+            );
         }
         _ => panic!("expected Line"),
     }

@@ -15,7 +15,11 @@ pub enum CommentPatch {
     /// Append a reaction. Idempotent on (`user`, `kind`) — adding the same
     /// reaction twice from the same user is a no-op so renderer-side
     /// double-clicks don't pollute the sidecar.
-    AddReaction { user: String, kind: String, ts: String },
+    AddReaction {
+        user: String,
+        kind: String,
+        ts: String,
+    },
     /// Toggle resolved state. Canonical resolve/unresolve path — the
     /// legacy `set_comment_resolved` IPC command was removed in iter 2 to
     /// keep `update_comment` as the single per-comment mutation entry.

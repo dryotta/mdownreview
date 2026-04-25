@@ -9,7 +9,9 @@ use crate::core::types::CommentThread;
 
 /// Total order of severity for badge selection. `None` is the absence of any
 /// severity tag — comments with no severity sort below `Low`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
     None,
@@ -22,7 +24,12 @@ impl Severity {
     /// Parse the MRSF on-disk representation. Unknown strings (forward-compat
     /// or typos) collapse to `None` rather than failing — UI degrades silently
     /// rather than the whole sidecar refusing to load.
-    pub fn from_str(s: Option<&str>) -> Self {
+    ///
+    /// Named `from_optional_str` (not `from_str`) to avoid the
+    /// `std::str::FromStr::from_str` trait-method confusion: this helper
+    /// accepts `Option<&str>` and is total (no `Result`), which would not
+    /// satisfy `FromStr` anyway.
+    pub fn from_optional_str(s: Option<&str>) -> Self {
         match s.map(str::to_ascii_lowercase).as_deref() {
             Some("high") => Severity::High,
             Some("medium") => Severity::Medium,
@@ -36,9 +43,9 @@ impl Severity {
 /// comments are still considered — caller filters resolved threads upstream
 /// (the badge surfaces unresolved counts only).
 pub fn max_severity(thread: &CommentThread) -> Severity {
-    let mut best = Severity::from_str(thread.root.comment.severity.as_deref());
+    let mut best = Severity::from_optional_str(thread.root.comment.severity.as_deref());
     for reply in &thread.replies {
-        let s = Severity::from_str(reply.comment.severity.as_deref());
+        let s = Severity::from_optional_str(reply.comment.severity.as_deref());
         if s > best {
             best = s;
         }
@@ -77,11 +84,14 @@ mod tests {
 
     #[test]
     fn parse_is_case_insensitive_and_lenient() {
-        assert_eq!(Severity::from_str(Some("HIGH")), Severity::High);
-        assert_eq!(Severity::from_str(Some("Medium")), Severity::Medium);
-        assert_eq!(Severity::from_str(Some("low")), Severity::Low);
-        assert_eq!(Severity::from_str(None), Severity::None);
-        assert_eq!(Severity::from_str(Some("oops")), Severity::None);
+        assert_eq!(Severity::from_optional_str(Some("HIGH")), Severity::High);
+        assert_eq!(
+            Severity::from_optional_str(Some("Medium")),
+            Severity::Medium
+        );
+        assert_eq!(Severity::from_optional_str(Some("low")), Severity::Low);
+        assert_eq!(Severity::from_optional_str(None), Severity::None);
+        assert_eq!(Severity::from_optional_str(Some("oops")), Severity::None);
     }
 
     #[test]

@@ -24,12 +24,20 @@ mod tests {
     use super::*;
 
     fn anchor(x: f32, y: f32, w: Option<f32>, h: Option<f32>) -> ImageRectAnchor {
-        ImageRectAnchor { x_pct: x, y_pct: y, w_pct: w, h_pct: h }
+        ImageRectAnchor {
+            x_pct: x,
+            y_pct: y,
+            w_pct: w,
+            h_pct: h,
+        }
     }
 
     #[test]
     fn valid_coords_exact() {
-        assert_eq!(resolve(&anchor(0.5, 0.25, Some(0.1), Some(0.2))), MatchOutcome::Exact);
+        assert_eq!(
+            resolve(&anchor(0.5, 0.25, Some(0.1), Some(0.2))),
+            MatchOutcome::Exact
+        );
     }
 
     #[test]
@@ -39,11 +47,17 @@ mod tests {
 
     #[test]
     fn w_out_of_bounds_orphan() {
-        assert_eq!(resolve(&anchor(0.0, 0.0, Some(1.5), None)), MatchOutcome::Orphan);
+        assert_eq!(
+            resolve(&anchor(0.0, 0.0, Some(1.5), None)),
+            MatchOutcome::Orphan
+        );
     }
 
     #[test]
     fn all_zero_exact() {
-        assert_eq!(resolve(&anchor(0.0, 0.0, Some(0.0), Some(0.0))), MatchOutcome::Exact);
+        assert_eq!(
+            resolve(&anchor(0.0, 0.0, Some(0.0), Some(0.0))),
+            MatchOutcome::Exact
+        );
     }
 }

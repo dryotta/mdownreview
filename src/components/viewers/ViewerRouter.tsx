@@ -11,6 +11,7 @@ import { BinaryPlaceholder } from "./BinaryPlaceholder";
 import { TooLargePlaceholder } from "./TooLargePlaceholder";
 import { DeletedFileViewer } from "./DeletedFileViewer";
 import { FileActionsBar } from "./FileActionsBar";
+import { ViewerToolbar } from "./ViewerToolbar";
 
 interface Props {
   path: string;
@@ -23,6 +24,14 @@ export function ViewerRouter({ path }: Props) {
   const setScrollTop = useStore((s) => s.setScrollTop);
   const ghostEntries = useStore((s) => s.ghostEntries);
   const isGhost = ghostEntries.some((g) => g.sourcePath === path);
+
+  // Iter 5 Group B — every viewer surfaces a file-anchored authoring entry
+  // point. Reading through `useStore.getState()` at click time (not via a
+  // selector) keeps this off the render path; the action itself is a stable
+  // store reference so callers don't need to re-render when it changes.
+  const handleCommentOnFile = useCallback(() => {
+    useStore.getState().requestFileLevelInput(path);
+  }, [path]);
 
   // Guard flag: suppresses scroll-save during programmatic scroll restore
   const restoringRef = useRef(false);
@@ -107,12 +116,20 @@ export function ViewerRouter({ path }: Props) {
   // unmount+remount, which: (a) drops PdfViewer's stale `loadError`, (b) stops
   // audio/video playback that would otherwise continue after a tab switch,
   // (c) resets HexView byte state without an explicit `setBytes(null)` effect.
+  //
+  // Iter 5 Group B — media/binary viewers have no `EnhancedViewer` host, so we
+  // mount a minimal `ViewerToolbar` (toggle hidden, no zoom) above each one
+  // to surface the file-anchored "Comment on file" entry point universally.
   if (status === "image") {
     return (
       <div className="viewer-media-container">
-        <div className="viewer-actions-row">
-          <FileActionsBar path={path} />
-        </div>
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+          trailing={<FileActionsBar path={path} />}
+        />
         <ImageViewer key={path} path={path} />
       </div>
     );
@@ -121,9 +138,13 @@ export function ViewerRouter({ path }: Props) {
   if (status === "audio") {
     return (
       <div className="viewer-media-container">
-        <div className="viewer-actions-row">
-          <FileActionsBar path={path} mime={getAudioMime(path)} />
-        </div>
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+          trailing={<FileActionsBar path={path} mime={getAudioMime(path)} />}
+        />
         <AudioViewer key={path} path={path} />
       </div>
     );
@@ -132,9 +153,13 @@ export function ViewerRouter({ path }: Props) {
   if (status === "video") {
     return (
       <div className="viewer-media-container">
-        <div className="viewer-actions-row">
-          <FileActionsBar path={path} mime={getVideoMime(path)} />
-        </div>
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+          trailing={<FileActionsBar path={path} mime={getVideoMime(path)} />}
+        />
         <VideoViewer key={path} path={path} />
       </div>
     );
@@ -143,9 +168,13 @@ export function ViewerRouter({ path }: Props) {
   if (status === "pdf") {
     return (
       <div className="viewer-media-container">
-        <div className="viewer-actions-row">
-          <FileActionsBar path={path} />
-        </div>
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+          trailing={<FileActionsBar path={path} />}
+        />
         <PdfViewer key={path} path={path} />
       </div>
     );
@@ -154,6 +183,12 @@ export function ViewerRouter({ path }: Props) {
   if (status === "too_large") {
     return (
       <div className="viewer-scroll-region">
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+        />
         <TooLargePlaceholder key={path} path={path} size={sizeBytes} />
       </div>
     );
@@ -162,6 +197,12 @@ export function ViewerRouter({ path }: Props) {
   if (status === "binary") {
     return (
       <div className="viewer-media-container">
+        <ViewerToolbar
+          activeView="visual"
+          onViewChange={() => {}}
+          hidden
+          onCommentOnFile={handleCommentOnFile}
+        />
         <BinaryPlaceholder key={path} path={path} size={sizeBytes} />
       </div>
     );
@@ -180,7 +221,14 @@ export function ViewerRouter({ path }: Props) {
 
   return (
     <div ref={scrollRef} className="viewer-scroll-region" onScroll={handleScroll}>
-      <EnhancedViewer key={path} content={content!} path={path} filePath={path} fileSize={fileSize} />
+      <EnhancedViewer
+        key={path}
+        content={content!}
+        path={path}
+        filePath={path}
+        fileSize={fileSize}
+        onCommentOnFile={handleCommentOnFile}
+      />
     </div>
   );
 }

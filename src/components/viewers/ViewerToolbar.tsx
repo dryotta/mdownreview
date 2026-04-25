@@ -22,6 +22,14 @@ interface Props {
   onToggleWrap?: () => void;
   zoom?: ZoomProps;
   /**
+   * Iter 5 Group B — when provided, renders a "Comment on file" button that
+   * surfaces a file-anchored authoring entry point on every viewer (including
+   * binary/media viewers that have no line gutter). Click invokes the
+   * callback, which typically calls `requestFileLevelInput(path)` so the
+   * `CommentsPanel` auto-opens its inline file-level input.
+   */
+  onCommentOnFile?: () => void;
+  /**
    * Optional trailing slot rendered on the right edge of the toolbar.
    * `EnhancedViewer` plugs `FileActionsBar` in here so the file actions stay
    * pinned with the (sticky) toolbar instead of becoming a separate sibling
@@ -37,8 +45,8 @@ interface Props {
  * `EnhancedViewer`, or rendered above headerless media viewers by
  * `ViewerRouter`.
  */
-export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, trailing }: Props) {
-  if (hidden && !showWrapToggle && !zoom && !trailing) return null;
+export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, onCommentOnFile, trailing }: Props) {
+  if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile) return null;
 
   return (
     <div className="viewer-toolbar" role="toolbar" aria-label="View mode">
@@ -71,6 +79,16 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
         </button>
       )}
       {zoom && <ZoomControl {...zoom} />}
+      {onCommentOnFile && (
+        <button
+          className="viewer-toolbar-btn viewer-toolbar-comment-on-file"
+          onClick={onCommentOnFile}
+          title="Comment on file"
+          aria-label="Comment on file"
+        >
+          💬+
+        </button>
+      )}
       {trailing}
     </div>
   );

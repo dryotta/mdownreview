@@ -79,7 +79,11 @@ pub(super) struct MrsfCommentRepr {
 /// the top-level comment uses, since history entries don't share the
 /// comment's flat line fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "anchor_kind", content = "anchor_data", rename_all = "snake_case")]
+#[serde(
+    tag = "anchor_kind",
+    content = "anchor_data",
+    rename_all = "snake_case"
+)]
 pub(super) enum AnchorRepr {
     Line(LineAnchorPayload),
     File,
@@ -243,11 +247,11 @@ impl TryFrom<&MrsfCommentRepr> for Anchor {
                 p.selected_text = crate::core::anchors::truncate_selected_text(&p.selected_text);
                 Ok(Anchor::HtmlRange(p))
             }
-            (Some("html_element"), 1) => {
-                r.html_element.clone().map(Anchor::HtmlElement).ok_or_else(|| {
-                    mismatch("anchor_kind=html_element but html_element field missing")
-                })
-            }
+            (Some("html_element"), 1) => r
+                .html_element
+                .clone()
+                .map(Anchor::HtmlElement)
+                .ok_or_else(|| mismatch("anchor_kind=html_element but html_element field missing")),
             (Some("word_range"), 1) => {
                 let mut p = r.word_range.clone().ok_or_else(|| {
                     mismatch("anchor_kind=word_range but word_range field missing")
@@ -255,9 +259,15 @@ impl TryFrom<&MrsfCommentRepr> for Anchor {
                 p.sanitize()?;
                 Ok(Anchor::WordRange(p))
             }
-            (Some(kind @ ("image_rect" | "csv_cell" | "json_path" | "html_range" | "html_element" | "word_range")), _) => {
-                Err(mismatch(format!("anchor_kind={kind} with wrong payload sibling count")))
-            }
+            (
+                Some(
+                    kind @ ("image_rect" | "csv_cell" | "json_path" | "html_range" | "html_element"
+                    | "word_range"),
+                ),
+                _,
+            ) => Err(mismatch(format!(
+                "anchor_kind={kind} with wrong payload sibling count"
+            ))),
             (Some(other), _) => Err(mismatch(format!("unknown anchor_kind `{other}`"))),
         }
     }
@@ -288,7 +298,11 @@ impl TryFrom<MrsfCommentRepr> for MrsfComment {
             anchor,
             anchor_history: r
                 .anchor_history
-                .map(|v| v.into_iter().map(TryInto::try_into).collect::<Result<Vec<_>, _>>())
+                .map(|v| {
+                    v.into_iter()
+                        .map(TryInto::try_into)
+                        .collect::<Result<Vec<_>, _>>()
+                })
                 .transpose()?,
             reactions: r.reactions,
         })
@@ -298,8 +312,8 @@ impl TryFrom<MrsfCommentRepr> for MrsfComment {
 impl From<MrsfComment> for MrsfCommentRepr {
     fn from(c: MrsfComment) -> Self {
         // Decide wire shape from the anchor variant.
-        let has_v1_1_markers = c.anchor_history.as_ref().is_some_and(|h| !h.is_empty())
-            || c.reactions.is_some();
+        let has_v1_1_markers =
+            c.anchor_history.as_ref().is_some_and(|h| !h.is_empty()) || c.reactions.is_some();
 
         // `base` carries every comment-level field that's variant-agnostic.
         // Per-arm `MrsfCommentRepr { ..base }` then overlays only the

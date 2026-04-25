@@ -10,6 +10,7 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useApplyTheme } from "@/hooks/useApplyTheme";
 import { useOnboardingBootstrap } from "@/hooks/useOnboardingBootstrap";
 import { useAuthor } from "@/lib/vm/useAuthor";
+import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { FirstRunPanel } from "@/components/onboarding/FirstRunPanel";
 import { SetupPanel } from "@/components/onboarding/SetupPanel";
 import { FolderTree } from "@/components/FolderTree/FolderTree";
@@ -56,10 +57,63 @@ export default function App() {
 
   const { handleOpenFile, handleOpenFolder } = useDialogActions();
 
+  // F1 — register the VM resolveFocusedThread handler with the store so
+  // the `R` keyboard shortcut can route through `update_comment` (the
+  // single mutation chokepoint) without the slice importing IPC mutations.
+  const { resolveFocusedThread } = useCommentActions();
+  const setResolveFocusedThreadHandler = useStore((s) => s.setResolveFocusedThreadHandler);
+  useEffect(() => {
+    setResolveFocusedThreadHandler(resolveFocusedThread);
+    return () => setResolveFocusedThreadHandler(null);
+  }, [resolveFocusedThread, setResolveFocusedThreadHandler]);
+
+  // F1 — Ctrl/Cmd+Shift+M: trigger the existing selection-toolbar add-
+  // comment path. We dispatch a real bubbling `mouseup` from the end of
+  // the current selection so the viewer's existing onMouseUp handler
+  // (registered via React event delegation) pops the SelectionToolbar
+  // exactly as a mouse interaction would, then auto-click the toolbar's
+  // "Comment" button on the next frame to open the CommentInput.
+  // No-op when there is no usable selection.
+  const startCommentOnSelection = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+    const range = sel.getRangeAt(0);
+    const target =
+      (range.endContainer.nodeType === Node.ELEMENT_NODE
+        ? (range.endContainer as Element)
+        : range.endContainer.parentElement) ?? document.body;
+    target.dispatchEvent(
+      new MouseEvent("mouseup", { bubbles: true, cancelable: true }),
+    );
+    requestAnimationFrame(() => {
+      const btn = document.querySelector(
+        ".selection-toolbar-btn",
+      ) as HTMLButtonElement | null;
+      btn?.click();
+    });
+  }, []);
+
+  // F1 — Esc: close any open inline CommentInput. Coordinated via the
+  // `openInputId` slice field so each input does not need its own
+  // global Esc handler.
+  const closeOpenInput = useCallback(() => {
+    useStore.getState().setOpenInputId(null);
+  }, []);
+
   // Connect Rust file watcher to frontend event pipeline
   useFileWatcher();
 
-  const menuCallbacks = { handleOpenFile, handleOpenFolder, toggleCommentsPane, setTheme, setAboutOpen, checkForUpdate };
+  const menuCallbacks = {
+    handleOpenFile,
+    handleOpenFolder,
+    toggleCommentsPane,
+    setTheme,
+    setAboutOpen,
+    checkForUpdate,
+    startCommentOnSelection,
+    closeOpenInput,
+  };
   useMenuListeners(menuCallbacks);
   useGlobalShortcuts(menuCallbacks);
   useLaunchArgsBootstrap();

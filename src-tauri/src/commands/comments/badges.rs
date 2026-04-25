@@ -117,8 +117,8 @@ pub fn get_file_badges_inner(
         let mut count = 0u32;
         let mut worst = Severity::None;
         for t in &threads {
-            let unresolved = !t.root.comment.resolved
-                || t.replies.iter().any(|r| !r.comment.resolved);
+            let unresolved =
+                !t.root.comment.resolved || t.replies.iter().any(|r| !r.comment.resolved);
             if !unresolved {
                 continue;
             }
@@ -163,7 +163,12 @@ mod tests {
         state
     }
 
-    fn typed_comment(id: &str, anchor: Anchor, resolved: bool, severity: Option<&str>) -> MrsfComment {
+    fn typed_comment(
+        id: &str,
+        anchor: Anchor,
+        resolved: bool,
+        severity: Option<&str>,
+    ) -> MrsfComment {
         MrsfComment {
             id: id.to_string(),
             author: "T".to_string(),

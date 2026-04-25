@@ -51,11 +51,7 @@ pub fn export_summary(workspace: &Path, threads: &WorkspaceThreads) -> String {
             let _ = writeln!(
                 out,
                 "- **{}** by `{}` ({} · severity: {}) — line {}",
-                r.id,
-                r.author,
-                status,
-                sev,
-                thread.root.matched_line_number
+                r.id, r.author, status, sev, thread.root.matched_line_number
             );
             // Build full thread body first so we can pick a fence that's
             // longer than any backtick run inside it (CommonMark fenced
@@ -204,8 +200,7 @@ mod tests {
         // the start of a (possibly indented) line as fences, so
         // mid-line backtick runs don't matter.
         let mut t = thread("c1", 1, None, "see");
-        t.root.comment.text =
-            "see ```rust\nlet x=1;\n```\n````also-fences-here\nbody\n````".into();
+        t.root.comment.text = "see ```rust\nlet x=1;\n```\n````also-fences-here\nbody\n````".into();
         let mut map: WorkspaceThreads = BTreeMap::new();
         let v = vec![t];
         map.insert("/ws/a.md", &v);
@@ -238,6 +233,10 @@ mod tests {
         let out = export_summary(Path::new("/ws"), &map);
         assert!(out.contains("## "));
         // Relative path should appear (sub/a.md or sub\a.md depending on platform).
-        assert!(out.contains("a.md"), "expected file name in digest: {}", out);
+        assert!(
+            out.contains("a.md"),
+            "expected file name in digest: {}",
+            out
+        );
     }
 }

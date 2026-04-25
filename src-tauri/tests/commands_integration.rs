@@ -1,10 +1,8 @@
 use mdown_review_lib::commands::{
-    drain_pending, push_pending, read_binary_file, read_dir,
-    read_text_file, stat_file_inner, CommentsChangedEvent, LaunchArgs, PendingArgsState,
-    MrsfComment, MrsfSidecar,
-    search_in_document,
+    drain_pending, push_pending, read_binary_file, read_dir, read_text_file, search_in_document,
+    stat_file_inner, CommentsChangedEvent, LaunchArgs, MrsfComment, MrsfSidecar, PendingArgsState,
 };
-use mdown_review_lib::core::sidecar::{save_sidecar, load_sidecar};
+use mdown_review_lib::core::sidecar::{load_sidecar, save_sidecar};
 use mdown_review_lib::watcher::FileChangeEvent;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -36,7 +34,8 @@ fn read_text_file_returns_size_and_line_count() {
 #[test]
 fn read_text_file_rejects_binary() {
     let mut tmp = tempfile::NamedTempFile::new().unwrap();
-    tmp.write_all(&[0x48, 0x65, 0x00, 0x6c, 0x6c, 0x6f]).unwrap(); // null byte in first 512
+    tmp.write_all(&[0x48, 0x65, 0x00, 0x6c, 0x6c, 0x6f])
+        .unwrap(); // null byte in first 512
     let path = tmp.path().to_str().unwrap().to_string();
     let result = read_text_file(path);
     assert_eq!(result.unwrap_err(), "binary_file");
@@ -91,7 +90,10 @@ fn mrsf_sidecar_yaml_roundtrip() {
     assert_eq!(parsed.mrsf_version, "1.0");
     assert_eq!(parsed.comments.len(), 1);
     assert_eq!(parsed.comments[0].line, Some(10));
-    assert_eq!(parsed.comments[0].comment_type.as_deref(), Some("suggestion"));
+    assert_eq!(
+        parsed.comments[0].comment_type.as_deref(),
+        Some("suggestion")
+    );
 }
 
 #[test]
@@ -111,7 +113,10 @@ fn mrsf_sidecar_json_roundtrip() {
 fn mrsf_comment_type_field_serializes_as_type() {
     let comment = make_mrsf_comment("c1");
     let yaml = serde_yaml_ng::to_string(&comment).unwrap();
-    assert!(yaml.contains("type: suggestion"), "should serialize as 'type' not 'comment_type'");
+    assert!(
+        yaml.contains("type: suggestion"),
+        "should serialize as 'type' not 'comment_type'"
+    );
 }
 
 #[test]
@@ -123,7 +128,10 @@ fn mrsf_optional_fields_omitted_when_none() {
     comment.severity = None;
     let yaml = serde_yaml_ng::to_string(&comment).unwrap();
     assert!(!yaml.contains("line:"), "None fields should be omitted");
-    assert!(!yaml.contains("selected_text:"), "None fields should be omitted");
+    assert!(
+        !yaml.contains("selected_text:"),
+        "None fields should be omitted"
+    );
 }
 
 #[test]
@@ -165,7 +173,10 @@ fn save_sidecar_deletes_sidecar_when_empty() {
     assert!(std::path::Path::new(&sidecar_path).exists());
 
     save_sidecar(&file_path, "test.md", &[]).unwrap();
-    assert!(!std::path::Path::new(&sidecar_path).exists(), "empty save should delete the sidecar");
+    assert!(
+        !std::path::Path::new(&sidecar_path).exists(),
+        "empty save should delete the sidecar"
+    );
 
     // Subsequent load should return None (no sidecar).
     let result = load_sidecar(&file_path).unwrap();
@@ -180,7 +191,10 @@ fn save_sidecar_empty_is_noop_when_no_sidecar() {
 
     // Saving empty with no pre-existing sidecar must not create one.
     save_sidecar(&file_path, "test.md", &[]).unwrap();
-    assert!(!std::path::Path::new(&sidecar_path).exists(), "empty save must not create a sidecar");
+    assert!(
+        !std::path::Path::new(&sidecar_path).exists(),
+        "empty save must not create a sidecar"
+    );
 }
 
 #[test]
@@ -208,7 +222,10 @@ fn yaml_preferred_over_json() {
     std::fs::write(&json_sidecar, r#"{"mrsf_version":"1.0","document":"test.md","comments":[{"id":"j1","author":"A","timestamp":"2026-01-01T00:00:00Z","text":"json comment","resolved":false}]}"#).unwrap();
 
     let loaded = load_sidecar(file.to_str().unwrap()).unwrap().unwrap();
-    assert_eq!(loaded.comments[0].id, "y1", "YAML should be preferred over JSON");
+    assert_eq!(
+        loaded.comments[0].id, "y1",
+        "YAML should be preferred over JSON"
+    );
 }
 
 // ── get_launch_args ────────────────────────────────────────────────────────
@@ -277,18 +294,32 @@ fn read_dir_hides_review_sidecars() {
     std::fs::write(dir.path().join("readme.md"), "hello").unwrap();
     std::fs::write(dir.path().join("main.rs"), "fn main() {}").unwrap();
     // Both YAML and JSON review sidecars should be hidden
-    std::fs::write(dir.path().join("readme.md.review.yaml"), "mrsf_version: '1.0'\ndocument: readme.md\ncomments: []\n").unwrap();
-    std::fs::write(dir.path().join("main.rs.review.json"), r#"{"mrsf_version":"1.0","document":"main.rs","comments":[]}"#).unwrap();
+    std::fs::write(
+        dir.path().join("readme.md.review.yaml"),
+        "mrsf_version: '1.0'\ndocument: readme.md\ncomments: []\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("main.rs.review.json"),
+        r#"{"mrsf_version":"1.0","document":"main.rs","comments":[]}"#,
+    )
+    .unwrap();
     std::fs::write(dir.path().join("config.json"), "{}").unwrap();
 
     let entries = read_dir(dir.path().to_str().unwrap().to_string()).unwrap();
     let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
-    
+
     assert!(names.contains(&"readme.md"));
     assert!(names.contains(&"main.rs"));
     assert!(names.contains(&"config.json"));
-    assert!(!names.contains(&"readme.md.review.yaml"), "YAML review sidecars should be hidden");
-    assert!(!names.contains(&"main.rs.review.json"), "JSON review sidecars should be hidden");
+    assert!(
+        !names.contains(&"readme.md.review.yaml"),
+        "YAML review sidecars should be hidden"
+    );
+    assert!(
+        !names.contains(&"main.rs.review.json"),
+        "JSON review sidecars should be hidden"
+    );
 }
 
 // ── FileChangeEvent serialization ─────────────────────────────────────────
@@ -304,7 +335,11 @@ fn file_change_event_serializes_with_correct_fields() {
     assert_eq!(json["kind"], "content");
     // Ensure no extra fields are present
     let obj = json.as_object().unwrap();
-    assert_eq!(obj.len(), 2, "FileChangeEvent should have exactly 2 fields: path and kind");
+    assert_eq!(
+        obj.len(),
+        2,
+        "FileChangeEvent should have exactly 2 fields: path and kind"
+    );
 }
 
 #[test]
@@ -417,14 +452,16 @@ fn search_unicode_overlapping_does_not_panic() {
 
 #[test]
 fn search_returns_char_indices_not_bytes() {
-    let results = search_in_document("日本語テスト hello 日本語テスト".to_string(), "hello".to_string());
+    let results = search_in_document(
+        "日本語テスト hello 日本語テスト".to_string(),
+        "hello".to_string(),
+    );
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].start_col, 7);
     assert_eq!(results[0].end_col, 12);
 }
 
-
-//  mutate_sidecar_or_create 
+//  mutate_sidecar_or_create
 
 #[test]
 fn mutate_sidecar_or_create_creates_first_comment_sidecar() {
@@ -446,7 +483,10 @@ fn mutate_sidecar_or_create_creates_first_comment_sidecar() {
     .unwrap();
 
     // Sidecar must now exist with the new comment.
-    assert!(sidecar_path.exists(), "sidecar should be created on first comment");
+    assert!(
+        sidecar_path.exists(),
+        "sidecar should be created on first comment"
+    );
     let loaded = load_sidecar(&file_path).unwrap().unwrap();
     assert_eq!(loaded.comments.len(), 1);
     assert_eq!(loaded.comments[0].id, "first-comment");
@@ -492,9 +532,8 @@ fn mutate_sidecar_or_create_error_does_not_write_partial() {
     // Precondition: no sidecar yet.
     assert!(!sidecar_path.exists());
 
-    let result = mutate_sidecar_or_create(&file_path, None, |_sidecar| {
-        Err("simulated".to_string())
-    });
+    let result =
+        mutate_sidecar_or_create(&file_path, None, |_sidecar| Err("simulated".to_string()));
 
     // The mutation closure failed → the helper must propagate the error
     // and must NOT have written a partial/empty sidecar to disk.
@@ -527,7 +566,7 @@ fn mutate_sidecar_or_create_uses_filename_default_when_document_default_is_none(
     assert_eq!(loaded.comments.len(), 1);
 }
 
-//  stat_file 
+//  stat_file
 
 /// Helper: build a WatcherState that allowlists `dir`. Mirrors the pattern
 /// from `commands/system.rs` tests.
@@ -580,10 +619,9 @@ fn stat_file_rejects_path_outside_workspace() {
     assert_eq!(result.unwrap_err(), "path not in workspace");
 }
 
-
-// 
+//
 // Iter 1 / F0  new IPC surface (advisory #2/3/5)
-// 
+//
 
 mod f0_iter1 {
     use super::{make_mrsf_comment, watcher_state_allowing};
@@ -591,8 +629,8 @@ mod f0_iter1 {
         check_workspace_for, export_review_summary_inner, get_file_badges_inner, set_author_at,
         update_comment_apply, validate_author, CommentPatch, ConfigError,
     };
-    use mdown_review_lib::core::sidecar::{load_sidecar, save_sidecar};
     use mdown_review_lib::core::severity::Severity;
+    use mdown_review_lib::core::sidecar::{load_sidecar, save_sidecar};
     use mdown_review_lib::core::types::Anchor;
 
     #[test]
@@ -643,7 +681,12 @@ mod f0_iter1 {
         let file_path = file.to_str().unwrap().to_string();
         save_sidecar(&file_path, "doc.md", &[make_mrsf_comment("c1")]).unwrap();
 
-        update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: true }).unwrap();
+        update_comment_apply(
+            &file_path,
+            "c1",
+            CommentPatch::SetResolved { resolved: true },
+        )
+        .unwrap();
         let loaded = load_sidecar(&file_path).unwrap().unwrap();
         assert!(loaded.comments[0].resolved);
     }
@@ -790,7 +833,7 @@ mod f0_iter1 {
         save_sidecar(&file_path, "doc.md", &[high, low, resolved]).unwrap();
 
         let state = watcher_state_allowing(&canonical);
-        let badges = get_file_badges_inner(&state, &[file_path.clone()]);
+        let badges = get_file_badges_inner(&state, std::slice::from_ref(&file_path));
         let badge = badges.get(&file_path).expect("badge for file");
         assert_eq!(badge.count, 2);
         assert_eq!(badge.max_severity, Severity::High);
@@ -811,10 +854,7 @@ mod f0_iter1 {
         .unwrap();
 
         let state = watcher_state_allowing(workspace.path());
-        let badges = get_file_badges_inner(
-            &state,
-            &[outside_file.to_str().unwrap().to_string()],
-        );
+        let badges = get_file_badges_inner(&state, &[outside_file.to_str().unwrap().to_string()]);
         assert!(
             badges.is_empty(),
             "outside-workspace badges must be silently skipped: {:?}",
@@ -828,12 +868,7 @@ mod f0_iter1 {
         let canonical = std::fs::canonicalize(dir.path()).unwrap();
         let file = canonical.join("doc.md");
         std::fs::write(&file, "alpha\n").unwrap();
-        save_sidecar(
-            file.to_str().unwrap(),
-            "doc.md",
-            &[make_mrsf_comment("c1")],
-        )
-        .unwrap();
+        save_sidecar(file.to_str().unwrap(), "doc.md", &[make_mrsf_comment("c1")]).unwrap();
 
         let out = export_review_summary_inner(canonical.to_str().unwrap());
         assert!(out.contains("# Review summary"));
@@ -953,8 +988,12 @@ mod f0_iter1 {
         check_workspace_for("update_comment", &state, &file_path)
             .expect("orphan path must pass workspace guard");
 
-        update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: true })
-            .expect("update_comment must succeed against orphan path");
+        update_comment_apply(
+            &file_path,
+            "c1",
+            CommentPatch::SetResolved { resolved: true },
+        )
+        .expect("update_comment must succeed against orphan path");
 
         let loaded = load_sidecar(&file_path).unwrap().unwrap();
         assert!(loaded.comments[0].resolved);
@@ -976,7 +1015,7 @@ mod f0_iter1 {
         std::fs::remove_file(&file).unwrap(); // orphan now
 
         let state = watcher_state_allowing(workspace.path());
-        let badges = get_file_badges_inner(&state, &[file_path.clone()]);
+        let badges = get_file_badges_inner(&state, std::slice::from_ref(&file_path));
         let badge = badges
             .get(&file_path)
             .expect("orphan-only files must still produce a badge");
@@ -992,11 +1031,12 @@ mod f0_iter1 {
         use mdown_review_lib::commands::comments::badges::{
             enforce_badge_input_cap, MAX_BADGE_PATHS,
         };
-        assert!(enforce_badge_input_cap(&vec![]).is_ok());
+        assert!(enforce_badge_input_cap(&[]).is_ok());
         let small: Vec<String> = (0..MAX_BADGE_PATHS).map(|i| format!("/p/{i}")).collect();
         assert!(enforce_badge_input_cap(&small).is_ok());
-        let too_many: Vec<String> =
-            (0..(MAX_BADGE_PATHS + 1)).map(|i| format!("/p/{i}")).collect();
+        let too_many: Vec<String> = (0..(MAX_BADGE_PATHS + 1))
+            .map(|i| format!("/p/{i}"))
+            .collect();
         assert_eq!(
             enforce_badge_input_cap(&too_many).unwrap_err(),
             "too many paths"
@@ -1017,17 +1057,26 @@ mod f0_iter1 {
         c.resolved = false;
         save_sidecar(&file_path, "doc.md", &[c]).unwrap();
         let sidecar_path = dir.path().join("doc.md.review.yaml");
-        let mtime_before = std::fs::metadata(&sidecar_path).unwrap().modified().unwrap();
+        let mtime_before = std::fs::metadata(&sidecar_path)
+            .unwrap()
+            .modified()
+            .unwrap();
 
         // Sleep briefly so any rewrite would visibly bump mtime.
         std::thread::sleep(std::time::Duration::from_millis(20));
 
         // SetResolved=false on an already-false comment ⇒ no-op.
-        let mutated =
-            update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: false })
-                .unwrap();
+        let mutated = update_comment_apply(
+            &file_path,
+            "c1",
+            CommentPatch::SetResolved { resolved: false },
+        )
+        .unwrap();
         assert!(!mutated, "no-op SetResolved must report unchanged");
-        let mtime_after = std::fs::metadata(&sidecar_path).unwrap().modified().unwrap();
+        let mtime_after = std::fs::metadata(&sidecar_path)
+            .unwrap()
+            .modified()
+            .unwrap();
         assert_eq!(
             mtime_before, mtime_after,
             "no-op SetResolved must NOT rewrite the sidecar"
@@ -1055,7 +1104,9 @@ mod f0_iter1 {
         save_sidecar(&file_path, &loaded.document, &loaded.comments).unwrap();
         let reread = std::fs::read_to_string(&yaml_path).unwrap();
         assert!(
-            reread.contains("mrsf_version: '1.0'") || reread.contains("mrsf_version: \"1.0\"") || reread.contains("mrsf_version: 1.0"),
+            reread.contains("mrsf_version: '1.0'")
+                || reread.contains("mrsf_version: \"1.0\"")
+                || reread.contains("mrsf_version: 1.0"),
             "v1.0 round-trip must preserve mrsf_version=1.0; got: {reread}"
         );
         for forbidden in [
@@ -1075,8 +1126,7 @@ mod f0_iter1 {
     }
 }
 
-
-// 
+//
 // Iter 4 / Wave 1c  typed-anchor dispatch end-to-end through
 // `get_file_comments`. Verifies the partition (Line/File via match_comments,
 // typed via resolve_anchor) and that orphan classification flows out via

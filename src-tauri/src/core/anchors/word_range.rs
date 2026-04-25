@@ -49,7 +49,10 @@ mod tests {
 
     #[test]
     fn hash_differs_snippet_found_fuzzy() {
-        let lines = vec!["original line".to_string(), "needle in haystack".to_string()];
+        let lines = vec![
+            "original line".to_string(),
+            "needle in haystack".to_string(),
+        ];
         let stale = "0".repeat(64);
         assert_eq!(
             resolve(&payload(1, "needle", &stale), &lines),

@@ -24,9 +24,11 @@ interface Props {
   path: string;
   filePath: string;
   fileSize?: number;
+  /** Iter 5 Group B — forwarded to `ViewerToolbar` to surface a "Comment on file" button. */
+  onCommentOnFile?: () => void;
 }
 
-export function EnhancedViewer({ content, path, filePath, fileSize }: Props) {
+export function EnhancedViewer({ content, path, filePath, fileSize, onCommentOnFile }: Props) {
   const category = getFileCategory(path);
   const canVisualize = hasVisualization(category);
   const defaultView = getDefaultView(category);
@@ -57,6 +59,7 @@ export function EnhancedViewer({ content, path, filePath, fileSize }: Props) {
         wordWrap={wordWrap}
         onToggleWrap={() => setWordWrap(!wordWrap)}
         zoom={{ zoom, onZoomIn: zoomIn, onZoomOut: zoomOut, onReset: reset }}
+        onCommentOnFile={onCommentOnFile}
         trailing={<FileActionsBar path={filePath} />}
       />
       {showSource ? (

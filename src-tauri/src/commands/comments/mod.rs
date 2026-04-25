@@ -64,7 +64,9 @@ fn with_sidecar_mut(
     let _ = app.emit_to(
         "main",
         "comments-changed",
-        CommentsChangedEvent { file_path: file_path.to_string() },
+        CommentsChangedEvent {
+            file_path: file_path.to_string(),
+        },
     );
     Ok(())
 }
@@ -107,7 +109,9 @@ fn with_sidecar_or_create(
     let _ = app.emit_to(
         "main",
         "comments-changed",
-        CommentsChangedEvent { file_path: file_path.to_string() },
+        CommentsChangedEvent {
+            file_path: file_path.to_string(),
+        },
     );
     Ok(())
 }
@@ -195,9 +199,16 @@ pub fn get_file_comments_inner(file_path: &str) -> Result<Vec<CommentThread>, St
         }
     }
 
-    // Line/File: existing line-targeting heuristics.
-    let lines_str: Vec<&str> = doc.lines().iter().map(String::as_str).collect();
-    let mut matched = crate::core::matching::match_comments(&line_or_file, &lines_str);
+    // Line/File: existing line-targeting heuristics. Skip materializing
+    // `doc.lines()` entirely when there are no Line/File anchors — typed-only
+    // sidecars on multi-MB files do not need the line-split cache, and
+    // populating it would be the dominant cost (perf-expert iter-4 finding).
+    let mut matched = if line_or_file.is_empty() {
+        Vec::new()
+    } else {
+        let lines_str: Vec<&str> = doc.lines().iter().map(String::as_str).collect();
+        crate::core::matching::match_comments(&line_or_file, &lines_str)
+    };
 
     // Typed anchors: per-comment dispatch with lazily-cached file parses.
     for c in typed {
@@ -214,6 +225,12 @@ pub fn get_file_comments_inner(file_path: &str) -> Result<Vec<CommentThread>, St
 }
 
 /// Create a new comment, save to sidecar.
+///
+/// `clippy::too_many_arguments` is intentionally permitted here: this is a
+/// `#[tauri::command]`, so its parameter list is the IPC wire shape consumed
+/// by `invoke("add_comment", { ... })` on the JS side. Grouping arguments
+/// into a struct would change the wire contract.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn add_comment(
     app: tauri::AppHandle,
@@ -317,4 +334,98 @@ pub fn delete_comment(
 #[tauri::command]
 pub fn compute_anchor_hash(text: String) -> String {
     crate::core::anchors::compute_selected_text_hash(&text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_file_comments_inner;
+    use crate::core::anchors::LINES_INIT_COUNT;
+    use crate::core::sidecar::save_sidecar;
+    use crate::core::types::{Anchor, HtmlElementAnchor, ImageRectAnchor, MrsfComment};
+
+    fn typed_comment(id: &str, anchor: Anchor) -> MrsfComment {
+        MrsfComment {
+            id: id.into(),
+            author: "Test User (test)".into(),
+            timestamp: "2026-04-20T12:00:00-07:00".into(),
+            text: "typed".into(),
+            resolved: false,
+            anchor,
+            ..Default::default()
+        }
+    }
+
+    /// D1 perf guard: a sidecar containing ONLY typed anchors (no Line/File)
+    /// must NOT materialize `LazyParsedDoc::lines()`  the per-line UTF-8
+    /// split is the dominant cost on multi-MB files and is unused by these
+    /// typed resolvers (HtmlElement, ImageRect; CSV/JSON likewise).
+    /// `LINES_INIT_COUNT` is a thread-local so concurrent tests do not race.
+    #[test]
+    fn get_file_comments_only_typed_does_not_read_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.html");
+        std::fs::write(&file, b"<html><body>x</body></html>").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+
+        let html_c = typed_comment(
+            "c-html",
+            Anchor::HtmlElement(HtmlElementAnchor {
+                selector_path: "html > body".into(),
+                tag: "body".into(),
+                text_preview: "x".into(),
+            }),
+        );
+        let img_c = typed_comment(
+            "c-img",
+            Anchor::ImageRect(ImageRectAnchor {
+                x_pct: 10.0,
+                y_pct: 10.0,
+                w_pct: Some(20.0),
+                h_pct: Some(20.0),
+            }),
+        );
+        save_sidecar(&file_path, "doc.html", &[html_c, img_c]).unwrap();
+
+        LINES_INIT_COUNT.with(|c| c.set(0));
+        let _threads = get_file_comments_inner(&file_path).expect("ok");
+        assert_eq!(
+            LINES_INIT_COUNT.with(|c| c.get()),
+            0,
+            "typed-only sidecars must not materialize doc.lines()  \
+             D1 perf guard regressed"
+        );
+    }
+
+    /// Companion to the perf-guard test: when the sidecar contains a
+    /// Line/File anchor, the lines cache MUST be initialized exactly once.
+    /// Locks in the positive side of the conditional so a future refactor
+    /// that drops the line read entirely cannot pass silently.
+    #[test]
+    fn get_file_comments_with_line_anchor_initializes_lines_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, b"line one\nline two\nline three\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+
+        let line_c = typed_comment(
+            "c-line",
+            Anchor::Line {
+                line: 2,
+                end_line: None,
+                start_column: None,
+                end_column: None,
+                selected_text: Some("line two".into()),
+                selected_text_hash: None,
+            },
+        );
+        save_sidecar(&file_path, "doc.md", &[line_c]).unwrap();
+
+        LINES_INIT_COUNT.with(|c| c.set(0));
+        let _ = get_file_comments_inner(&file_path).expect("ok");
+        assert_eq!(
+            LINES_INIT_COUNT.with(|c| c.get()),
+            1,
+            "Line-anchor path must materialize lines exactly once"
+        );
+    }
 }

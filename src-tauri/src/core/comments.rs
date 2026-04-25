@@ -88,7 +88,9 @@ pub fn format_comment_text_verbose(
 
 /// Return current UTC time as ISO-8601 string with Z suffix.
 pub fn iso_now() -> String {
-    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string()
+    chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string()
 }
 
 /// Generate a new UUIDv4 comment ID.
@@ -114,7 +116,11 @@ pub fn create_comment(
     });
     MrsfComment {
         id: generate_comment_id(),
-        author: if author.is_empty() { "Anonymous".to_string() } else { author.to_string() },
+        author: if author.is_empty() {
+            "Anonymous".to_string()
+        } else {
+            author.to_string()
+        },
         timestamp: iso_now(),
         text: text.to_string(),
         resolved: false,
@@ -134,14 +140,14 @@ pub fn create_comment(
 }
 
 /// Create a reply to an existing comment.
-pub fn create_reply(
-    author: &str,
-    text: &str,
-    parent: &MrsfComment,
-) -> MrsfComment {
+pub fn create_reply(author: &str, text: &str, parent: &MrsfComment) -> MrsfComment {
     MrsfComment {
         id: generate_comment_id(),
-        author: if author.is_empty() { "Anonymous".to_string() } else { author.to_string() },
+        author: if author.is_empty() {
+            "Anonymous".to_string()
+        } else {
+            author.to_string()
+        },
         timestamp: iso_now(),
         text: text.to_string(),
         resolved: false,
@@ -386,7 +392,13 @@ responses:
             selected_text: Some("hello".to_string()),
             selected_text_hash: Some("abc".to_string()),
         };
-        let c = create_comment("Bob", "Note", Some(anchor), Some("suggestion"), Some("high"));
+        let c = create_comment(
+            "Bob",
+            "Note",
+            Some(anchor),
+            Some("suggestion"),
+            Some("high"),
+        );
         assert_eq!(c.line, Some(10));
         assert_eq!(c.end_line, Some(12));
         assert_eq!(c.selected_text, Some("hello".to_string()));

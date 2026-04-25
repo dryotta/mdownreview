@@ -135,7 +135,7 @@ export const addComment = (
   filePath: string,
   author: string,
   text: string,
-  anchor?: CommentAnchor,
+  anchor?: CommentAnchor | import("@/types/comments").Anchor,
   commentType?: string,
   severity?: string,
   document?: string

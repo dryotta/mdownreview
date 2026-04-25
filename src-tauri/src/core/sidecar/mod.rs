@@ -190,8 +190,7 @@ pub fn patch_comment(
                 match responses {
                     Some(seq) => seq.push(new_response),
                     None => {
-                        comment["responses"] =
-                            serde_yaml_ng::Value::Sequence(vec![new_response]);
+                        comment["responses"] = serde_yaml_ng::Value::Sequence(vec![new_response]);
                     }
                 }
             }
