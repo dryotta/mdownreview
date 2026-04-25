@@ -9,6 +9,7 @@ import {
   computeAnchorHash,
   type CommentAnchor,
 } from "@/lib/tauri-commands";
+import type { Anchor } from "@/types/comments";
 import { error } from "@/logger";
 
 interface UseCommentActionsResult {
@@ -33,6 +34,13 @@ interface UseCommentActionsResult {
   deleteComment: (filePath: string, commentId: string) => Promise<void>;
   resolveComment: (filePath: string, commentId: string) => Promise<void>;
   unresolveComment: (filePath: string, commentId: string) => Promise<void>;
+  /**
+   * Re-anchor a comment thread to a new Anchor. Dispatches the
+   * `move_anchor` CommentPatch via `update_comment`; the Rust command
+   * emits `comments-changed`, which `useComments` already subscribes to,
+   * so callers do not need to trigger a reload manually.
+   */
+  commitMoveAnchor: (filePath: string, commentId: string, newAnchor: Anchor) => Promise<void>;
 }
 
 /**
@@ -141,6 +149,21 @@ export function useCommentActions(): UseCommentActionsResult {
     []
   );
 
+  const commitMoveAnchor = useCallback(
+    async (filePath: string, commentId: string, newAnchor: Anchor) => {
+      try {
+        await updateComment(filePath, commentId, {
+          kind: "move_anchor",
+          data: { new_anchor: newAnchor },
+        });
+      } catch (e) {
+        error(`[vm] Failed to move anchor: ${e}`);
+        throw e;
+      }
+    },
+    []
+  );
+
   return {
     addComment,
     addReply,
@@ -148,5 +171,6 @@ export function useCommentActions(): UseCommentActionsResult {
     deleteComment,
     resolveComment,
     unresolveComment,
+    commitMoveAnchor,
   };
 }

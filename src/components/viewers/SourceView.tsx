@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useStore } from "@/store";
 import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { SelectionToolbar } from "@/components/comments/SelectionToolbar";
@@ -34,7 +35,8 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
   const sourceLinesRef = useRef<HTMLDivElement>(null);
 
   const { threads } = useComments(filePath);
-  const { addComment } = useCommentActions();
+  const { addComment, commitMoveAnchor } = useCommentActions();
+  const moveAnchorTarget = useStore((s) => s.moveAnchorTarget);
 
   const lines = useMemo(() => content.split("\n"), [content]);
 
@@ -133,8 +135,31 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
 
   const showSizeWarning = fileSize !== undefined && fileSize > SIZE_WARN_THRESHOLD;
 
+  const handleSourceLinesClick = useCallback((e: React.MouseEvent) => {
+    const moveTarget = useStore.getState().moveAnchorTarget;
+    if (moveTarget === null) return;
+    const lineEl = (e.target as HTMLElement).closest<HTMLElement>("[data-line-idx]");
+    const idxStr = lineEl?.dataset.lineIdx;
+    if (idxStr !== undefined) {
+      const lineIdx = parseInt(idxStr, 10);
+      if (!Number.isNaN(lineIdx)) {
+        // Source view is 0-indexed in DOM; commenter API is 1-indexed.
+        const line = lineIdx + 1;
+        void commitMoveAnchor(filePath, moveTarget, { kind: "line", line });
+      }
+    }
+    useStore.getState().setMoveAnchorTarget(null);
+    e.stopPropagation();
+  }, [commitMoveAnchor, filePath]);
+
   return (
     <div className={`source-view${wordWrap ? " wrap-enabled" : ""}`} data-zoom={zoom} style={{ position: "relative", fontSize: `${zoom * 100}%` }}>
+      {moveAnchorTarget !== null && (
+        <div className="move-anchor-banner" role="status" aria-live="polite" data-testid="move-anchor-banner">
+          Click a line to move the comment.{" "}
+          <button onClick={() => useStore.getState().setMoveAnchorTarget(null)}>Cancel</button>
+        </div>
+      )}
       {searchOpen && (
         <SearchBar
           query={query}
@@ -151,7 +176,7 @@ export function SourceView({ content, path, filePath, fileSize, wordWrap }: Prop
           This file is large ({Math.round((fileSize ?? 0) / 1024)} KB) — rendering may be slow
         </div>
       )}
-      <div className="source-lines" ref={sourceLinesRef} onMouseUp={handleMouseUp}>
+      <div className="source-lines" ref={sourceLinesRef} onClick={handleSourceLinesClick} onMouseUp={handleMouseUp}>
         {model.map((item) => {
           // Build the per-line save callback only for the currently-commenting
           // line; all other lines receive `undefined` (a stable reference) so

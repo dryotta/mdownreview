@@ -65,11 +65,14 @@ interface UISlice {
   authorName: string;
   /** Reading column width (CSS pixels). Persisted. Clamped to [400, 1600]. */
   readingWidth: number;
+  /** Transient: ID of the comment thread being re-anchored, or null. NOT persisted. */
+  moveAnchorTarget: string | null;
   setTheme: (theme: Theme) => void;
   setFolderPaneWidth: (width: number) => void;
   toggleCommentsPane: () => void;
   setAuthorName: (name: string) => void;
   setReadingWidth: (n: number) => void;
+  setMoveAnchorTarget: (id: string | null) => void;
 }
 
 // ── Watcher slice ──────────────────────────────────────────────────────────
@@ -188,11 +191,13 @@ export const useStore = create<Store>()(
       commentsPaneVisible: true,
       authorName: "",
       readingWidth: 720,
+      moveAnchorTarget: null,
       setTheme: (theme) => set({ theme }),
       setFolderPaneWidth: (width) => set({ folderPaneWidth: width }),
       toggleCommentsPane: () => set((s) => ({ commentsPaneVisible: !s.commentsPaneVisible })),
       setAuthorName: (name) => set({ authorName: name }),
       setReadingWidth: (n) => set({ readingWidth: Math.max(400, Math.min(1600, n)) }),
+      setMoveAnchorTarget: (id) => set({ moveAnchorTarget: id }),
 
       // Watcher
       ghostEntries: [],

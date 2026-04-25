@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
+import { useStore } from "@/store";
 import type { MatchedComment } from "@/lib/tauri-commands";
 import "@/styles/comments.css";
 
@@ -30,6 +31,7 @@ function CommentItem({ comment, variant, filePath, onStartReply }: {
   const { editComment, deleteComment, resolveComment, unresolveComment } = useCommentActions();
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(comment.text);
+  const isMoveActive = useStore((s) => s.moveAnchorTarget === comment.id);
 
   const handleSaveEdit = () => {
     if (editText.trim()) {
@@ -96,6 +98,17 @@ function CommentItem({ comment, variant, filePath, onStartReply }: {
               Resolve
             </button>
           )
+        )}
+        {variant === "root" && (
+          <button
+            className="comment-action-btn"
+            onClick={() => {
+              if (isMoveActive) useStore.getState().setMoveAnchorTarget(null);
+              else useStore.getState().setMoveAnchorTarget(comment.id);
+            }}
+          >
+            {isMoveActive ? "Cancel move" : "Move"}
+          </button>
         )}
       </div>
     </div>

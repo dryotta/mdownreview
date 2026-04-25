@@ -406,4 +406,40 @@ describe("useCommentActions", () => {
       expect(logError).toHaveBeenCalled();
     });
   });
+
+  // ── commitMoveAnchor ─────────────────────────────────────────────────────
+
+  describe("commitMoveAnchor", () => {
+    it("dispatches updateComment with move_anchor patch carrying tagged Anchor", async () => {
+      const { result } = renderHook(() => useCommentActions());
+
+      await act(async () => {
+        await result.current.commitMoveAnchor("/test.md", "c1", { kind: "line", line: 7 });
+      });
+
+      expect(updateComment).toHaveBeenCalledWith("/test.md", "c1", {
+        kind: "move_anchor",
+        data: { new_anchor: { kind: "line", line: 7 } },
+      });
+    });
+
+    it("throws and logs on failure", async () => {
+      const err = new Error("move failed");
+      vi.mocked(updateComment).mockRejectedValueOnce(err);
+
+      const { result } = renderHook(() => useCommentActions());
+
+      let thrownError: unknown;
+      await act(async () => {
+        try {
+          await result.current.commitMoveAnchor("/test.md", "c1", { kind: "line", line: 1 });
+        } catch (e) {
+          thrownError = e;
+        }
+      });
+
+      expect(thrownError).toBe(err);
+      expect(logError).toHaveBeenCalled();
+    });
+  });
 });

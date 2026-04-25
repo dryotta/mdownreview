@@ -240,7 +240,8 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const lines = useMemo(() => body.split("\n"), [body]);
 
   const { threads } = useComments(filePath);
-  const { addComment } = useCommentActions();
+  const { addComment, commitMoveAnchor } = useCommentActions();
+  const moveAnchorTarget = useStore((s) => s.moveAnchorTarget);
 
   const { threadsByLine, commentCountByLine } = useThreadsByLine(threads);
 
@@ -353,6 +354,23 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   }), [commentCountByLine]);
 
   const handleGutterClick = useCallback((e: React.MouseEvent) => {
+    // Move-anchor mode: any click in the body re-anchors the active thread to
+    // the clicked source line. Read via getState() (rule 9 — imperative path).
+    const moveTarget = useStore.getState().moveAnchorTarget;
+    if (moveTarget !== null) {
+      const lineEl = (e.target as HTMLElement).closest("[data-source-line]");
+      const lineNumStr = lineEl?.getAttribute("data-source-line");
+      if (lineNumStr) {
+        const line = parseInt(lineNumStr, 10);
+        if (line > 0) {
+          void commitMoveAnchor(filePath, moveTarget, { kind: "line", line });
+        }
+      }
+      useStore.getState().setMoveAnchorTarget(null);
+      e.stopPropagation();
+      return;
+    }
+
     const container = bodyRef.current;
     if (!container) return;
     const containerRect = container.getBoundingClientRect();
@@ -368,10 +386,16 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
 
     e.stopPropagation();
     handleLineClick(line);
-  }, [handleLineClick]);
+  }, [handleLineClick, commitMoveAnchor, filePath]);
 
   return (
     <div className="markdown-viewer" data-zoom={zoom} style={{ fontSize: `${zoom * 100}%` }}>
+      {moveAnchorTarget !== null && (
+        <div className="move-anchor-banner" role="status" aria-live="polite" data-testid="move-anchor-banner">
+          Click a line to move the comment.{" "}
+          <button onClick={() => useStore.getState().setMoveAnchorTarget(null)}>Cancel</button>
+        </div>
+      )}
       <div
         className="reading-width"
         ref={readingContainerRef}
