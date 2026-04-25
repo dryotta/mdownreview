@@ -47,7 +47,7 @@ Every rule is numbered and citable as "violates rule N in `docs/X.md`". Each doc
 | Document | Governs |
 |---|---|
 | [`docs/principles.md`](docs/principles.md) | Charter — 5 pillars, 3 meta-principles, Non-Goals |
-| [`docs/architecture.md`](docs/architecture.md) | Layer separation, IPC/logger chokepoints, state stratification, file-size budgets, MRSF v1.0 schema, 4-step re-anchoring |
+| [`docs/architecture.md`](docs/architecture.md) | Layer separation, IPC/logger chokepoints, state stratification, file-size budgets, MRSF v1.0 + v1.1 schema, 4-step re-anchoring |
 | [`docs/performance.md`](docs/performance.md) | Numeric budgets, debounce windows, scan caps, render rules, Shiki singleton, Rust hot paths |
 | [`docs/security.md`](docs/security.md) | File-read bounds, path canonicalization, sidecar atomicity, CSP, capability ACL, markdown XSS posture |
 | [`docs/design-patterns.md`](docs/design-patterns.md) | React 19 + Tauri v2 idioms, hook composition, error capture, cross-hook communication |
@@ -117,11 +117,12 @@ src/
     AboutDialog.tsx
     ErrorBoundary.tsx
   store/                    ← Zustand slices
+  types/                    ← shared TS contracts (Anchor discriminated union mirrored from core/types/wire.rs)
 
 src-tauri/src/
   commands/                 ← Tauri commands grouped by feature area:
     fs.rs · comments/ · search.rs · html.rs · launch.rs
-    config.rs               ← author / preferences IPC (set_author)
+    config.rs               ← author / preferences IPC (set_author, get_author)
     onboarding.rs           ← onboarding state IPC (load/save/skip)
     cli_shim.rs             ← CLI shim install/status/remove (+ macos/windows/unsupported submodules)
     default_handler.rs      ← .md default-handler status + open System Settings (+ os submodules)

@@ -84,4 +84,25 @@ describe("SettingsDialog", () => {
     expect(onClose).toHaveBeenCalled();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
+
+  it("hydrates draft when author resolves after dialog mount", async () => {
+    // Reproduce the race: dialog opens BEFORE useAuthor's get_author IPC
+    // resolves, so `author` is "" on mount. After the store updates with
+    // the resolved value, the input must reflect it (otherwise the user
+    // submits empty against text they never erased).
+    currentAuthor = "";
+    const { rerender } = render(<SettingsDialog onClose={vi.fn()} />);
+    const input = screen.getByLabelText("Display name") as HTMLInputElement;
+    expect(input.value).toBe("");
+
+    // Simulate the IPC resolving and the store hydrating.
+    currentAuthor = "alice";
+    rerender(<SettingsDialog onClose={vi.fn()} />);
+
+    await waitFor(() => {
+      const refreshed = screen.getByLabelText("Display name") as HTMLInputElement;
+      expect(refreshed.value).toBe("alice");
+    });
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
 });

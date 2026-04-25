@@ -1,7 +1,9 @@
 use crate::core::mrsf_version::mrsf_version_for;
 use crate::core::types::{CommentMutation, MrsfComment, MrsfSidecar};
+use regex::Regex;
 use std::fmt;
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// Hard cap on sidecar size (10 MB). Protects every reader
 /// (`load_sidecar`, `patch_comment`, `get_file_comments`, `get_file_badges`,
@@ -10,17 +12,57 @@ use std::path::Path;
 const SIDECAR_MAX_BYTES: u64 = 10 * 1024 * 1024;
 
 /// Read a sidecar file, refusing anything larger than [`SIDECAR_MAX_BYTES`].
-/// Surfaces the size-cap rejection as an `InvalidData` IO error so it flows
-/// through the existing `From<std::io::Error>` plumbing as `SidecarError::Io`.
+///
+/// Mirrors the `read_text_file` chokepoint pattern in `commands/fs.rs`: the
+/// size check happens on already-read bytes (single bounded read of MAX+1),
+/// not on `metadata()` followed by a second read. This avoids two attack
+/// classes documented in `docs/security.md` rule 3:
+///   1. **Symlink amplification.** `metadata()` follows symlinks, so a
+///      symlink to `/dev/zero` (or any virtual file) reports `len() == 0`
+///      and would pass a metadata-based cap before `read_to_string` OOMs.
+///   2. **TOCTOU.** A file can grow between `metadata()` and the read.
 fn read_capped(path: &str) -> std::io::Result<String> {
-    let meta = std::fs::metadata(path)?;
-    if meta.len() > SIDECAR_MAX_BYTES {
+    use std::io::Read;
+    let mut f = std::fs::File::open(path)?;
+    let mut buf = Vec::with_capacity(8 * 1024);
+    let n = f
+        .by_ref()
+        .take(SIDECAR_MAX_BYTES + 1)
+        .read_to_end(&mut buf)?;
+    if n as u64 > SIDECAR_MAX_BYTES {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             "sidecar exceeds 10 MB cap",
         ));
     }
-    std::fs::read_to_string(path)
+    String::from_utf8(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+}
+
+/// Reject any YAML anchor (`&name`) or alias (`*name`) before parsing.
+///
+/// The 10 MB byte cap doesn't bound YAML alias/anchor expansion (the
+/// "billion-laughs" amplification class). Our writer never emits anchors,
+/// so refusing them wholesale is safe and closes the amplification surface.
+///
+/// Detects only positional anchors/aliases — at line start or after a YAML
+/// structural token (`-`, `?`, `:`, `,`, `[`, `{`) followed by whitespace —
+/// to avoid false positives on `&` / `*` inside string values.
+fn reject_yaml_anchors(text: &str) -> std::io::Result<()> {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    let re = RE.get_or_init(|| {
+        // Anchor or alias in YAML node-position: line start with optional
+        // indent and optional list/key marker, OR after a flow/block token.
+        // Examples matched: `node: &x foo`, `- &a 1`, `[*x, *y]`, `key: *ref`.
+        Regex::new(r"(?m)(?:^[ \t]*(?:[-?][ \t]+)?|[,\[\{][ \t]*|:[ \t]+)[&*][A-Za-z0-9_]+")
+            .expect("valid regex")
+    });
+    if re.is_match(text) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "yaml anchors/aliases not allowed in sidecars",
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -62,6 +104,7 @@ pub fn load_sidecar(file_path: &str) -> Result<Option<MrsfSidecar>, SidecarError
 
     match read_capped(&yaml_path) {
         Ok(content) => {
+            reject_yaml_anchors(&content)?;
             let sidecar: MrsfSidecar =
                 serde_yaml_ng::from_str(&content).map_err(SidecarError::YamlParse)?;
             return Ok(Some(sidecar));
@@ -123,7 +166,10 @@ pub fn patch_comment(
 
     // Determine which file exists and load as Value
     let (content, _source_path) = match read_capped(&yaml_path) {
-        Ok(c) => (c, yaml_path.clone()),
+        Ok(c) => {
+            reject_yaml_anchors(&c)?;
+            (c, yaml_path.clone())
+        }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             match read_capped(&json_path) {
                 Ok(c) => {
@@ -421,27 +467,38 @@ comments:
     }
 
     #[test]
-    fn load_sidecar_rejects_file_over_cap() {
-        // Write a YAML sidecar that's exactly 10 MB + 1 byte. The cap must
-        // refuse it before any parse work happens, surfacing as
-        // `SidecarError::Io` (kind = `InvalidData`). Without this guard a
-        // hostile sidecar could OOM the renderer through `get_file_comments`,
-        // `get_file_badges`, or `export_review_summary`.
+    fn load_sidecar_rejects_yaml_anchors() {
+        // Defense-in-depth against billion-laughs amplification past the
+        // 10 MB byte cap. We never emit YAML anchors/aliases, so any
+        // appearance in a sidecar is treated as malicious.
         let tmp = TempDir::new().unwrap();
-        let file_path = tmp.path().join("huge.md");
-        let yaml_path = tmp.path().join("huge.md.review.yaml");
-        std::fs::write(&file_path, "# huge").unwrap();
-
-        let oversized = vec![b'a'; (10 * 1024 * 1024 + 1) as usize];
-        std::fs::write(&yaml_path, &oversized).unwrap();
+        let file_path = tmp.path().join("anchored.md");
+        let yaml_path = tmp.path().join("anchored.md.review.yaml");
+        std::fs::write(&file_path, "# t").unwrap();
+        let payload = "mrsf_version: \"1.0\"\ndocument: t.md\ncomments:\n  - &c1 { id: a }\n  - *c1\n";
+        std::fs::write(&yaml_path, payload).unwrap();
 
         let err = load_sidecar(file_path.to_str().unwrap()).unwrap_err();
         match err {
             SidecarError::Io(io) => {
                 assert_eq!(io.kind(), std::io::ErrorKind::InvalidData);
-                assert!(io.to_string().contains("10 MB cap"));
+                assert!(io.to_string().contains("anchors/aliases"));
             }
             other => panic!("expected SidecarError::Io, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn reject_yaml_anchors_allows_amp_inside_text() {
+        // Comment text legitimately containing `&` or `*` (e.g. `R&D`,
+        // pointers in code samples) must not trigger the anchor scanner.
+        let ok = "comments:\n  - id: c1\n    text: \"R&D and *important*\"\n";
+        assert!(reject_yaml_anchors(ok).is_ok());
+    }
+
+    #[test]
+    fn reject_yaml_anchors_flags_block_anchor() {
+        let bad = "node: &x foo\nother: *x\n";
+        assert!(reject_yaml_anchors(bad).is_err());
     }
 }

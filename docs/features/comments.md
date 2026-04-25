@@ -10,6 +10,10 @@ Persistence lives in per-file MRSF sidecars (`foo.md` → `foo.md.review.yaml`).
 
 Anchoring survives file edits through a 4-step algorithm — exact match at original line, full-document exact search, line fallback, fuzzy Levenshtein, then orphan. The algorithm is implemented in Rust core and specified in [`docs/architecture.md`](../architecture.md) §4-step re-anchoring. Orphaned comments never disappear silently — they surface in the `DeletedFileViewer` when their file is removed, and in an orphan banner when their anchor text no longer matches.
 
+### Anchor variants (v1.1)
+
+Beyond the v1.0 `Line` anchor, MRSF v1.1 adds five non-line variants for content where line numbers don't apply: `Image_rect` (percentage-coordinate region on a bitmap), `Csv_cell` (row + col + header + optional primary key), `Json_path` (JSONPath + optional scalar value), `Html_range` (CSS selector + offset range + selected text), and `Html_element` (CSS selector + tag + preview). A sixth variant, `File`, anchors a comment to the whole file. The wire layout is FLAT (`anchor_kind` discriminator + per-variant payload sibling) so the v1.0 round-trip stays byte-identical for pure line anchors; the in-memory canonical form is the tagged `Anchor` enum (`src/types/comments.ts`, `src-tauri/src/core/types/mod.rs`). When a file is refactored and a v1.1 anchor cannot resolve, the matcher falls back to `anchor_history` (FIFO cap of 3 prior positions); if every history entry also fails, the comment becomes file-level rather than orphaned.
+
 The UI surface is a selection toolbar that appears on text selection, a comment input, a threaded reply view, and an aggregated panel that summarises unresolved counts across the workspace. Line-gutter indicators in `SourceView` make every anchored comment discoverable at a glance.
 
 ### Author identity
@@ -42,6 +46,7 @@ sequenceDiagram
 ## Key source
 
 - **UI components:** `src/components/comments/{CommentInput,CommentThread,CommentsPanel,LineCommentMargin,SelectionToolbar}.tsx`; `src/components/SettingsDialog.tsx` (display-name field)
+- **TypeScript types:** `src/types/comments.ts` — Anchor discriminated union, `MrsfComment`, `deriveAnchor` adapter (mirrors Rust `core/types/wire.rs`)
 - **Hooks:** `src/hooks/{useSelectionToolbar,useThreadsByLine,useUnresolvedCounts}.ts`; `src/lib/vm/useAuthor.ts` (display-name VM, hydrates `authorName` on launch)
 - **Store slice:** `src/store/index.ts` — `commentsSlice`
 - **Rust core:** `src-tauri/src/core/{comments.rs,threads.rs,anchors.rs,matching.rs,sidecar.rs,types.rs,severity.rs,export.rs,mrsf_version.rs}`
@@ -49,7 +54,7 @@ sequenceDiagram
 
 ## Related rules
 
-- MRSF v1.0 schema + 4-step re-anchoring — [`docs/architecture.md`](../architecture.md).
+- MRSF v1.0 + v1.1 schema + 4-step re-anchoring — [`docs/architecture.md`](../architecture.md).
 - Atomic sidecar writes and save-loop prevention — [`docs/security.md`](../security.md) + [`docs/design-patterns.md`](../design-patterns.md).
 - Anchor branches each need an integration test — rule 3 + rule 8 in [`docs/test-strategy.md`](../test-strategy.md).
 - Comment-matching branch coverage — rule 3 in [`docs/test-strategy.md`](../test-strategy.md); round-trip MRSF test — rule 8.

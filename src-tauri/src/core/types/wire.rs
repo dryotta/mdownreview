@@ -208,43 +208,69 @@ impl TryFrom<&MrsfCommentRepr> for Anchor {
                 }
                 Ok(Anchor::File)
             }
-            Some("image_rect") => r
-                .image_rect
-                .clone()
-                .map(Anchor::ImageRect)
-                .ok_or_else(|| {
+            Some("image_rect") => {
+                if payload_count != 1 {
+                    return Err("anchor_kind/payload mismatch: \
+                        anchor_kind=image_rect with multiple payload siblings"
+                        .into());
+                }
+                r.image_rect.clone().map(Anchor::ImageRect).ok_or_else(|| {
                     "anchor_kind/payload mismatch: anchor_kind=image_rect \
                      but image_rect field missing"
                         .into()
-                }),
-            Some("csv_cell") => r.csv_cell.clone().map(Anchor::CsvCell).ok_or_else(|| {
-                "anchor_kind/payload mismatch: anchor_kind=csv_cell but \
-                 csv_cell field missing"
-                    .into()
-            }),
-            Some("json_path") => r.json_path.clone().map(Anchor::JsonPath).ok_or_else(|| {
-                "anchor_kind/payload mismatch: anchor_kind=json_path but \
-                 json_path field missing"
-                    .into()
-            }),
-            Some("html_range") => r
-                .html_range
-                .clone()
-                .map(Anchor::HtmlRange)
-                .ok_or_else(|| {
+                })
+            }
+            Some("csv_cell") => {
+                if payload_count != 1 {
+                    return Err("anchor_kind/payload mismatch: \
+                        anchor_kind=csv_cell with multiple payload siblings"
+                        .into());
+                }
+                r.csv_cell.clone().map(Anchor::CsvCell).ok_or_else(|| {
+                    "anchor_kind/payload mismatch: anchor_kind=csv_cell but \
+                     csv_cell field missing"
+                        .into()
+                })
+            }
+            Some("json_path") => {
+                if payload_count != 1 {
+                    return Err("anchor_kind/payload mismatch: \
+                        anchor_kind=json_path with multiple payload siblings"
+                        .into());
+                }
+                r.json_path.clone().map(Anchor::JsonPath).ok_or_else(|| {
+                    "anchor_kind/payload mismatch: anchor_kind=json_path but \
+                     json_path field missing"
+                        .into()
+                })
+            }
+            Some("html_range") => {
+                if payload_count != 1 {
+                    return Err("anchor_kind/payload mismatch: \
+                        anchor_kind=html_range with multiple payload siblings"
+                        .into());
+                }
+                r.html_range.clone().map(Anchor::HtmlRange).ok_or_else(|| {
                     "anchor_kind/payload mismatch: anchor_kind=html_range \
                      but html_range field missing"
                         .into()
-                }),
-            Some("html_element") => r
-                .html_element
-                .clone()
-                .map(Anchor::HtmlElement)
-                .ok_or_else(|| {
-                    "anchor_kind/payload mismatch: anchor_kind=html_element \
-                     but html_element field missing"
-                        .into()
-                }),
+                })
+            }
+            Some("html_element") => {
+                if payload_count != 1 {
+                    return Err("anchor_kind/payload mismatch: \
+                        anchor_kind=html_element with multiple payload siblings"
+                        .into());
+                }
+                r.html_element
+                    .clone()
+                    .map(Anchor::HtmlElement)
+                    .ok_or_else(|| {
+                        "anchor_kind/payload mismatch: anchor_kind=html_element \
+                         but html_element field missing"
+                            .into()
+                    })
+            }
             Some(other) => Err(format!(
                 "anchor_kind/payload mismatch: unknown anchor_kind `{other}`"
             )),

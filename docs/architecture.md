@@ -42,7 +42,7 @@ flowchart LR
 
 1. Every Tauri IPC call goes through a typed wrapper in `src/lib/tauri-commands.ts`; production code never imports `invoke` directly. (`src/lib/tauri-commands.ts:1` is the only non-test `invoke` importer.)
 2. Every new Rust command ships with a matching typed TS wrapper; the wrapper's return type matches the Rust `Result<T, String>` unwrapped `T`. (`commands/comments/mod.rs` ↔ `tauri-commands.ts:50`.)
-3. Every Rust command is registered in `shared_commands!` in `src-tauri/src/lib.rs:222-262`. Commands are grouped under `src-tauri/src/commands/<feature>.rs` (`src-tauri/src/commands/mod.rs:7-15`): `fs` (incl. `update_tree_watched_dirs` for folder-tree watches), `comments`, `search`, `html`, `launch`, `remote_asset` (bounded HTTPS image proxy — `fetch_remote_asset`; bounds in rule 27 of [`docs/security.md`](security.md)), plus the iter-2 onboarding/platform-integration set (`onboarding` ×3, `cli_shim` ×3, `default_handler` ×2, `folder_context` ×3 — see [`docs/features/installation.md`](features/installation.md)). Path resolution shared by both the GUI and CLI binaries lives in `src-tauri/src/core/paths.rs`.
+3. Every Rust command is registered in `shared_commands!` in `src-tauri/src/lib.rs:222-262`. Commands are grouped under `src-tauri/src/commands/<feature>.rs` (`src-tauri/src/commands/mod.rs:7-15`): `fs` (incl. `update_tree_watched_dirs` for folder-tree watches), `comments`, `search`, `html`, `launch`, `remote_asset` (bounded HTTPS image proxy — `fetch_remote_asset`; bounds in rule 27 of [`docs/security.md`](security.md)), `config` (`set_author`, `get_author`), `onboarding`, plus the iter-2 onboarding/platform-integration set (`onboarding` ×3, `cli_shim` ×3, `default_handler` ×2, `folder_context` ×3 — see [`docs/features/installation.md`](features/installation.md)). Path resolution shared by both the GUI and CLI binaries lives in `src-tauri/src/core/paths.rs`.
 
    *Structured-return chokepoint.* When a single command's caller needs the bytes AND cheap-to-compute metadata (size, line count, …), return a struct that carries both rather than forcing a second IPC round-trip. Canonical example: `read_text_file` returns `TextFileResult { content, size_bytes, line_count }` (`commands/fs.rs:71-109`) so the StatusBar reads from a Zustand-cached `fileMetaByPath` populated by `useFileContent` — neither component issues its own metadata IPC. See rule 2 in [`docs/performance.md`](performance.md).
 4. All frontend logging goes through `src/logger.ts`; no file outside `src/logger.ts` and its test imports from `@tauri-apps/plugin-log`.
@@ -88,9 +88,9 @@ flowchart LR
 ### Atomic writes
 27. Any Rust code that persists user data to disk MUST go through `core/atomic.rs::write_atomic` (temp-file + rename). A crash mid-write must never leave a half-written destination. Currently used by sidecar persistence and `core/onboarding.rs::save_at`.
 
-## MRSF v1.0 sidecar schema
+## MRSF v1.0 / v1.1 sidecar schema
 
-Comments persist as **Markdown Review Sidecar Format (MRSF) v1.0** — an open standard ([specification](https://sidemark.org/specification.html)) compatible with VS Code's Sidemark extension. One sidecar per reviewed document:
+Comments persist as **Markdown Review Sidecar Format (MRSF) v1.0** — an open standard ([specification](https://sidemark.org/specification.html)) compatible with VS Code's Sidemark extension. v1.1 extends the schema with a tagged `Anchor` discriminator (image/csv/json/html anchors), an `anchor_history` FIFO(3) fallback chain, and per-comment `reactions`. Source of truth: `src-tauri/src/core/types/wire.rs` (serde repr + tagged discriminator) and `src-tauri/src/core/types/mod.rs` (in-memory `Anchor` enum). One sidecar per reviewed document:
 
 - `<filename>.review.yaml` (primary)
 - `<filename>.review.json` (legacy read-only fallback)
@@ -116,6 +116,28 @@ comments:
     severity: "low"                     # low | medium | high
     reply_to: "parent-uuid"
     commit: "abc1234"
+```
+
+### v1.1 — tagged Anchor + history + reactions
+
+v1.1 adds a tagged `anchor_kind` discriminator with a per-variant payload sibling (image_rect / csv_cell / json_path / html_range / html_element / file). Pure-line comments stay byte-identical to v1.0 (no `anchor_kind`, just the flat line fields) — the v1.1 markers (`anchor_history`, `reactions`, or any non-`Line` variant) are what triggers a `mrsf_version: "1.1"` write. A v1.1 comment has the FIFO-bounded `anchor_history` (cap 3) recording prior anchor positions for fallback after a refactor.
+
+```yaml
+mrsf_version: "1.1"
+document: "fig.png"
+comments:
+  - id: "uuid"
+    author: "alice"
+    timestamp: "2025-04-15T10:00:00Z"
+    text: "wrong axis label"
+    resolved: false
+    anchor_kind: "image_rect"
+    image_rect: { x_pct: 12.5, y_pct: 60.0, w_pct: 18.0, h_pct: 8.0 }
+    anchor_history:
+      - anchor_kind: "image_rect"
+        anchor_data: { x_pct: 10.0, y_pct: 50.0 }
+    reactions:
+      - { user: "bob", kind: "thumbs_up", ts: "2025-04-15T11:00:00Z" }
 ```
 
 ### Threading

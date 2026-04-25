@@ -471,18 +471,23 @@ describe("getFileComments — Anchor discriminated union", () => {
           line: 7,
           matchedLineNumber: 7,
           isOrphaned: false,
-          anchor: { kind: "line", line: 7 },
+          // NB: real wire never includes `anchor` for v1.0 line-anchored
+          // comments. Test mirrors that — derivation through `deriveAnchor`
+          // is what production code must use.
         },
         replies: [],
       },
     ]);
     const { getFileComments } = await import("../tauri-commands");
+    const { deriveAnchor } = await import("@/types/comments");
     const threads = await getFileComments("/ws/a.md");
     expect(threads).toHaveLength(1);
     const root = threads[0].root;
-    expect(root.anchor.kind).toBe("line");
-    if (root.anchor.kind === "line") {
-      expect(root.anchor.line).toBe(7);
+    expect((root as { anchor?: unknown }).anchor).toBeUndefined();
+    const a = deriveAnchor(root);
+    expect(a.kind).toBe("line");
+    if (a.kind === "line") {
+      expect(a.line).toBe(7);
     }
   });
 
@@ -498,8 +503,8 @@ describe("getFileComments — Anchor discriminated union", () => {
           resolved: false,
           matchedLineNumber: 0,
           isOrphaned: false,
-          anchor: {
-            kind: "image_rect",
+          anchor_kind: "image_rect",
+          image_rect: {
             x_pct: 0.25,
             y_pct: 0.5,
             w_pct: 0.1,
@@ -510,13 +515,15 @@ describe("getFileComments — Anchor discriminated union", () => {
       },
     ]);
     const { getFileComments } = await import("../tauri-commands");
+    const { deriveAnchor } = await import("@/types/comments");
     const threads = await getFileComments("/ws/img.png");
     expect(threads).toHaveLength(1);
     const root = threads[0].root;
-    expect(root.anchor.kind).toBe("image_rect");
-    if (root.anchor.kind === "image_rect") {
-      expect(root.anchor.x_pct).toBeCloseTo(0.25);
-      expect(root.anchor.y_pct).toBeCloseTo(0.5);
+    const a = deriveAnchor(root);
+    expect(a.kind).toBe("image_rect");
+    if (a.kind === "image_rect") {
+      expect(a.x_pct).toBeCloseTo(0.25);
+      expect(a.y_pct).toBeCloseTo(0.5);
     }
   });
 
