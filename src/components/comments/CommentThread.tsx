@@ -4,6 +4,7 @@ import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { useStore } from "@/store";
 import type { MatchedComment } from "@/lib/tauri-commands";
 import { deriveAnchor } from "@/types/comments";
+import { readDraft, writeDraft, clearDraft } from "@/lib/comment-drafts";
 import "@/styles/comments.css";
 
 // --- Type/severity badge maps ---
@@ -131,8 +132,9 @@ interface CommentThreadProps {
 
 export function CommentThread({ rootComment, replies = [], filePath }: CommentThreadProps) {
   const { addReply } = useCommentActions();
+  const replyDraftKey = `${filePath}::reply::${rootComment.id}`;
   const [replying, setReplying] = useState(false);
-  const [replyText, setReplyText] = useState("");
+  const [replyText, setReplyText] = useState<string>(() => readDraft(replyDraftKey));
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -141,12 +143,24 @@ export function CommentThread({ rootComment, replies = [], filePath }: CommentTh
     }
   }, [replying]);
 
+  // Persist the reply draft on every change so reload mid-typing recovers.
+  useEffect(() => {
+    writeDraft(replyDraftKey, replyText);
+  }, [replyDraftKey, replyText]);
+
   const handleSendReply = () => {
     if (replyText.trim()) {
       addReply(filePath, rootComment.id, replyText.trim()).catch(() => {});
+      clearDraft(replyDraftKey);
       setReplyText("");
       setReplying(false);
     }
+  };
+
+  const handleCancelReply = () => {
+    clearDraft(replyDraftKey);
+    setReplyText("");
+    setReplying(false);
   };
 
   const resolvedClass = rootComment.resolved ? " comment-thread--resolved" : "";
@@ -179,7 +193,7 @@ export function CommentThread({ rootComment, replies = [], filePath }: CommentTh
           />
           <div className="comment-input-actions">
             <button className="comment-btn comment-btn-primary" onClick={handleSendReply}>Send</button>
-            <button className="comment-btn" onClick={() => { setReplyText(""); setReplying(false); }}>Cancel</button>
+            <button className="comment-btn" onClick={handleCancelReply}>Cancel</button>
           </div>
         </div>
       )}

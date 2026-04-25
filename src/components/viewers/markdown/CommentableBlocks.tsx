@@ -8,6 +8,7 @@ import React, {
 import type { ExtraProps } from "react-markdown";
 import { LineCommentMargin } from "@/components/comments/LineCommentMargin";
 import { CommentThread } from "@/components/comments/CommentThread";
+import { fingerprintAnchor } from "@/lib/anchor-fingerprint";
 import type {
   CommentThread as CommentThreadType,
   CommentAnchor,
@@ -132,6 +133,11 @@ export function MdCommentPopover({
                   addComment(filePath, text, pendingSelectionAnchor).catch(() => {});
                   clearSelection();
                 }
+              : undefined
+          }
+          draftKey={
+            pendingSelectionAnchor
+              ? `${filePath}::new::${fingerprintAnchor({ kind: "line", ...pendingSelectionAnchor })}`
               : undefined
           }
         />
