@@ -90,7 +90,7 @@ function renderVisualView(
     case "html":
       return <HtmlPreviewView content={content} filePath={filePath} />;
     case "mermaid":
-      return <MermaidView content={content} />;
+      return <MermaidView content={content} path={path} />;
     case "kql":
       return <KqlPlanView content={content} />;
     default:
