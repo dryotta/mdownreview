@@ -184,6 +184,16 @@ export const sanitizeSchema: Schema = {
     ],
     p: [...(baseAttributes.p ?? []), ["className", "md-alert-title"]],
   },
+  // B2: GFM footnotes already emit ids/hrefs prefixed with `user-content-`
+  // (mdast-util-gfm-footnote does this internally). rehype-sanitize's default
+  // `clobberPrefix: "user-content-"` then prepends the SAME prefix a second
+  // time, producing `id="user-content-user-content-fn-1"` while the matching
+  // `<a href="#user-content-fn-1">` is left unprefixed — silently breaking
+  // every footnote link. Setting the prefix to empty avoids the double-prefix.
+  // The remark-gfm namespace alone provides sufficient collision protection
+  // for the footnote ids; raw HTML id collisions are an acceptable trade-off
+  // since the markdown source is authored, not user-submitted at runtime.
+  clobberPrefix: "",
   // Inherit defaultSchema's protocol allowlist for href/src — this is what
   // blocks `javascript:`, `vbscript:`, `data:` for navigation, and similar.
 };
