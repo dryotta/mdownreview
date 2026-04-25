@@ -101,17 +101,7 @@ jobs:
 
       - name: Stage CLI binary (build + copy to externalBin path)
         shell: bash
-        run: |
-          if [ -n "${{ matrix.tauri_args }}" ]; then
-            TARGET=$(echo "${{ matrix.tauri_args }}" | grep -oP '(?<=--target\s)\S+' || true)
-            if [ -n "$TARGET" ]; then
-              node scripts/stage-cli.mjs --release --target "$TARGET"
-            else
-              node scripts/stage-cli.mjs --release
-            fi
-          else
-            node scripts/stage-cli.mjs --release
-          fi
+        run: node scripts/stage-cli.mjs --release --target "${{ matrix.rust_target }}"
 
       - name: Build Tauri app
         shell: bash
@@ -122,6 +112,7 @@ jobs:
             npm run tauri:build
           fi
         env:
+          STAGE_CLI_TARGET: ${{ matrix.rust_target }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
