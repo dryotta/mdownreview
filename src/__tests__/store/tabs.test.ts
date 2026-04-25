@@ -97,6 +97,20 @@ describe("tabs slice – closeTab", () => {
     useStore.getState().closeTab("/a.md");
     expect(useStore.getState().activeTabPath).toBe("/b.md");
   });
+
+  it("evicts lastFileReloadedAt and lastCommentsReloadedAt for the closed path", () => {
+    useStore.getState().openFile("/a.md");
+    useStore.getState().openFile("/b.md");
+    useStore.getState().setLastFileReloadedAt("/a.md", 111);
+    useStore.getState().setLastCommentsReloadedAt("/a.md", 222);
+    useStore.getState().setLastFileReloadedAt("/b.md", 333);
+    useStore.getState().closeTab("/a.md");
+    const s = useStore.getState();
+    expect(s.lastFileReloadedAt["/a.md"]).toBeUndefined();
+    expect(s.lastCommentsReloadedAt["/a.md"]).toBeUndefined();
+    // unrelated paths preserved
+    expect(s.lastFileReloadedAt["/b.md"]).toBe(333);
+  });
 });
 
 describe("tabs slice – setScrollTop", () => {
@@ -145,6 +159,15 @@ describe("tabs slice – closeAllTabs", () => {
     useStore.getState().setViewMode("/a.md", "source");
     useStore.getState().closeAllTabs();
     expect(useStore.getState().viewModeByTab).toEqual({});
+  });
+
+  it("clears lastFileReloadedAt and lastCommentsReloadedAt", () => {
+    useStore.getState().openFile("/a.md");
+    useStore.getState().setLastFileReloadedAt("/a.md", 111);
+    useStore.getState().setLastCommentsReloadedAt("/a.md", 222);
+    useStore.getState().closeAllTabs();
+    expect(useStore.getState().lastFileReloadedAt).toEqual({});
+    expect(useStore.getState().lastCommentsReloadedAt).toEqual({});
   });
 
   it("is a no-op when there are no tabs", () => {

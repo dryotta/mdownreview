@@ -131,7 +131,15 @@ export function createTabsSlice(set: SliceSet, get: SliceGet): TabsSlice {
           const { [victim.path]: _v, ...restView } = get().viewModeByTab;
           const { [victim.path]: _s, ...restSave } = get().lastSaveByPath;
           const { [victim.path]: _m, ...restMeta } = get().fileMetaByPath;
-          set({ viewModeByTab: restView, lastSaveByPath: restSave, fileMetaByPath: restMeta });
+          const { [victim.path]: _fr, ...restFileReload } = get().lastFileReloadedAt;
+          const { [victim.path]: _cr, ...restCommentsReload } = get().lastCommentsReloadedAt;
+          set({
+            viewModeByTab: restView,
+            lastSaveByPath: restSave,
+            fileMetaByPath: restMeta,
+            lastFileReloadedAt: restFileReload,
+            lastCommentsReloadedAt: restCommentsReload,
+          });
         }
       }
       set({
@@ -152,12 +160,16 @@ export function createTabsSlice(set: SliceSet, get: SliceGet): TabsSlice {
       const { [path]: _unusedView, ...restViewModes } = get().viewModeByTab;
       const { [path]: _unusedSave, ...restSaveByPath } = get().lastSaveByPath;
       const { [path]: _unusedMeta, ...restMeta } = get().fileMetaByPath;
+      const { [path]: _unusedFileReload, ...restFileReload } = get().lastFileReloadedAt;
+      const { [path]: _unusedCommentsReload, ...restCommentsReload } = get().lastCommentsReloadedAt;
       set({
         tabs: newTabs,
         activeTabPath: newActive,
         viewModeByTab: restViewModes,
         lastSaveByPath: restSaveByPath,
         fileMetaByPath: restMeta,
+        lastFileReloadedAt: restFileReload,
+        lastCommentsReloadedAt: restCommentsReload,
       });
     },
 
@@ -168,6 +180,8 @@ export function createTabsSlice(set: SliceSet, get: SliceGet): TabsSlice {
         viewModeByTab: {},
         lastSaveByPath: {},
         fileMetaByPath: {},
+        lastFileReloadedAt: {},
+        lastCommentsReloadedAt: {},
       }),
 
     setActiveTab: (path) => {
