@@ -24,7 +24,6 @@ type InvokeResult =
   | SearchMatch[]
   | FoldRegion[]
   | KqlPipelineStep[]
-  | Record<string, number>
   | Record<string, FileBadge>
   | TextFileResult
   | ArrayBuffer

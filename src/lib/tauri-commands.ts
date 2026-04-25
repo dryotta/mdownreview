@@ -37,6 +37,7 @@ export type {
   Reaction,
 } from "@/types/comments";
 import type { MrsfComment } from "@/types/comments";
+import type { Anchor } from "@/types/comments";
 
 // ── Typed wrappers ─────────────────────────────────────────────────────────
 
@@ -172,9 +173,6 @@ export const deleteComment = (
 export const computeAnchorHash = (text: string): Promise<string> =>
   invoke<string>("compute_anchor_hash", { text });
 
-export const getUnresolvedCounts = (filePaths: string[]): Promise<Record<string, number>> =>
-  invoke<Record<string, number>>("get_unresolved_counts", { filePaths });
-
 // ── Iter 1 / F0 — new IPC surface (advisory #2/3) ────────────────────────
 
 /** Total order of comment severity. Mirrors `core::severity::Severity`. */
@@ -187,14 +185,14 @@ export interface FileBadge {
 }
 
 /**
- * Discriminated patch payload for `update_comment`. `MoveAnchor` will be
- * added alongside the `Anchor` enum refactor in a follow-up commit
- * (advisory #1) — until then `update_comment` accepts only the variants
- * that don't depend on the new anchor representation.
+ * Discriminated patch payload for `update_comment`. Kinds mirror the Rust
+ * `CommentPatch` enum (snake_case). Adding a new patch variant requires
+ * editing both this union and `commands/comments/update.rs`.
  */
 export type CommentPatch =
   | { kind: "add_reaction"; data: { user: string; kind: string; ts: string } }
-  | { kind: "set_resolved"; data: { resolved: boolean } };
+  | { kind: "set_resolved"; data: { resolved: boolean } }
+  | { kind: "move_anchor"; data: { new_anchor: Anchor } };
 
 /** Apply a discriminated patch to a single comment. */
 export const updateComment = (
