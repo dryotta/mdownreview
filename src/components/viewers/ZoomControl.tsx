@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface Props {
   zoom: number;
   onZoomIn: () => void;
@@ -12,8 +14,11 @@ interface Props {
  * viewers and the source view), and inline by `ImageViewer` which does not
  * use the shared toolbar. The buttons mirror the global keyboard shortcuts
  * (Ctrl+- / Ctrl+= / Ctrl+0) so users can discover them via tooltips.
+ *
+ * R4 — memoized: parent zoom callbacks are stable (see `useZoom`), so this
+ * only re-renders when `zoom` actually changes.
  */
-export function ZoomControl({ zoom, onZoomIn, onZoomOut, onReset }: Props) {
+function ZoomControlImpl({ zoom, onZoomIn, onZoomOut, onReset }: Props) {
   return (
     <div className="viewer-toolbar-zoom" role="group" aria-label="Zoom">
       <button
@@ -53,3 +58,5 @@ export function ZoomControl({ zoom, onZoomIn, onZoomOut, onReset }: Props) {
     </div>
   );
 }
+
+export const ZoomControl = memo(ZoomControlImpl);

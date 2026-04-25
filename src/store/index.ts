@@ -176,7 +176,7 @@ export const useStore = create<Store>()(
       //   trust decisions must not silently survive an app restart.
       // - `zoomByFiletype` IS persisted (small bounded map, one entry per
       //   filetype key) — see partialize.
-      ...createViewerPrefsSlice(set),
+      ...createViewerPrefsSlice(set, get),
 
       // TabHistory (delegated to ./tabHistory.ts) — per-window back/forward.
       // Intentionally NOT added to `partialize` below (session-only).

@@ -25,8 +25,6 @@ export const MAX_TAB_HISTORY = 50;
 export interface TabHistorySlice {
   history: string[];
   historyIndex: number;
-  canBack: boolean;
-  canForward: boolean;
   pushHistory: (path: string) => void;
   back: () => string | null;
   forward: () => string | null;
@@ -39,8 +37,6 @@ export function createTabHistorySlice(set: SliceSet, get: SliceGet): TabHistoryS
   return {
     history: [],
     historyIndex: -1,
-    canBack: false,
-    canForward: false,
 
     pushHistory: (path) => {
       const { history, historyIndex } = get();
@@ -56,23 +52,14 @@ export function createTabHistorySlice(set: SliceSet, get: SliceGet): TabHistoryS
         next = next.slice(drop);
         nextIndex = next.length - 1;
       }
-      set({
-        history: next,
-        historyIndex: nextIndex,
-        canBack: nextIndex > 0,
-        canForward: false,
-      });
+      set({ history: next, historyIndex: nextIndex });
     },
 
     back: () => {
       const { history, historyIndex } = get();
       if (historyIndex <= 0) return null;
       const nextIndex = historyIndex - 1;
-      set({
-        historyIndex: nextIndex,
-        canBack: nextIndex > 0,
-        canForward: nextIndex < history.length - 1,
-      });
+      set({ historyIndex: nextIndex });
       return history[nextIndex];
     },
 
@@ -80,11 +67,7 @@ export function createTabHistorySlice(set: SliceSet, get: SliceGet): TabHistoryS
       const { history, historyIndex } = get();
       if (historyIndex < 0 || historyIndex >= history.length - 1) return null;
       const nextIndex = historyIndex + 1;
-      set({
-        historyIndex: nextIndex,
-        canBack: nextIndex > 0,
-        canForward: nextIndex < history.length - 1,
-      });
+      set({ historyIndex: nextIndex });
       return history[nextIndex];
     },
   };

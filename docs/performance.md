@@ -80,8 +80,12 @@ Unique to performance. Rust-First is a charter meta-principle.
 25. `setScrollTop` short-circuits when the value is unchanged. (`store/index.ts:162-167`.)
 26. `setGhostEntries` diffs old vs new and skips `set` on equality. (`store/index.ts:186-193`.)
 
+### Lazy-loaded heavy bundles
+27. `MarkdownViewer` lazy-imports `rehype-katex` (~150 KB minified, the `katex` chunk reaches ~76 KB gzipped after split) only when `HAS_MATH_RE.test(body)` matches: it requires balanced `$…$` or `$$…$$` and rejects currency (`$5`), spaced delimiters (`$ x $`, `$ x$`), and trailing space. Documents without math never download the KaTeX bundle. The regex contract is locked by `src/components/viewers/__tests__/has-math-re.test.ts`. (`MarkdownViewer.tsx` `HAS_MATH_RE`, `useState`+`import("rehype-katex")` block.)
+28. The KaTeX chunk is emitted as a separate file by Vite's code-splitter — confirmed by `dist/assets/katex-*.js` in the build output. Mermaid is lazy-loaded the same way via `MermaidView`.
+
 ### User expectations
-27. `MarkdownViewer` and `SourceView` display a "large file" warning above `SIZE_WARN_THRESHOLD` so users expect slower rendering instead of assuming a hang. (`MarkdownViewer.tsx:321,371-375`; `SourceView.tsx:113,128-132`.)
+29. `MarkdownViewer` and `SourceView` display a "large file" warning above `SIZE_WARN_THRESHOLD` so users expect slower rendering instead of assuming a hang. (`MarkdownViewer.tsx:321,371-375`; `SourceView.tsx:113,128-132`.)
 
 ## Gaps
 

@@ -125,14 +125,19 @@ export const sanitizeSchema: Schema = {
       "ariaHidden",
       ["className", "heading-anchor"],
     ],
-    // B3: KaTeX-emitted HTML twin uses span.className extensively (`katex`,
-    // `katex-html`, `katex-mathml`, `base`, `mord`, `mfrac`, etc.) and inline
-    // `style` for layout (vertical-align, height, margin offsets that cannot
-    // be expressed via classes alone). Allowing style on `<span>` is broader
-    // than the rest of the schema permits (see file header) — the trade-off
-    // is documented and accepted only because KaTeX visual fidelity requires
-    // it. Modern engines have neutered CSS-expression XSS, and the navigation
-    // protocol allowlist still applies to any url(...) inside style.
+    // S2: `style` survives sanitization on `<span>` and `<math>` ONLY because
+    // KaTeX visual fidelity requires it (vertical-align / height offsets the
+    // KaTeX renderer emits as inline style cannot be expressed via classes
+    // alone). The narrow rehype transformer in `./rehype-katex-style.ts`
+    // (run BEFORE sanitize) DROPS `style` from any `<span>`/`<math>` whose
+    // class doesn't start with `katex`, so authored markdown HTML like
+    // `<span style="position:fixed;inset:0">…</span>` cannot overlay the
+    // viewport. Real defenses for the residual KaTeX-classed surface:
+    //   1. Modern CSS engines neuter `expression(…)` and `javascript:` inside
+    //      style values (only legacy IE ever evaluated them).
+    //   2. The app's CSP `img-src` blocks remote `url(…)` from leaking pixels.
+    //   3. KaTeX itself is the trust root for these spans — if KaTeX is
+    //      compromised, residual UI-redress is the accepted risk.
     span: [
       ...(baseAttributes.span ?? []),
       "className",
@@ -184,16 +189,15 @@ export const sanitizeSchema: Schema = {
     ],
     p: [...(baseAttributes.p ?? []), ["className", "md-alert-title"]],
   },
-  // B2: GFM footnotes already emit ids/hrefs prefixed with `user-content-`
-  // (mdast-util-gfm-footnote does this internally). rehype-sanitize's default
-  // `clobberPrefix: "user-content-"` then prepends the SAME prefix a second
-  // time, producing `id="user-content-user-content-fn-1"` while the matching
-  // `<a href="#user-content-fn-1">` is left unprefixed — silently breaking
-  // every footnote link. Setting the prefix to empty avoids the double-prefix.
-  // The remark-gfm namespace alone provides sufficient collision protection
-  // for the footnote ids; raw HTML id collisions are an acceptable trade-off
-  // since the markdown source is authored, not user-submitted at runtime.
-  clobberPrefix: "",
+  // S1: GFM footnotes already emit ids prefixed with `user-content-`
+  // (mdast-util-gfm-footnote does this internally). The pre-sanitize
+  // transform in `./rehype-footnote-prefix.ts` (run BEFORE sanitize) strips
+  // that pre-existing prefix from clobber-class attributes (id, name,
+  // ariaDescribedBy, ariaLabelledBy) on footnote nodes only — sanitize then
+  // re-applies the prefix cleanly via the inherited default `clobberPrefix:
+  // "user-content-"`. The matching `<a href="#user-content-fn-1">` is left
+  // alone because sanitize never prefixes hrefs; keeping the original prefix
+  // on the href keeps it in sync with the post-sanitize prefixed id.
   // Inherit defaultSchema's protocol allowlist for href/src — this is what
   // blocks `javascript:`, `vbscript:`, `data:` for navigation, and similar.
 };

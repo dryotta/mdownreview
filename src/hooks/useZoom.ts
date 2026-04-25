@@ -1,13 +1,15 @@
 import { useCallback } from "react";
 import { useStore } from "@/store";
-import { ZOOM_DEFAULT, ZOOM_STEP } from "@/store/viewerPrefs";
+import { ZOOM_DEFAULT } from "@/store/viewerPrefs";
 
 /**
  * Per-filetype zoom controller. Reads the current zoom for `filetype` from
- * the store (default 1.0), exposes step/reset actions, and a raw setter.
+ * the store (default 1.0) and exposes step/reset actions backed by the
+ * single `bumpZoom` slice action (L3).
  *
- * Clamping happens inside the store action (`setZoom`) so callers never see
- * out-of-range values. Step is multiplicative (×1.1 in, ÷1.1 out).
+ * Callbacks are stable across renders: they read the current zoom inside
+ * `bumpZoom` itself (via the slice's `get()`), so they do not depend on the
+ * subscribed `zoom` value (R4). This keeps `ZoomControl` cheap to memoize.
  *
  * The same `filetype` key passed here must be used by the global zoom
  * keyboard shortcuts (Ctrl+= / Ctrl+- / Ctrl+0) — see
@@ -15,12 +17,10 @@ import { ZOOM_DEFAULT, ZOOM_STEP } from "@/store/viewerPrefs";
  */
 export function useZoom(filetype: string) {
   const zoom = useStore((s) => s.zoomByFiletype[filetype] ?? ZOOM_DEFAULT);
-  const setZoom = useStore((s) => s.setZoom);
 
-  const zoomIn = useCallback(() => setZoom(filetype, zoom * ZOOM_STEP), [filetype, zoom, setZoom]);
-  const zoomOut = useCallback(() => setZoom(filetype, zoom / ZOOM_STEP), [filetype, zoom, setZoom]);
-  const reset = useCallback(() => setZoom(filetype, ZOOM_DEFAULT), [filetype, setZoom]);
-  const setZoomFor = useCallback((z: number) => setZoom(filetype, z), [filetype, setZoom]);
+  const zoomIn = useCallback(() => useStore.getState().bumpZoom(filetype, "in"), [filetype]);
+  const zoomOut = useCallback(() => useStore.getState().bumpZoom(filetype, "out"), [filetype]);
+  const reset = useCallback(() => useStore.getState().bumpZoom(filetype, "reset"), [filetype]);
 
-  return { zoom, zoomIn, zoomOut, reset, setZoom: setZoomFor };
+  return { zoom, zoomIn, zoomOut, reset };
 }

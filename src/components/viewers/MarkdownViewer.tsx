@@ -6,7 +6,6 @@ import remarkMath from "remark-math";
 import rehypeSlug from "rehype-slug";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
-import rehypeKatex from "rehype-katex";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import { getSharedHighlighter } from "@/lib/shiki";
 import { openExternalUrl } from "@/lib/tauri-commands";
@@ -14,6 +13,8 @@ import { warn, info } from "@/logger";
 import { resolveWorkspacePath, dirname } from "@/lib/path-utils";
 import { EXTERNAL_LINK_SCHEME, BLOCKED_LINK_SCHEME } from "@/lib/url-policy";
 import { sanitizeSchema } from "./markdown/sanitizeSchema";
+import { rehypeFootnotePrefix } from "./markdown/rehype-footnote-prefix";
+import { rehypeKatexStyle } from "./markdown/rehype-katex-style";
 import { hasRemoteImageReferences } from "./markdown/useImgResolver";
 import { lazyWithSuspense } from "./lazy";
 import { useTheme } from "@/hooks/useTheme";
@@ -57,11 +58,13 @@ interface Props {
   fileSize?: number;
 }
 
-// B3: cheap pre-scan for KaTeX-capable syntax. Inline `$…$` requires a
-// non-newline body (matches `remark-math` behaviour); fenced `$$…$$` may
-// span multiple lines. False positives are harmless — they only cause the
-// CSS to load on a doc that has no math; we never block rendering on it.
-const HAS_MATH_RE = /\$[^$\n]+\$|\$\$[\s\S]+?\$\$/;
+// B3: cheap pre-scan for KaTeX-capable syntax. Mirrors `remark-math`'s
+// requirements: inline `$…$` requires a non-space char immediately after
+// the opening `$` AND immediately before the closing `$`, AND `$` followed
+// by a digit is rejected to avoid currency false-positives like `$5 and $10`.
+// Fenced `$$…$$` may span multiple lines. False positives are still cheap —
+// they only cause the CSS to load on a doc that has no math.
+export const HAS_MATH_RE = /\$(?![\d\s])(?:[^$\n]*[^$\s])?\$|\$\$[\s\S]+?\$\$/;
 
 // One-shot, idempotent loader for KaTeX's stylesheet. We inject a `<link>`
 // rather than a static `import "katex/dist/katex.min.css"` so the ~50 KB
@@ -84,7 +87,9 @@ async function ensureKatexCssLoaded(): Promise<void> {
   return katexCssPromise;
 }
 
-// Shiki highlighter is shared via @/lib/shiki
+// R3: stable module-scope remark plugin tuple — no plugin closes over per-render
+// state, so this never needs to be rebuilt per render.
+const REMARK_PLUGINS = [remarkGfm, remarkMath, remarkGithubAlerts] as const;
 
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   const [html, setHtml] = useState<string | null>(null);
@@ -198,10 +203,8 @@ function makeAnchorComponent(filePath: string, workspaceRoot: string) {
       }
       // Capture the "from" tab so back/forward works even when the source
       // tab was opened outside any pushHistory site (e.g. sidebar click).
-      const fromPath = useStore.getState().activeTabPath;
-      if (fromPath) useStore.getState().pushHistory(fromPath);
+      // History recording is centralized in `tabs.openFile` (B2).
       useStore.getState().openFile(resolved.path);
-      useStore.getState().pushHistory(resolved.path);
       if (resolved.fragment) {
         // Fragment scroll on the freshly opened tab is deferred — the new
         // viewer mounts after a tick. Logging keeps the behaviour visible.
@@ -266,41 +269,57 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   }, [filePath]);
 
   // B3: detect math syntax in the body. Cheap regex pre-scan so we only
-  // pay the KaTeX CSS download cost on documents that actually use math.
-  // Inline `$...$` (no newline inside) or fenced `$$...$$` (multiline OK).
+  // pay the KaTeX cost on documents that actually use math.
   const hasMath = useMemo(() => HAS_MATH_RE.test(body), [body]);
+  // L4: lazy-load `rehype-katex` so its ~200 KB JS lands in a separate chunk
+  // and only when a doc actually uses math. Plugin is `null` until loaded.
+  const [rehypeKatexPlugin, setRehypeKatexPlugin] = useState<unknown | null>(null);
   useEffect(() => {
     if (!hasMath) return;
     ensureKatexCssLoaded();
-  }, [hasMath]);
+    if (rehypeKatexPlugin) return;
+    let cancelled = false;
+    import("rehype-katex").then((m) => {
+      if (!cancelled) setRehypeKatexPlugin(() => m.default);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasMath, rehypeKatexPlugin]);
 
   // Rehype plugin order matters:
-  //   1. rehype-raw            → re-parse inline HTML from the markdown AST
-  //   2. rehype-katex          → turn `math` mdast nodes into KaTeX HTML+MathML
-  //                              (MUST run BEFORE sanitize so its output flows
-  //                              through the schema rather than around it)
-  //   3. rehype-sanitize       → strip anything not in `sanitizeSchema`
-  //   4. rehype-slug           → assign id="" to headings
-  //   5. rehype-autolink-headings → prepend `<a class="heading-anchor">`
+  //   1. rehype-raw                 → re-parse inline HTML from the markdown AST
+  //   2. rehype-footnote-prefix     → S1: strip pre-existing user-content- so
+  //                                   sanitize can re-apply it cleanly on ids.
+  //   3. rehype-katex (lazy)        → math nodes → KaTeX HTML+MathML, before
+  //                                   sanitize so its output flows through the
+  //                                   schema rather than around it.
+  //   4. rehype-katex-style         → S2: drop `style` from non-KaTeX <span>/<math>
+  //                                   so the schema's KaTeX-only style allowance
+  //                                   cannot be abused via raw markdown HTML.
+  //   5. rehype-sanitize            → strip anything not in `sanitizeSchema`.
+  //   6. rehype-slug + autolink     → assign ids and prepend anchors.
   // Sanitization MUST happen between any HTML-injecting plugin and any
   // downstream plugin that consumes it, so user/plugin HTML cannot piggy-back
   // through with attributes the schema doesn't allow.
   const rehypePlugins = useMemo(
-    () => [
-      rehypeRaw,
-      rehypeKatex,
-      [rehypeSanitize, sanitizeSchema],
-      rehypeSlug,
-      [
+    () => {
+      const plugins: unknown[] = [rehypeRaw, rehypeFootnotePrefix];
+      if (rehypeKatexPlugin) plugins.push(rehypeKatexPlugin);
+      plugins.push(rehypeKatexStyle);
+      plugins.push([rehypeSanitize, sanitizeSchema]);
+      plugins.push(rehypeSlug);
+      plugins.push([
         rehypeAutolinkHeadings,
         {
           behavior: "prepend",
           properties: { className: ["heading-anchor"], ariaHidden: "true", tabIndex: -1 },
           content: { type: "text", value: "#" },
         },
-      ],
-    ],
-    [],
+      ]);
+      return plugins;
+    },
+    [rehypeKatexPlugin],
   );
 
   // Scroll-to-line from CommentsPanel click
@@ -392,7 +411,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
           style={{ position: "relative" }}
         >
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath, remarkGithubAlerts]}
+            remarkPlugins={REMARK_PLUGINS as never}
             rehypePlugins={rehypePlugins as never}
             components={components as never}
           >

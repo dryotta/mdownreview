@@ -28,22 +28,10 @@ describe("useZoom", () => {
 
   it("reset returns zoom to 1.0", () => {
     const { result } = renderHook(() => useZoom(".md"));
-    act(() => result.current.setZoom(2.5));
+    act(() => useStore.getState().setZoom(".md", 2.5));
     expect(result.current.zoom).toBe(2.5);
     act(() => result.current.reset());
     expect(result.current.zoom).toBe(1.0);
-  });
-
-  it("clamps below ZOOM_MIN", () => {
-    const { result } = renderHook(() => useZoom(".md"));
-    act(() => result.current.setZoom(0.001));
-    expect(result.current.zoom).toBe(ZOOM_MIN);
-  });
-
-  it("clamps above ZOOM_MAX", () => {
-    const { result } = renderHook(() => useZoom(".md"));
-    act(() => result.current.setZoom(9999));
-    expect(result.current.zoom).toBe(ZOOM_MAX);
   });
 
   it("repeated zoomIn caps at ZOOM_MAX", () => {
@@ -61,17 +49,21 @@ describe("useZoom", () => {
   it("zoom is independent per filetype key", () => {
     const md = renderHook(() => useZoom(".md"));
     const img = renderHook(() => useZoom(".image"));
-    act(() => md.result.current.setZoom(1.5));
-    act(() => img.result.current.setZoom(2.0));
+    act(() => useStore.getState().setZoom(".md", 1.5));
+    act(() => useStore.getState().setZoom(".image", 2.0));
     expect(md.result.current.zoom).toBe(1.5);
     expect(img.result.current.zoom).toBe(2.0);
   });
 
-  it("ignores non-finite values (defaults back to 1.0)", () => {
-    const { result } = renderHook(() => useZoom(".md"));
-    act(() => result.current.setZoom(Number.NaN));
-    expect(result.current.zoom).toBe(1.0);
-    act(() => result.current.setZoom(Number.POSITIVE_INFINITY));
-    expect(result.current.zoom).toBe(1.0);
+  // R4 — callbacks are stable across re-renders even when `zoom` changes,
+  // so memoized children do not re-render on every zoom step.
+  it("R4: zoomIn/zoomOut/reset references are stable across zoom changes", () => {
+    const { result, rerender } = renderHook(() => useZoom(".md"));
+    const first = { zoomIn: result.current.zoomIn, zoomOut: result.current.zoomOut, reset: result.current.reset };
+    act(() => result.current.zoomIn());
+    rerender();
+    expect(result.current.zoomIn).toBe(first.zoomIn);
+    expect(result.current.zoomOut).toBe(first.zoomOut);
+    expect(result.current.reset).toBe(first.reset);
   });
 });

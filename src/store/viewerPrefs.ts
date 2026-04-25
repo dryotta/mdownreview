@@ -39,11 +39,18 @@ export interface ViewerPrefsSlice {
   zoomByFiletype: Record<string, number>;
   /** Set zoom for a filetype key. Value is clamped to [ZOOM_MIN, ZOOM_MAX]. */
   setZoom: (filetype: string, zoom: number) => void;
+  /**
+   * L3 — single zoom-mutation chokepoint. `dir` selects multiplicative step
+   * direction: `"in"` → ×ZOOM_STEP, `"out"` → ÷ZOOM_STEP, `"reset"` → ZOOM_DEFAULT.
+   * Reads current zoom via the slice setter rather than via stale closure args.
+   */
+  bumpZoom: (filetype: string, dir: "in" | "out" | "reset") => void;
 }
 
 type SliceSet = StoreApi<Store>["setState"];
+type SliceGet = StoreApi<Store>["getState"];
 
-export function createViewerPrefsSlice(set: SliceSet): ViewerPrefsSlice {
+export function createViewerPrefsSlice(set: SliceSet, get: SliceGet): ViewerPrefsSlice {
   return {
     allowedRemoteImageDocs: {},
     allowRemoteImagesForDoc: (filePath) =>
@@ -55,6 +62,16 @@ export function createViewerPrefsSlice(set: SliceSet): ViewerPrefsSlice {
       set((s) => ({
         zoomByFiletype: { ...s.zoomByFiletype, [filetype]: clampZoom(zoom) },
       })),
+    bumpZoom: (filetype, dir) => {
+      const cur = get().zoomByFiletype[filetype] ?? ZOOM_DEFAULT;
+      let next: number;
+      if (dir === "in") next = cur * ZOOM_STEP;
+      else if (dir === "out") next = cur / ZOOM_STEP;
+      else next = ZOOM_DEFAULT;
+      set((s) => ({
+        zoomByFiletype: { ...s.zoomByFiletype, [filetype]: clampZoom(next) },
+      }));
+    },
   };
 }
 

@@ -3,10 +3,11 @@ import type { Page } from "@playwright/test";
 
 const FIXTURES_DIR = "/e2e/fixtures";
 
-// 1×1 transparent PNG, base64-encoded. The viewer treats the IPC return as
-// the raw base64 body of a data URL — actual bytes are irrelevant.
+// 400×400 black PNG (raw zeros, deflate-compressed). Big enough that at
+// zoom > 1 the image overflows a typical viewport, so the pan clamp produces
+// non-zero limits and a real drag actually translates the image.
 const TINY_PNG_B64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+  "iVBORw0KGgoAAAANSUhEUgAAAZAAAAGQCAAAAACl1GkQAAAAsklEQVR4nO3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeDRyrgABKT7rhwAAAABJRU5ErkJggg==";
 
 async function setupImageMocks(page: Page) {
   await page.addInitScript(({ dir, b64 }: { dir: string; b64: string }) => {
@@ -16,6 +17,7 @@ async function setupImageMocks(page: Page) {
         return [{ name: "pic.png", path: `${dir}/pic.png`, is_dir: false }];
       if (cmd === "read_binary_file") return b64;
       if (cmd === "load_review_comments") return null;
+      if (cmd === "check_path_exists") return "file";
       if (cmd === "get_log_path") return "/mock/log.log";
       if (cmd === "get_file_comments") return [];
       return null;
@@ -59,5 +61,44 @@ test.describe("Image viewer zoom + pan (#65 D1/D2/D3)", () => {
     const dx = Math.abs((after!.x) - (before!.x));
     const dy = Math.abs((after!.y) - (before!.y));
     expect(dx + dy).toBeGreaterThan(20);
+  });
+
+  /**
+   * R2 — even with a wildly long drag, the (zoomed) image must not be
+   * translated entirely outside the canvas. The clamp keeps at least part
+   * of it visible inside the container.
+   */
+  test("pan is clamped so the image cannot leave the canvas", async ({ page }) => {
+    await setupImageMocks(page);
+    await page.goto("/");
+    await page.locator(".folder-tree").getByText("pic.png").click();
+
+    const img = page.locator(".image-viewer img");
+    const canvas = page.locator(".image-viewer-canvas");
+    await expect(img).toBeVisible();
+
+    // Zoom in to enable pan.
+    for (let i = 0; i < 6; i++) await page.keyboard.press("Control+=");
+
+    const cb = await canvas.boundingBox();
+    expect(cb).not.toBeNull();
+    const cx = cb!.x + cb!.width / 2;
+    const cy = cb!.y + cb!.height / 2;
+
+    // Drag a huge distance — much further than the canvas can possibly hold.
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx + 5000, cy + 5000, { steps: 20 });
+    await page.mouse.up();
+
+    const after = await img.boundingBox();
+    expect(after).not.toBeNull();
+    // The image's bbox must still intersect the canvas — i.e. not pushed off-screen.
+    const intersects =
+      after!.x < cb!.x + cb!.width &&
+      after!.x + after!.width > cb!.x &&
+      after!.y < cb!.y + cb!.height &&
+      after!.y + after!.height > cb!.y;
+    expect(intersects).toBe(true);
   });
 });

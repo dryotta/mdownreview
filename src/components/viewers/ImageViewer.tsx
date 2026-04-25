@@ -19,13 +19,38 @@ const MIME_MAP: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
+/**
+ * R2 — clamp pan so the image never leaves the viewport entirely. Limits are
+ * symmetric: when the (zoomed) image is wider than the container, pan.x is
+ * allowed within ±overflow/2; otherwise pinned at 0. Same for y.
+ */
+function clampPan(
+  pan: { x: number; y: number },
+  container: { w: number; h: number },
+  imgNatural: { w: number; h: number },
+  zoom: number,
+): { x: number; y: number } {
+  const scaledW = imgNatural.w * zoom;
+  const scaledH = imgNatural.h * zoom;
+  const overflowX = Math.max(0, scaledW - container.w);
+  const overflowY = Math.max(0, scaledH - container.h);
+  const limitX = overflowX / 2;
+  const limitY = overflowY / 2;
+  return {
+    x: Math.max(-limitX, Math.min(limitX, pan.x)),
+    y: Math.max(-limitY, Math.min(limitY, pan.y)),
+  };
+}
+
 export function ImageViewer({ path }: Props) {
   const [fit, setFit] = useState(true);
   const [dimensions, setDimensions] = useState<{ w: number; h: number } | null>(null);
   // Drag-to-pan offset, only meaningful when zoom > 1.
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number; pointerId: number } | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
   const filename = path.split(/[\\/]/).pop() || path;
   const mime = MIME_MAP[extname(path)] ?? "image/png";
@@ -42,25 +67,42 @@ export function ImageViewer({ path }: Props) {
     setPan((p) => (p.x === 0 && p.y === 0 ? p : { x: 0, y: 0 }));
   }, [zoom]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  // R1 — pointer-event drag with setPointerCapture. No window listeners, so
+  // unmount-during-drag never leaves dangling handlers; capture is implicitly
+  // released by the browser when the element is removed.
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (!canPan) return;
     e.preventDefault();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y };
+    const target = e.currentTarget;
+    target.setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: pan.x, baseY: pan.y, pointerId: e.pointerId };
     setDragging(true);
-    const onMove = (ev: MouseEvent) => {
-      const d = dragRef.current;
-      if (!d) return;
-      setPan({ x: d.baseX + (ev.clientX - d.startX), y: d.baseY + (ev.clientY - d.startY) });
-    };
-    const onUp = () => {
-      dragRef.current = null;
-      setDragging(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
   }, [canPan, pan.x, pan.y]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    const next = { x: d.baseX + (e.clientX - d.startX), y: d.baseY + (e.clientY - d.startY) };
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (canvas && img) {
+      // Use the laid-out (pre-transform) image size — `clientWidth/Height` is
+      // the box CSS produces (after `object-fit: contain` / `maxWidth`), so it
+      // already accounts for the case where natural size > container.
+      const displayed = { w: img.clientWidth, h: img.clientHeight };
+      setPan(clampPan(next, { w: canvas.clientWidth, h: canvas.clientHeight }, displayed, zoom));
+    } else {
+      setPan(next);
+    }
+  }, [zoom]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+    setDragging(false);
+  }, []);
 
   return (
     <div className="image-viewer" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -80,14 +122,19 @@ export function ImageViewer({ path }: Props) {
         <ZoomControl zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={reset} />
       </div>
       <div
+        ref={canvasRef}
         className="image-viewer-canvas"
-        style={{ flex: 1, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: 16, cursor: canPan ? (dragging ? "grabbing" : "grab") : "default" }}
-        onMouseDown={handleMouseDown}
+        style={{ flex: 1, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "flex-start", padding: 16, cursor: canPan ? (dragging ? "grabbing" : "grab") : "default", touchAction: canPan ? "none" : "auto" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       >
         {error && <div style={{ color: "var(--color-danger, #cf222e)", padding: 16 }}>Error loading image: {error}</div>}
         {!dataUrl && !error && <div style={{ color: "var(--color-muted, #656d76)", padding: 16 }}>Loading image…</div>}
         {dataUrl && (
           <img
+            ref={imgRef}
             src={dataUrl}
             alt={filename}
             data-zoom={zoom}

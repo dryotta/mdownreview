@@ -1,8 +1,12 @@
 import "@/styles/viewer-toolbar.css";
 import { ZoomControl } from "./ZoomControl";
 
+/**
+ * L5 — share the same prop shape as `ZoomControl`. Callers spread it directly
+ * into `<ZoomControl {...zoom} />` rather than re-wrapping.
+ */
 export interface ZoomProps {
-  value: number;
+  zoom: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
@@ -51,14 +55,7 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
           Wrap
         </button>
       )}
-      {zoom && (
-        <ZoomControl
-          zoom={zoom.value}
-          onZoomIn={zoom.onZoomIn}
-          onZoomOut={zoom.onZoomOut}
-          onReset={zoom.onReset}
-        />
-      )}
+      {zoom && <ZoomControl {...zoom} />}
     </div>
   );
 }

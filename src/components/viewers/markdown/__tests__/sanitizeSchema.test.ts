@@ -4,11 +4,26 @@ import rehypeParse from "rehype-parse";
 import rehypeSanitize from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
 import { sanitizeSchema } from "../sanitizeSchema";
+import { rehypeFootnotePrefix } from "../rehype-footnote-prefix";
+import { rehypeKatexStyle } from "../rehype-katex-style";
 
 function sanitize(html: string): string {
   return String(
     unified()
       .use(rehypeParse, { fragment: true })
+      .use(rehypeSanitize, sanitizeSchema)
+      .use(rehypeStringify)
+      .processSync(html),
+  );
+}
+
+/** Mirrors the production rehype pipeline order in MarkdownViewer.tsx. */
+function sanitizeFull(html: string): string {
+  return String(
+    unified()
+      .use(rehypeParse, { fragment: true })
+      .use(rehypeFootnotePrefix)
+      .use(rehypeKatexStyle)
       .use(rehypeSanitize, sanitizeSchema)
       .use(rehypeStringify)
       .processSync(html),
@@ -139,5 +154,42 @@ describe("sanitizeSchema", () => {
     expect(out).toContain("<annotation");
     expect(out).toContain('encoding="application/x-tex"');
     expect(out).toContain("E=mc^2");
+  });
+
+  // S4: raw markdown HTML `<span style=…>` MUST have its `style` stripped
+  // by the full pipeline (rehype-katex-style runs before sanitize). KaTeX-
+  // classed spans keep their style — see S2 and the KaTeX-shaped test above.
+  it("S4: full pipeline strips style from non-KaTeX <span>", () => {
+    const out = sanitizeFull('<span style="position:fixed;inset:0">x</span>');
+    expect(out).not.toMatch(/style=/i);
+    expect(out).toContain("<span>x</span>");
+  });
+
+  it("S4: full pipeline preserves style on KaTeX-classed <span>", () => {
+    const out = sanitizeFull(
+      '<span class="katex"><span class="base" style="height:0.8641em">E</span></span>',
+    );
+    expect(out).toContain('style="height:0.8641em"');
+  });
+
+  it("S4: full pipeline strips style from bare <math>", () => {
+    const out = sanitizeFull('<math style="color:red"><mn>1</mn></math>');
+    expect(out).not.toMatch(/style=/i);
+  });
+
+  // S1: footnote ids should land at `user-content-fn-…` (single prefix)
+  // after the full pipeline — never `user-content-user-content-…`.
+  it("S1: full pipeline single-prefixes footnote ids (no double user-content-)", () => {
+    const out = sanitizeFull(
+      '<sup data-footnote-ref><a href="#user-content-fn-1" id="user-content-fnref-1" class="footnote-ref">1</a></sup>' +
+        '<section data-footnotes class="footnotes"><ol>' +
+        '<li id="user-content-fn-1"><p>note <a href="#user-content-fnref-1" class="footnote-backref">↩</a></p></li>' +
+        "</ol></section>",
+    );
+    expect(out).not.toContain("user-content-user-content-");
+    expect(out).toContain('id="user-content-fn-1"');
+    expect(out).toContain('id="user-content-fnref-1"');
+    expect(out).toContain('href="#user-content-fn-1"');
+    expect(out).toContain('href="#user-content-fnref-1"');
   });
 });
