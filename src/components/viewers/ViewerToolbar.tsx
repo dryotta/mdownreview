@@ -1,6 +1,7 @@
 import "@/styles/viewer-toolbar.css";
 import type { ReactNode } from "react";
 import { ZoomControl } from "./ZoomControl";
+import { useStore } from "@/store";
 
 /**
  * L5 — share the same prop shape as `ZoomControl`. Callers spread it directly
@@ -46,6 +47,14 @@ interface Props {
  * `ViewerRouter`.
  */
 export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, onCommentOnFile, trailing }: Props) {
+  // Iter 6 F8 — workspace-wide "Next unresolved" surfacing. Reads the action
+  // and tab count straight from the Zustand store (MVVM rule 9 single-field
+  // selectors). Disabled when the user has only the active tab open, since
+  // the action can never advance to "another file" in that case.
+  const nextUnresolvedAcrossFiles = useStore((s) => s.nextUnresolvedAcrossFiles);
+  const otherTabCount = useStore((s) => s.tabs.length - (s.activeTabPath ? 1 : 0));
+  const canNextUnresolved = otherTabCount > 0;
+
   if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile) return null;
 
   return (
@@ -88,6 +97,18 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
         >
           <span aria-hidden="true">💬</span>
           <span className="viewer-toolbar-comment-on-file-label">Comment on file</span>
+        </button>
+      )}
+      {onCommentOnFile && (
+        <button
+          className="viewer-toolbar-btn viewer-toolbar-next-unresolved"
+          onClick={() => { void nextUnresolvedAcrossFiles(); }}
+          disabled={!canNextUnresolved}
+          title="Jump to the next unresolved thread across the workspace (N)"
+          aria-label="Next unresolved (workspace)"
+        >
+          <span aria-hidden="true">→</span>
+          <span className="viewer-toolbar-next-unresolved-label">Next unresolved</span>
         </button>
       )}
       {trailing}

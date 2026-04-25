@@ -4,7 +4,9 @@ import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { CommentThread } from "./CommentThread";
 import { CommentInput } from "./CommentInput";
-import type { MatchedComment } from "@/lib/tauri-commands";
+import { fingerprintAnchor } from "@/lib/anchor-fingerprint";
+import { exportReviewSummary, type MatchedComment } from "@/lib/tauri-commands";
+import { error } from "@/logger";
 import "@/styles/comments.css";
 
 interface Props {
@@ -17,6 +19,10 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
   const { addComment } = useCommentActions();
   const [showResolved, setShowResolved] = useState(false);
   const [showFileLevelInput, setShowFileLevelInput] = useState(false);
+  // Iter 6 F2 — transient "Exported to clipboard" status. Cleared after a
+  // short timer so the header doesn't accumulate stale chrome.
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const root = useStore((s) => s.root);
 
   // Iter 5 Group B — single-field selector (architecture rule 9). When this
   // matches our `filePath`, the toolbar's "Comment on file" button has
@@ -71,6 +77,48 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
 
   const canCommentOnFile = filePath.length > 0;
 
+  // Iter 6 F2 — workspace-wide review-summary export. Calls the existing
+  // `export_review_summary` IPC, copies the rendered markdown to the clipboard,
+  // and shows a transient status. Falls back to `filePath` when no workspace
+  // root is open (single-file launches).
+  const exportWorkspace = root ?? filePath;
+  const canExport = exportWorkspace.length > 0;
+  const handleExport = useCallback(async () => {
+    if (!canExport) return;
+    try {
+      const markdown = await exportReviewSummary(exportWorkspace);
+      await navigator.clipboard.writeText(markdown);
+      setExportStatus("Exported to clipboard");
+    } catch (e) {
+      error(`[CommentsPanel] export failed: ${e}`);
+      setExportStatus("Export failed");
+    }
+  }, [exportWorkspace, canExport]);
+
+  useEffect(() => {
+    if (!exportStatus) return;
+    const id = window.setTimeout(() => setExportStatus(null), 2000);
+    return () => window.clearTimeout(id);
+  }, [exportStatus]);
+
+  // C3 (iter 6 Group A) — track which item currently owns focus among its
+  // descendants so we can paint a halo on the item card. Uses
+  // focus/blur bubbling (React's onFocus/onBlur translate to focusin/
+  // focusout) and `relatedTarget` to ignore focus shifts that stay
+  // inside the same item.
+  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
+  const handleItemFocus = useCallback((id: string) => {
+    setFocusedItemId(id);
+  }, []);
+  const handleItemBlur = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>, id: string) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+        setFocusedItemId((prev) => (prev === id ? null : prev));
+      }
+    },
+    [],
+  );
+
   return (
     <div className="comments-panel">
       <div className="comments-panel-header">
@@ -84,9 +132,23 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
         >
           +
         </button>
+        <button
+          className="comment-btn comment-btn-export"
+          onClick={handleExport}
+          disabled={!canExport}
+          title="Export review summary to clipboard"
+          aria-label="Export review summary"
+        >
+          Export
+        </button>
         <button className="comment-btn" onClick={() => setShowResolved(v => !v)}>
           {showResolved ? "Hide resolved" : `Show resolved (${resolved.length})`}
         </button>
+        {exportStatus && (
+          <span className="comments-panel-status" role="status" aria-live="polite">
+            {exportStatus}
+          </span>
+        )}
       </div>
       <div className="comments-panel-body">
         {showFileLevelInput && canCommentOnFile && (
@@ -95,6 +157,7 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
               onSave={handleSaveFileLevel}
               onClose={() => setShowFileLevelInput(false)}
               placeholder="Comment on this file… (Ctrl+Enter to save, Escape to cancel)"
+              draftKey={`${filePath}::new::${fingerprintAnchor({ kind: "file" })}`}
             />
           </div>
         )}
@@ -104,11 +167,13 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
           displayed.map(thread => (
             <div
               key={thread.root.id}
-              className="comment-panel-item"
+              className={`comment-panel-item${focusedItemId === thread.root.id ? " is-focused" : ""}`}
               role="button"
               tabIndex={0}
               onClick={() => handleClick(thread.root)}
               onKeyDown={(e) => handleKeyDown(e, thread.root)}
+              onFocus={() => handleItemFocus(thread.root.id)}
+              onBlur={(e) => handleItemBlur(e, thread.root.id)}
             >
               <div className="comment-panel-item-line">
                 Line {thread.root.matchedLineNumber ?? thread.root.line ?? "?"}

@@ -96,6 +96,11 @@ export function CommentableTableCell(Tag: "td" | "th") {
         ...props,
         className: merged,
         "data-source-line": line,
+        // C7 (iter 6 Group A) — cell-specific attribute lets the popover
+        // target this exact cell (a `<tr>` typically shares one source
+        // line across all its `<td>`s, so `[data-source-line]` alone is
+        // ambiguous for tables).
+        "data-source-cell-line": line,
         "data-comment-count": count > 0 ? count : undefined,
       },
       children,
@@ -154,7 +159,9 @@ export function MdCommentPopover({
       setPosition(null);
       return;
     }
-    const el = bodyRef.current.querySelector(`[data-source-line="${activeLine}"]`);
+    const el =
+      bodyRef.current.querySelector(`[data-source-cell-line="${activeLine}"]`) ??
+      bodyRef.current.querySelector(`[data-source-line="${activeLine}"]`);
     if (!el) {
       setPosition(null);
       return;

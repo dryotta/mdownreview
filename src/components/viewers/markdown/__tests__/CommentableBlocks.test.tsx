@@ -175,6 +175,7 @@ describe("CommentableTableCell", () => {
       expect(cell).not.toBeNull();
       expect(cell?.textContent).toBe("cell text");
       expect(cell?.getAttribute("data-source-line")).toBe("7");
+      expect(cell?.getAttribute("data-source-cell-line")).toBe("7");
       expect(cell?.getAttribute("data-comment-count")).toBe("3");
       expect(cell?.classList.contains("md-commentable-cell")).toBe(true);
       expect(cell?.classList.contains("has-comments")).toBe(true);

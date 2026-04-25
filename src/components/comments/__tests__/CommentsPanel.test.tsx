@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { CommentsPanel } from "../CommentsPanel";
 import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
@@ -24,6 +24,7 @@ vi.mock("@/lib/vm/use-comment-actions", () => ({
     resolveComment: vi.fn().mockResolvedValue(undefined),
     unresolveComment: vi.fn().mockResolvedValue(undefined),
     commitMoveAnchor: vi.fn().mockResolvedValue(undefined),
+    addReaction: vi.fn().mockResolvedValue(undefined),
     resolveFocusedThread: vi.fn().mockResolvedValue(undefined),
   })),
 }));
@@ -80,6 +81,7 @@ beforeEach(() => {
     resolveComment: vi.fn().mockResolvedValue(undefined),
     unresolveComment: vi.fn().mockResolvedValue(undefined),
     commitMoveAnchor: vi.fn().mockResolvedValue(undefined),
+    addReaction: vi.fn().mockResolvedValue(undefined),
     resolveFocusedThread: vi.fn().mockResolvedValue(undefined),
   });
   mockUseComments.mockReturnValue({ threads: [], comments: [], loading: false, reload: vi.fn() });
@@ -379,5 +381,115 @@ describe("CommentsPanel — file-level comment entry (iter 5 group B)", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     // Foreign request must not be consumed by us
     expect(useStore.getState().pendingFileLevelInputFor).toBe("/some/other.md");
+  });
+});
+
+// ─── Iter 6 Group A C5 — file-level "+" composer draftKey persistence ───────
+
+describe("CommentsPanel — file-level draft persistence (iter 6 C5)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("persists draft to localStorage on type and clears on Save", () => {
+    const { unmount } = render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "WIP draft" } });
+
+    // Some key in localStorage now contains the draft text.
+    const stored = Object.entries(localStorage).find(([, v]) => v === "WIP draft");
+    expect(stored).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    // Slot is cleared on Save.
+    const remaining = Object.entries(localStorage).find(([, v]) => v === "WIP draft");
+    expect(remaining).toBeUndefined();
+    unmount();
+  });
+
+  it("clears draft on Cancel", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /comment on file/i }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "to discard" } });
+    expect(
+      Object.entries(localStorage).find(([, v]) => v === "to discard"),
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(
+      Object.entries(localStorage).find(([, v]) => v === "to discard"),
+    ).toBeUndefined();
+  });
+});
+
+// ─── Iter 6 F2 — Export review summary button ──────────────────────────────
+
+describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
+  beforeEach(() => {
+    // Default workspace root for these tests; tests may override.
+    useStore.setState({ root: "/ws" });
+    // Provide a clipboard mock that vitest can spy on.
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+  it("renders the Export button in the panel header", () => {
+    render(<CommentsPanel filePath={FILE} />);
+    expect(screen.getByRole("button", { name: /export review summary/i })).toBeInTheDocument();
+  });
+
+  it("clicking Export invokes export_review_summary IPC with workspace root and copies markdown to clipboard", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockResolvedValueOnce("# Review Summary\n- thread");
+
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /export review summary/i }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("export_review_summary", { workspace: "/ws" });
+    });
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("# Review Summary\n- thread");
+    });
+    expect(await screen.findByText(/exported to clipboard/i)).toBeInTheDocument();
+  });
+
+  it("falls back to filePath when no workspace root is set", async () => {
+    useStore.setState({ root: null });
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockResolvedValueOnce("# x");
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByRole("button", { name: /export review summary/i }));
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("export_review_summary", { workspace: FILE });
+    });
+  });
+});
+
+describe("CommentsPanel — focus halo (iter 6 C3)", () => {
+  it("toggles 'is-focused' class on the item when descendant gains/loses focus", () => {
+    setMockComments([
+      makeThread(makeComment("1", "Halo me", { line: 1, matchedLineNumber: 1 })),
+    ]);
+    render(<CommentsPanel filePath={FILE} />);
+
+    const item = document.querySelector(".comment-panel-item") as HTMLElement;
+    expect(item.classList.contains("is-focused")).toBe(false);
+
+    // Focus the item itself (it has tabIndex=0).
+    act(() => {
+      item.focus();
+      fireEvent.focus(item);
+    });
+    expect(item.classList.contains("is-focused")).toBe(true);
+
+    // Blur to outside (no relatedTarget inside the item).
+    act(() => {
+      fireEvent.blur(item, { relatedTarget: document.body });
+    });
+    expect(item.classList.contains("is-focused")).toBe(false);
   });
 });

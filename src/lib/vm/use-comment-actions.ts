@@ -69,6 +69,13 @@ interface UseCommentActionsResult {
    * so callers do not need to trigger a reload manually.
    */
   commitMoveAnchor: (filePath: string, commentId: string, newAnchor: Anchor) => Promise<void>;
+  /**
+   * Iter 6 F4 — append a quick-reaction (`thumbsup` / `ack` / `dismiss`)
+   * to a comment. Routes through the `add_reaction` CommentPatch chokepoint;
+   * the Rust command is idempotent on (`user`, `kind`) so duplicate clicks
+   * from the same author are silent no-ops.
+   */
+  addReaction: (filePath: string, commentId: string, kind: string) => Promise<void>;
 }
 
 /**
@@ -197,6 +204,25 @@ export function useCommentActions(): UseCommentActionsResult {
     []
   );
 
+  const addReaction = useCallback(
+    async (filePath: string, commentId: string, kind: string) => {
+      try {
+        await updateComment(filePath, commentId, {
+          kind: "add_reaction",
+          data: {
+            user: authorName || "Anonymous",
+            kind,
+            ts: new Date().toISOString(),
+          },
+        });
+      } catch (e) {
+        error(`[vm] Failed to add reaction: ${e}`);
+        throw e;
+      }
+    },
+    [authorName]
+  );
+
   const resolveFocusedThread = useCallback(async () => {
     const { focusedThreadId, activeTabPath } = useStore.getState();
     if (!focusedThreadId || !activeTabPath) return;
@@ -219,6 +245,7 @@ export function useCommentActions(): UseCommentActionsResult {
     resolveComment,
     unresolveComment,
     commitMoveAnchor,
+    addReaction,
     resolveFocusedThread,
   };
 }

@@ -8,8 +8,6 @@ interface ShortcutCallbacks {
   toggleCommentsPane: () => void;
   /** F1 — Ctrl/Cmd+Shift+M — start a comment on the current text selection. */
   startCommentOnSelection?: () => void;
-  /** F1 — Esc — close the currently-open inline CommentInput, if any. */
-  closeOpenInput?: () => void;
 }
 
 /** Resolve the filetype key the active viewer would use (#65 D1/D2/D3). */
@@ -52,25 +50,12 @@ export function useGlobalShortcuts({
   handleOpenFolder,
   toggleCommentsPane,
   startCommentOnSelection,
-  closeOpenInput,
 }: ShortcutCallbacks) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       // B1: never intercept keystrokes destined for a text input. Applies to
       // ALL shortcut branches below — Alt+Arrow as well as the Ctrl-modified set.
       if (isEditableTarget(e)) return;
-
-      // F1 — Esc closes the open inline CommentInput (no modifiers).
-      if (
-        e.key === "Escape" &&
-        !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey
-      ) {
-        if (closeOpenInput) {
-          e.preventDefault();
-          closeOpenInput();
-        }
-        return;
-      }
 
       // Alt+Left / Alt+Right — back/forward through tab history (no Ctrl/Meta).
       if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
@@ -196,5 +181,5 @@ export function useGlobalShortcuts({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenFile, handleOpenFolder, toggleCommentsPane, startCommentOnSelection, closeOpenInput]);
+  }, [handleOpenFile, handleOpenFolder, toggleCommentsPane, startCommentOnSelection]);
 }

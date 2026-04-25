@@ -48,7 +48,6 @@ const callbacks = {
   handleOpenFolder: vi.fn(),
   toggleCommentsPane: vi.fn(),
   startCommentOnSelection: vi.fn(),
-  closeOpenInput: vi.fn(),
 };
 
 function fire(opts: { key: string; shift?: boolean; mod?: boolean; alt?: boolean; target?: EventTarget }) {
@@ -290,14 +289,15 @@ describe("useGlobalShortcuts", () => {
       expect(mockResolveFocusedThread).toHaveBeenCalledOnce();
     });
 
-    it("Esc calls closeOpenInput", () => {
+    it("Esc is not bound globally (handled per-input by CommentInput)", () => {
       renderHook(() => useGlobalShortcuts(callbacks));
       const ev = fire({ key: "Escape", mod: false });
-      expect(callbacks.closeOpenInput).toHaveBeenCalledOnce();
-      expect(ev.defaultPrevented).toBe(true);
+      // No global handler should preventDefault on Escape; CommentInput
+      // owns Escape on its textarea blur.
+      expect(ev.defaultPrevented).toBe(false);
     });
 
-    it("J/K/N/R/Ctrl+Shift+M/Esc skip when target is editable", () => {
+    it("J/K/N/R/Ctrl+Shift+M skip when target is editable", () => {
       renderHook(() => useGlobalShortcuts(callbacks));
       const input = document.createElement("input");
       document.body.appendChild(input);
@@ -306,13 +306,11 @@ describe("useGlobalShortcuts", () => {
       fire({ key: "n", mod: false, target: input });
       fire({ key: "r", mod: false, target: input });
       fire({ key: "M", shift: true, target: input });
-      fire({ key: "Escape", mod: false, target: input });
       expect(mockNextUnresolvedInActiveFile).not.toHaveBeenCalled();
       expect(mockPrevUnresolvedInActiveFile).not.toHaveBeenCalled();
       expect(mockNextUnresolvedAcrossFiles).not.toHaveBeenCalled();
       expect(mockResolveFocusedThread).not.toHaveBeenCalled();
       expect(callbacks.startCommentOnSelection).not.toHaveBeenCalled();
-      expect(callbacks.closeOpenInput).not.toHaveBeenCalled();
       input.remove();
     });
   });

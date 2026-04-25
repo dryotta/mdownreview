@@ -4,9 +4,6 @@
  * Owns transient, non-persisted UI state for the comment review flow:
  *   - `focusedThreadId` — the thread the J/K/N shortcuts are stepping
  *     through (also drives `R` resolve target).
- *   - `openInputId` — the currently-open inline CommentInput, used by
- *     Esc to coordinate "close the open input" without each component
- *     wiring its own Esc handler.
  *
  * The navigation actions read threads via the existing
  * `get_file_comments` IPC chokepoint (a pure read; mutations stay in
@@ -27,7 +24,6 @@ import { error } from "@/logger";
 
 export interface CommentsSlice {
   focusedThreadId: string | null;
-  openInputId: string | null;
   /**
    * VM-registered handler for the focused-thread resolve action. The
    * slice does not call `update_comment` directly — it routes through
@@ -37,7 +33,6 @@ export interface CommentsSlice {
   _resolveFocusedThreadHandler: (() => Promise<void>) | null;
 
   setFocusedThread: (id: string | null) => void;
-  setOpenInputId: (id: string | null) => void;
   setResolveFocusedThreadHandler: (
     fn: (() => Promise<void>) | null,
   ) => void;
@@ -80,11 +75,9 @@ export function createCommentsSlice(
 ): CommentsSlice {
   return {
     focusedThreadId: null,
-    openInputId: null,
     _resolveFocusedThreadHandler: null,
 
     setFocusedThread: (id) => set({ focusedThreadId: id }),
-    setOpenInputId: (id) => set({ openInputId: id }),
     setResolveFocusedThreadHandler: (fn) =>
       set({ _resolveFocusedThreadHandler: fn }),
 

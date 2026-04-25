@@ -16,8 +16,6 @@ interface MenuListenerCallbacks {
    * keyboard shortcut alone drives it.
    */
   startCommentOnSelection?: () => void;
-  /** F1 — same plumb-through note as above (Esc only). */
-  closeOpenInput?: () => void;
 }
 
 export function useMenuListeners({

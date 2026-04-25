@@ -41,7 +41,6 @@ beforeEach(() => {
   useStore.setState({
     activeTabPath: "/file.md",
     focusedThreadId: null,
-    openInputId: null,
     tabs: [{ path: "/file.md", scrollTop: 0 }],
   });
   vi.mocked(invoke).mockReset?.();
@@ -151,13 +150,9 @@ describe("commentsSlice — prevUnresolvedInActiveFile", () => {
 });
 
 describe("commentsSlice — focused/input setters", () => {
-  it("setFocusedThread / setOpenInputId update state", () => {
+  it("setFocusedThread updates state", () => {
     useStore.getState().setFocusedThread("xyz");
     expect(useStore.getState().focusedThreadId).toBe("xyz");
-    useStore.getState().setOpenInputId("input-1");
-    expect(useStore.getState().openInputId).toBe("input-1");
-    useStore.getState().setOpenInputId(null);
-    expect(useStore.getState().openInputId).toBeNull();
   });
 });
 

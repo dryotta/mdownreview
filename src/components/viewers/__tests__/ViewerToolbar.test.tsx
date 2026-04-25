@@ -4,6 +4,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ViewerToolbar } from "../ViewerToolbar";
 
+vi.mock("@tauri-apps/api/core");
+vi.mock("@/logger");
+
 describe("ViewerToolbar", () => {
   it("renders source and visual toggle buttons", () => {
     render(<ViewerToolbar activeView="source" onViewChange={vi.fn()} />);
@@ -93,6 +96,78 @@ describe("ViewerToolbar", () => {
       expect(screen.getByRole("button", { name: /comment on file/i })).toBeInTheDocument();
       // The Source/Visual toggle is still suppressed when `hidden` is set.
       expect(screen.queryByRole("button", { name: /^source$/i })).toBeNull();
+    });
+  });
+
+  // ── Iter 6 F8 — workspace-wide "Next unresolved" button ─────────────────
+  describe("Next unresolved (workspace) (iter 6 F8)", () => {
+    it("renders the button when onCommentOnFile is wired", async () => {
+      const { useStore: store } = await import("@/store");
+      store.setState({
+        tabs: [
+          { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
+          { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
+        ],
+        activeTabPath: "/a.md",
+      });
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      expect(
+        screen.getByRole("button", { name: /next unresolved/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("is disabled when only one tab is open (no other files)", async () => {
+      const { useStore: store } = await import("@/store");
+      store.setState({
+        tabs: [{ path: "/only.md", scrollTop: 0, lastAccessedAt: 0 }],
+        activeTabPath: "/only.md",
+      });
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      expect(
+        screen.getByRole("button", { name: /next unresolved/i }),
+      ).toBeDisabled();
+    });
+
+    it("clicking it switches activeTabPath to a file with unresolved threads", async () => {
+      const { useStore: store } = await import("@/store");
+      const { invoke } = await import("@tauri-apps/api/core");
+      store.setState({
+        tabs: [
+          { path: "/clean.md", scrollTop: 0, lastAccessedAt: 0 },
+          { path: "/has.md", scrollTop: 0, lastAccessedAt: 0 },
+        ],
+        activeTabPath: "/clean.md",
+        focusedThreadId: null,
+      });
+      vi.mocked(invoke).mockImplementation(async (cmd, args) => {
+        if (cmd === "get_file_comments") {
+          return [];
+        }
+        if (cmd === "get_file_badges") {
+          // Other paths excluding active.
+          const paths = (args as { filePaths: string[] }).filePaths;
+          const out: Record<string, { count: number; max_severity: "low" }> = {};
+          for (const p of paths) {
+            out[p] = { count: p === "/has.md" ? 2 : 0, max_severity: "low" };
+          }
+          return out;
+        }
+        return undefined;
+      });
+
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: /next unresolved/i }));
+
+      // The action is async; wait for setActiveTab to have run.
+      await new Promise((r) => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(store.getState().activeTabPath).toBe("/has.md");
     });
   });
 });

@@ -94,12 +94,8 @@ export default function App() {
     });
   }, []);
 
-  // F1 — Esc: close any open inline CommentInput. Coordinated via the
-  // `openInputId` slice field so each input does not need its own
-  // global Esc handler.
-  const closeOpenInput = useCallback(() => {
-    useStore.getState().setOpenInputId(null);
-  }, []);
+  // F1 — Esc: handled per-input by CommentInput's own keydown handler;
+  // no global plumb-through is needed.
 
   // Connect Rust file watcher to frontend event pipeline
   useFileWatcher();
@@ -112,7 +108,6 @@ export default function App() {
     setAboutOpen,
     checkForUpdate,
     startCommentOnSelection,
-    closeOpenInput,
   };
   useMenuListeners(menuCallbacks);
   useGlobalShortcuts(menuCallbacks);

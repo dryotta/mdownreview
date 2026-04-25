@@ -23,6 +23,53 @@ const SEVERITY_BADGE_CLASSES: Record<string, string> = {
   low: "comment-severity-badge--low",
 };
 
+// --- Quick reactions row ---
+// F4 — three quick-reaction buttons (👍 / ✓ / ✗) beneath each comment item.
+// Each button dispatches an `add_reaction` patch via `update_comment` (idempotent
+// on (user, kind) per the Rust chokepoint). Counts are derived from the
+// comment's `reactions` array, grouped by `kind`.
+const REACTIONS: ReadonlyArray<{ kind: string; glyph: string; label: string }> = [
+  { kind: "thumbsup", glyph: "👍", label: "Thumbs up" },
+  { kind: "ack", glyph: "✓", label: "Acknowledge" },
+  { kind: "dismiss", glyph: "✗", label: "Dismiss" },
+];
+
+function ReactionRow({
+  comment,
+  filePath,
+}: {
+  comment: MatchedComment;
+  filePath: string;
+}) {
+  const { addReaction } = useCommentActions();
+  const counts: Record<string, number> = {};
+  for (const r of comment.reactions ?? []) {
+    counts[r.kind] = (counts[r.kind] ?? 0) + 1;
+  }
+  return (
+    <div className="comment-reactions" onClick={(e) => e.stopPropagation()}>
+      {REACTIONS.map(({ kind, glyph, label }) => {
+        const count = counts[kind] ?? 0;
+        return (
+          <button
+            key={kind}
+            type="button"
+            className="comment-reaction-btn"
+            aria-label={label}
+            title={label}
+            onClick={() =>
+              addReaction(filePath, comment.id, kind).catch(() => {})
+            }
+          >
+            <span aria-hidden="true">{glyph}</span>
+            {count > 0 && <span className="comment-reaction-count">{count}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // --- Single comment item (shared between root and reply rendering) ---
 function CommentItem({ comment, variant, filePath, onStartReply }: {
   comment: MatchedComment;
@@ -119,6 +166,7 @@ function CommentItem({ comment, variant, filePath, onStartReply }: {
           </button>
         )}
       </div>
+      <ReactionRow comment={comment} filePath={filePath} />
     </div>
   );
 }
