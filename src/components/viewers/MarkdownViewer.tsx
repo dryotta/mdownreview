@@ -1,9 +1,12 @@
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { remarkGithubAlerts } from "@/lib/remark-github-alerts";
+import remarkMath from "remark-math";
 import rehypeSlug from "rehype-slug";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+import rehypeKatex from "rehype-katex";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import { getSharedHighlighter } from "@/lib/shiki";
 import { openExternalUrl } from "@/lib/tauri-commands";
@@ -51,6 +54,33 @@ interface Props {
   content: string;
   filePath: string;
   fileSize?: number;
+}
+
+// B3: cheap pre-scan for KaTeX-capable syntax. Inline `$…$` requires a
+// non-newline body (matches `remark-math` behaviour); fenced `$$…$$` may
+// span multiple lines. False positives are harmless — they only cause the
+// CSS to load on a doc that has no math; we never block rendering on it.
+const HAS_MATH_RE = /\$[^$\n]+\$|\$\$[\s\S]+?\$\$/;
+
+// One-shot, idempotent loader for KaTeX's stylesheet. We inject a `<link>`
+// rather than a static `import "katex/dist/katex.min.css"` so the ~50 KB
+// CSS (and the ~280 KB of @font-face woff2 it references on first paint)
+// stays out of the initial bundle. Subsequent calls are cheap no-ops.
+let katexCssPromise: Promise<void> | null = null;
+async function ensureKatexCssLoaded(): Promise<void> {
+  if (katexCssPromise) return katexCssPromise;
+  katexCssPromise = (async () => {
+    const mod = await import("katex/dist/katex.min.css?url");
+    const href = mod.default;
+    if (typeof document === "undefined") return;
+    if (document.querySelector(`link[data-katex-css="1"]`)) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.dataset.katexCss = "1";
+    document.head.appendChild(link);
+  })();
+  return katexCssPromise;
 }
 
 // Shiki highlighter is shared via @/lib/shiki
@@ -165,7 +195,12 @@ function makeAnchorComponent(filePath: string, workspaceRoot: string) {
         warn(`MarkdownViewer: dropped link outside workspace: ${href}`);
         return;
       }
+      // Capture the "from" tab so back/forward works even when the source
+      // tab was opened outside any pushHistory site (e.g. sidebar click).
+      const fromPath = useStore.getState().activeTabPath;
+      if (fromPath) useStore.getState().pushHistory(fromPath);
       useStore.getState().openFile(resolved.path);
+      useStore.getState().pushHistory(resolved.path);
       if (resolved.fragment) {
         // Fragment scroll on the freshly opened tab is deferred — the new
         // viewer mounts after a tick. Logging keeps the behaviour visible.
@@ -226,16 +261,30 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
     useStore.getState().allowRemoteImagesForDoc(filePath);
   }, [filePath]);
 
+  // B3: detect math syntax in the body. Cheap regex pre-scan so we only
+  // pay the KaTeX CSS download cost on documents that actually use math.
+  // Inline `$...$` (no newline inside) or fenced `$$...$$` (multiline OK).
+  const hasMath = useMemo(() => HAS_MATH_RE.test(body), [body]);
+  useEffect(() => {
+    if (!hasMath) return;
+    ensureKatexCssLoaded();
+  }, [hasMath]);
+
   // Rehype plugin order matters:
   //   1. rehype-raw            → re-parse inline HTML from the markdown AST
-  //   2. rehype-sanitize       → strip anything not in `sanitizeSchema`
-  //   3. rehype-slug           → assign id="" to headings
-  //   4. rehype-autolink-headings → prepend `<a class="heading-anchor">`
-  // Sanitization MUST happen between raw HTML re-parse and any downstream
-  // plugin that injects elements, so user HTML cannot piggy-back through.
+  //   2. rehype-katex          → turn `math` mdast nodes into KaTeX HTML+MathML
+  //                              (MUST run BEFORE sanitize so its output flows
+  //                              through the schema rather than around it)
+  //   3. rehype-sanitize       → strip anything not in `sanitizeSchema`
+  //   4. rehype-slug           → assign id="" to headings
+  //   5. rehype-autolink-headings → prepend `<a class="heading-anchor">`
+  // Sanitization MUST happen between any HTML-injecting plugin and any
+  // downstream plugin that consumes it, so user/plugin HTML cannot piggy-back
+  // through with attributes the schema doesn't allow.
   const rehypePlugins = useMemo(
     () => [
       rehypeRaw,
+      rehypeKatex,
       [rehypeSanitize, sanitizeSchema],
       rehypeSlug,
       [
@@ -339,7 +388,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
           style={{ position: "relative" }}
         >
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath, remarkGithubAlerts]}
             rehypePlugins={rehypePlugins as never}
             components={components as never}
           >

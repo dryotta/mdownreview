@@ -34,6 +34,36 @@ const ADDED_TAGS: string[] = [
   // protocol allowlist (no `javascript:`/`vbscript:`).
   "video",
   "audio",
+  // B3: KaTeX-emitted MathML. KaTeX outputs both styled HTML (spans with
+  // `katex*` classes) AND a parallel MathML tree wrapped in <math>…</math>
+  // for accessibility / screen readers. Both must survive sanitization.
+  // None of these tags are scriptable surfaces — they are pure presentation /
+  // semantic markup, so allowing them is safe.
+  "math",
+  "semantics",
+  "annotation",
+  "mrow",
+  "mi",
+  "mo",
+  "mn",
+  "ms",
+  "mtext",
+  "mspace",
+  "msup",
+  "msub",
+  "msubsup",
+  "mfrac",
+  "msqrt",
+  "mroot",
+  "mover",
+  "munder",
+  "munderover",
+  "mtable",
+  "mtr",
+  "mtd",
+  "mpadded",
+  "mphantom",
+  "mstyle",
 ];
 
 export const sanitizeSchema: Schema = {
@@ -95,6 +125,64 @@ export const sanitizeSchema: Schema = {
       "ariaHidden",
       ["className", "heading-anchor"],
     ],
+    // B3: KaTeX-emitted HTML twin uses span.className extensively (`katex`,
+    // `katex-html`, `katex-mathml`, `base`, `mord`, `mfrac`, etc.) and inline
+    // `style` for layout (vertical-align, height, margin offsets that cannot
+    // be expressed via classes alone). Allowing style on `<span>` is broader
+    // than the rest of the schema permits (see file header) — the trade-off
+    // is documented and accepted only because KaTeX visual fidelity requires
+    // it. Modern engines have neutered CSS-expression XSS, and the navigation
+    // protocol allowlist still applies to any url(...) inside style.
+    span: [
+      ...(baseAttributes.span ?? []),
+      "className",
+      "style",
+      "ariaHidden",
+    ],
+    // MathML twin (the accessible/semantic side of KaTeX output). MathML
+    // tags are pure presentation/semantics with no scriptable surface, so
+    // allowing the standard MathML attribute set is safe.
+    math: ["className", "style", "xmlns", "display", "ariaHidden"],
+    semantics: ["className"],
+    annotation: ["className", "encoding"],
+    mrow: ["className"],
+    mi: ["className", "mathvariant"],
+    mo: ["className", "mathvariant", "stretchy", "fence", "lspace", "rspace", "accent"],
+    mn: ["className", "mathvariant"],
+    ms: ["className"],
+    mtext: ["className"],
+    mspace: ["className", "width"],
+    msup: ["className"],
+    msub: ["className"],
+    msubsup: ["className"],
+    mfrac: ["className", "linethickness"],
+    msqrt: ["className"],
+    mroot: ["className"],
+    mover: ["className", "accent"],
+    munder: ["className", "accentunder"],
+    munderover: ["className", "accent", "accentunder"],
+    mtable: ["className"],
+    mtr: ["className"],
+    mtd: ["className"],
+    mpadded: ["className"],
+    mphantom: ["className"],
+    mstyle: ["className", "displaystyle", "scriptlevel"],
+    // GitHub-style alerts (B1): wrap div + title paragraph emitted by
+    // `remark-github-alerts`. Class tokens are restricted to the exact
+    // allowlist so this remains a hard-coded surface — not a free `class=`.
+    div: [
+      ...(baseAttributes.div ?? []),
+      [
+        "className",
+        "md-alert",
+        "md-alert-note",
+        "md-alert-tip",
+        "md-alert-important",
+        "md-alert-warning",
+        "md-alert-caution",
+      ],
+    ],
+    p: [...(baseAttributes.p ?? []), ["className", "md-alert-title"]],
   },
   // Inherit defaultSchema's protocol allowlist for href/src — this is what
   // blocks `javascript:`, `vbscript:`, `data:` for navigation, and similar.
