@@ -43,6 +43,7 @@ import {
 import { useImgResolver } from "./markdown/useImgResolver";
 import { ReadingWidthHandle } from "./ReadingWidthHandle";
 import { useStore } from "@/store";
+import { useZoom } from "@/hooks/useZoom";
 import { parseFrontmatter } from "@/lib/frontmatter";
 import { SIZE_WARN_THRESHOLD } from "@/lib/comment-utils";
 import { useThreadsByLine } from "@/hooks/useThreadsByLine";
@@ -221,6 +222,9 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const readingContainerRef = useRef<HTMLDivElement>(null);
   const readingWidth = useStore((s) => s.readingWidth);
+  // Per-filetype zoom (#65 D1/D2/D3). Same `.md` key shared by source-mode
+  // and visual-mode viewers so the EnhancedViewer toolbar drives both.
+  const { zoom } = useZoom(".md");
   const [commentingLine, setCommentingLine] = useState<number | null>(null);
   const [expandedLine, setExpandedLine] = useState<number | null>(null);
 
@@ -342,7 +346,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   }, [handleLineClick]);
 
   return (
-    <div className="markdown-viewer">
+    <div className="markdown-viewer" data-zoom={zoom} style={{ fontSize: `${zoom * 100}%` }}>
       <div
         className="reading-width"
         ref={readingContainerRef}

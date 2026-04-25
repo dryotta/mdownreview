@@ -17,6 +17,7 @@ function TabItem({
 }) {
   const activeTabPath = useStore((s) => s.activeTabPath);
   const setActiveTab = useStore((s) => s.setActiveTab);
+  const pushHistory = useStore((s) => s.pushHistory);
   const closeTab = useStore((s) => s.closeTab);
   const isActive = activeTabPath === path;
   const name = basename(path);
@@ -26,7 +27,10 @@ function TabItem({
       ref={tabRef}
       className={`tab${isActive ? " active" : ""}`}
       title={path}
-      onClick={() => setActiveTab(path)}
+      onClick={() => {
+        setActiveTab(path);
+        pushHistory(path);
+      }}
       role="tab"
       aria-selected={isActive}
     >

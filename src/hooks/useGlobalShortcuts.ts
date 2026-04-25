@@ -19,6 +19,26 @@ export function useGlobalShortcuts({
 }: ShortcutCallbacks) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Alt+Left / Alt+Right — back/forward through tab history (no Ctrl/Meta).
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        if (e.key === "ArrowLeft") {
+          const target = useStore.getState().back();
+          if (target) {
+            e.preventDefault();
+            useStore.getState().setActiveTab(target);
+          }
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          const target = useStore.getState().forward();
+          if (target) {
+            e.preventDefault();
+            useStore.getState().setActiveTab(target);
+          }
+          return;
+        }
+      }
+
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
 
