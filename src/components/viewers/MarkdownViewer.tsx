@@ -58,13 +58,19 @@ interface Props {
   fileSize?: number;
 }
 
-// B3: cheap pre-scan for KaTeX-capable syntax. Mirrors `remark-math`'s
-// requirements: inline `$…$` requires a non-space char immediately after
-// the opening `$` AND immediately before the closing `$`, AND `$` followed
-// by a digit is rejected to avoid currency false-positives like `$5 and $10`.
-// Fenced `$$…$$` may span multiple lines. False positives are still cheap —
-// they only cause the CSS to load on a doc that has no math.
-export const HAS_MATH_RE = /\$(?![\d\s])(?:[^$\n]*[^$\s])?\$|\$\$[\s\S]+?\$\$/;
+// B3: cheap pre-scan for KaTeX-capable syntax. Inline `$…$` requires a
+// non-space char immediately after the opening `$` AND immediately before
+// the closing `$`. Currency-only spans like `$5 and $10` (digits without
+// math operators) are rejected; valid digit-starting math like `$2^n$` or
+// `$100 + x$` is admitted because operator chars (^_\\{}=+-*/<>|) appear
+// inside the span. Fenced `$$…$$` may span multiple lines.
+const INLINE_MATH_RE = /\$(?![\d\s][^$\n]*\$)(?![\s])[^$\n]*[^$\s]\$/;
+const BLOCK_MATH_RE = /\$\$[\s\S]+?\$\$/;
+const DIGIT_INLINE_MATH_RE = /\$\d[^$\n]*[\^_\\{}=+\-*/<>|][^$\n]*\$/;
+export const HAS_MATH_RE = {
+  test: (s: string): boolean =>
+    BLOCK_MATH_RE.test(s) || INLINE_MATH_RE.test(s) || DIGIT_INLINE_MATH_RE.test(s),
+};
 
 // One-shot, idempotent loader for KaTeX's stylesheet. We inject a `<link>`
 // rather than a static `import "katex/dist/katex.min.css"` so the ~50 KB

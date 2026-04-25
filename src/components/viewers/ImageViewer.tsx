@@ -60,12 +60,24 @@ export function ImageViewer({ path }: Props) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset on prop change
   useEffect(() => { setDimensions(null); setPan({ x: 0, y: 0 }); }, [path]);
-  // Reset pan whenever zoom returns to ≤1 — pan is only meaningful when zoomed in.
+  // Reset / re-clamp pan whenever zoom changes. When zoom ≤ 1 the image fits
+  // the viewport so pan must be zero. While still zoomed in, the valid pan
+  // limits shrink as zoom decreases — clamp so previous drags stay in-bounds.
   useEffect(() => {
-    if (zoom > 1) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset on zoom-out edge
-    setPan((p) => (p.x === 0 && p.y === 0 ? p : { x: 0, y: 0 }));
-  }, [zoom]);
+    if (zoom <= 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot reset on zoom-out edge
+      setPan((p) => (p.x === 0 && p.y === 0 ? p : { x: 0, y: 0 }));
+      return;
+    }
+    const canvas = canvasRef.current;
+    const displayed = dimensions;
+    if (!canvas || !displayed) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- bounds change with zoom
+    setPan((p) => {
+      const next = clampPan(p, { w: canvas.clientWidth, h: canvas.clientHeight }, displayed, zoom);
+      return next.x === p.x && next.y === p.y ? p : next;
+    });
+  }, [zoom, dimensions]);
 
   // R1 — pointer-event drag with setPointerCapture. No window listeners, so
   // unmount-during-drag never leaves dangling handlers; capture is implicitly

@@ -40,6 +40,14 @@ describe("HAS_MATH_RE", () => {
     expect(HAS_MATH_RE.test("$5")).toBe(false);
   });
 
+  it("admits digit-starting math with operators `$2^n$`", () => {
+    expect(HAS_MATH_RE.test("complexity is $2^n$ growth")).toBe(true);
+  });
+
+  it("admits digit-starting math `$100 + x$`", () => {
+    expect(HAS_MATH_RE.test("solve $100 + x$ for x")).toBe(true);
+  });
+
   it("rejects empty document", () => {
     expect(HAS_MATH_RE.test("")).toBe(false);
   });
