@@ -386,3 +386,71 @@ describe("system integration wrappers (Section E)", () => {
   });
 });
 
+
+
+//  Iter 1 / F0  new IPC surface dispatch table 
+
+describe("F0 IPC surface", () => {
+  // Re-import to pick up the same mocked invoke. These tests assert that the
+  // TS wrappers route to the correct Tauri command name with the correct
+  // argument shape  the dispatch contract that keeps the IPC chokepoint
+  // honest.
+  it("updateComment dispatches to update_comment with patch payload", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    const { updateComment } = await import("../tauri-commands");
+    await updateComment("/ws/a.md", "c1", {
+      kind: "set_resolved",
+      data: { resolved: true },
+    });
+    expect(invoke).toHaveBeenCalledWith("update_comment", {
+      filePath: "/ws/a.md",
+      commentId: "c1",
+      patch: { kind: "set_resolved", data: { resolved: true } },
+    });
+  });
+
+  it("getFileBadges dispatches to get_file_badges with filePaths", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockResolvedValueOnce({ "/ws/a.md": { count: 2, max_severity: "high" } });
+    const { getFileBadges } = await import("../tauri-commands");
+    const out = await getFileBadges(["/ws/a.md"]);
+    expect(invoke).toHaveBeenCalledWith("get_file_badges", { filePaths: ["/ws/a.md"] });
+    expect(out["/ws/a.md"].count).toBe(2);
+    expect(out["/ws/a.md"].max_severity).toBe("high");
+  });
+
+  it("exportReviewSummary dispatches to export_review_summary", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockResolvedValueOnce("# Review summary\n");
+    const { exportReviewSummary } = await import("../tauri-commands");
+    const out = await exportReviewSummary("/ws");
+    expect(invoke).toHaveBeenCalledWith("export_review_summary", { workspace: "/ws" });
+    expect(out).toContain("# Review summary");
+  });
+
+  it("setAuthor dispatches to set_author and returns trimmed name", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+    vi.mocked(invoke).mockResolvedValueOnce("Alice");
+    const { setAuthor } = await import("../tauri-commands");
+    const out = await setAuthor("  Alice  ");
+    expect(invoke).toHaveBeenCalledWith("set_author", { name: "  Alice  " });
+    expect(out).toBe("Alice");
+  });
+
+  it("does not log to console.error during the dispatch happy path", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    const { updateComment } = await import("../tauri-commands");
+    await updateComment("/ws/a.md", "c1", {
+      kind: "add_reaction",
+      data: { user: "u", kind: "thumbs_up", ts: "2025-01-01T00:00:00Z" },
+    });
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});

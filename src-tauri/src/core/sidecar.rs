@@ -1,4 +1,4 @@
-use crate::core::types::{CommentMutation, MrsfComment, MrsfSidecar, MRSF_VERSION_WRITE};
+use crate::core::types::{mrsf_version_for, CommentMutation, MrsfComment, MrsfSidecar};
 use std::fmt;
 use std::path::Path;
 
@@ -79,7 +79,7 @@ pub fn save_sidecar(
     }
 
     let payload = MrsfSidecar {
-        mrsf_version: MRSF_VERSION_WRITE.to_string(),
+        mrsf_version: mrsf_version_for(comments).to_string(),
         document: document.to_string(),
         comments: comments.to_vec(),
     };
@@ -284,7 +284,7 @@ comments:
     }
 
     #[test]
-    fn save_sidecar_emits_v1_1() {
+    fn save_sidecar_emits_v1_0_for_legacy_comments() {
         let tmp = TempDir::new().unwrap();
         let file_path = tmp.path().join("test.md");
         std::fs::write(&file_path, "# Test").unwrap();
@@ -294,7 +294,28 @@ comments:
 
         let sidecar_path = tmp.path().join("test.md.review.yaml");
         let content = std::fs::read_to_string(&sidecar_path).unwrap();
-        // Reload the YAML and verify the writer set v1.1.
+        let reloaded: crate::core::types::MrsfSidecar =
+            serde_yaml_ng::from_str(&content).unwrap();
+        // Pure-legacy comment ⇒ writer must NOT emit "1.1" (advisory #5).
+        assert_eq!(reloaded.mrsf_version, "1.0");
+    }
+
+    #[test]
+    fn save_sidecar_emits_v1_1_when_v1_1_field_present() {
+        let tmp = TempDir::new().unwrap();
+        let file_path = tmp.path().join("test.md");
+        std::fs::write(&file_path, "# Test").unwrap();
+
+        let mut c = sample_comment("c1");
+        c.reactions = Some(vec![crate::core::types::Reaction {
+            user: "u".into(),
+            kind: "thumbs_up".into(),
+            ts: "2025-01-01T00:00:00Z".into(),
+        }]);
+        save_sidecar(file_path.to_str().unwrap(), "test.md", &[c]).unwrap();
+
+        let sidecar_path = tmp.path().join("test.md.review.yaml");
+        let content = std::fs::read_to_string(&sidecar_path).unwrap();
         let reloaded: crate::core::types::MrsfSidecar =
             serde_yaml_ng::from_str(&content).unwrap();
         assert_eq!(reloaded.mrsf_version, "1.1");

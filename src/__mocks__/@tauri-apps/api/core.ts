@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import type {
   CommentThread,
   DirEntry,
+  FileBadge,
   FoldRegion,
   KqlPipelineStep,
   LaunchArgs,
@@ -24,6 +25,7 @@ type InvokeResult =
   | FoldRegion[]
   | KqlPipelineStep[]
   | Record<string, number>
+  | Record<string, FileBadge>
   | TextFileResult
   | ArrayBuffer
   | "file"
@@ -63,6 +65,12 @@ export const invoke = vi.fn<(cmd: string, args?: Record<string, unknown>) => Pro
       new Uint8Array(buf, 4).set(ct);
       return buf;
     }
+    // Iter 1 / F0 defaults — return empty/no-op shapes so consumers don't
+    // need to special-case them. Tests override via mockResolvedValueOnce.
+    if (cmd === "get_file_badges") return {} as Record<string, FileBadge>;
+    if (cmd === "export_review_summary") return "";
+    if (cmd === "update_comment") return undefined;
+    if (cmd === "set_author") return "";
     return undefined;
   },
 );

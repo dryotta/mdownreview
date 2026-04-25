@@ -249,6 +249,56 @@ export const computeAnchorHash = (text: string): Promise<string> =>
 export const getUnresolvedCounts = (filePaths: string[]): Promise<Record<string, number>> =>
   invoke<Record<string, number>>("get_unresolved_counts", { filePaths });
 
+// ── Iter 1 / F0 — new IPC surface (advisory #2/3) ────────────────────────
+
+/** Total order of comment severity. Mirrors `core::severity::Severity`. */
+export type Severity = "none" | "low" | "medium" | "high";
+
+/** Per-file badge payload returned by `get_file_badges` (count + worst severity). */
+export interface FileBadge {
+  count: number;
+  max_severity: Severity;
+}
+
+/**
+ * Discriminated patch payload for `update_comment`. `MoveAnchor` will be
+ * added alongside the `Anchor` enum refactor in a follow-up commit
+ * (advisory #1) — until then `update_comment` accepts only the variants
+ * that don't depend on the new anchor representation.
+ */
+export type CommentPatch =
+  | { kind: "add_reaction"; data: { user: string; kind: string; ts: string } }
+  | { kind: "set_resolved"; data: { resolved: boolean } };
+
+/** Apply a discriminated patch to a single comment. */
+export const updateComment = (
+  filePath: string,
+  commentId: string,
+  patch: CommentPatch,
+): Promise<void> =>
+  invoke<void>("update_comment", { filePath, commentId, patch });
+
+/** Per-file unresolved-thread count + worst severity. */
+export const getFileBadges = (
+  filePaths: string[],
+): Promise<Record<string, FileBadge>> =>
+  invoke<Record<string, FileBadge>>("get_file_badges", { filePaths });
+
+/** Render a markdown digest of every thread under `workspace`. */
+export const exportReviewSummary = (workspace: string): Promise<string> =>
+  invoke<string>("export_review_summary", { workspace });
+
+/** Discriminated error from `set_author`. */
+export type ConfigError =
+  | { kind: "InvalidAuthor"; reason: "empty" | "too_long" | "newline" | "control_char" }
+  | { kind: "IoError"; message: string };
+
+/** Persist the display name written into `MrsfComment.author`. Returns the
+ *  trimmed value on success; throws a typed `ConfigError` on validation /
+ *  persistence failure. */
+export const setAuthor = (name: string): Promise<string> =>
+  invoke<string>("set_author", { name });
+
 // ── Document search ──────────────────────────────────────────────────────
 
 export interface SearchMatch {

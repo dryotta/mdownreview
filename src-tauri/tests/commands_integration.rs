@@ -142,7 +142,7 @@ fn save_and_load_mrsf_yaml() {
 
     // Round-trip via load
     let loaded = load_sidecar(&file_path).unwrap().unwrap();
-    assert_eq!(loaded.mrsf_version, "1.1");
+    assert_eq!(loaded.mrsf_version, "1.0");
     assert_eq!(loaded.document, "test.md");
     assert_eq!(loaded.comments.len(), 2);
     assert_eq!(loaded.comments[0].id, "c1");
@@ -451,7 +451,8 @@ fn mutate_sidecar_or_create_creates_first_comment_sidecar() {
     assert_eq!(loaded.comments.len(), 1);
     assert_eq!(loaded.comments[0].id, "first-comment");
     assert_eq!(loaded.document, "doc.md");
-    assert_eq!(loaded.mrsf_version, "1.1");
+    // Pure-legacy comments ⇒ writer emits "1.0" (advisory #5: per-content selector).
+    assert_eq!(loaded.mrsf_version, "1.0");
 }
 
 #[test]
@@ -577,4 +578,193 @@ fn stat_file_rejects_path_outside_workspace() {
     let state = watcher_state_allowing(workspace.path());
     let result = stat_file_inner(outside_file.to_str().unwrap(), &state);
     assert_eq!(result.unwrap_err(), "path not in workspace");
+}
+
+
+// 
+// Iter 1 / F0  new IPC surface (advisory #2/3/5)
+// 
+
+mod f0_iter1 {
+    use super::{make_mrsf_comment, watcher_state_allowing};
+    use mdown_review_lib::commands::{
+        export_review_summary_inner, get_file_badges_inner, set_author_at, update_comment_apply,
+        validate_author, CommentPatch, ConfigError,
+    };
+    use mdown_review_lib::core::sidecar::{load_sidecar, save_sidecar};
+    use mdown_review_lib::core::severity::Severity;
+
+    #[test]
+    fn update_comment_add_reaction_appends_and_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let file = canonical.join("doc.md");
+        std::fs::write(&file, "hello\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+        save_sidecar(&file_path, "doc.md", &[make_mrsf_comment("c1")]).unwrap();
+
+        update_comment_apply(
+            &file_path,
+            "c1",
+            CommentPatch::AddReaction {
+                user: "alice".into(),
+                kind: "thumbs_up".into(),
+                ts: "2025-01-01T00:00:00Z".into(),
+            },
+        )
+        .unwrap();
+        // Idempotent: same (user, kind) twice is a no-op.
+        update_comment_apply(
+            &file_path,
+            "c1",
+            CommentPatch::AddReaction {
+                user: "alice".into(),
+                kind: "thumbs_up".into(),
+                ts: "2025-01-02T00:00:00Z".into(),
+            },
+        )
+        .unwrap();
+
+        let loaded = load_sidecar(&file_path).unwrap().unwrap();
+        let reactions = loaded.comments[0].reactions.as_ref().unwrap();
+        assert_eq!(reactions.len(), 1);
+        assert_eq!(reactions[0].user, "alice");
+        assert_eq!(reactions[0].kind, "thumbs_up");
+        // Sidecar should have been promoted to v1.1 by the writer (advisory #5).
+        assert_eq!(loaded.mrsf_version, "1.1");
+    }
+
+    #[test]
+    fn update_comment_set_resolved_toggles_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, "x\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+        save_sidecar(&file_path, "doc.md", &[make_mrsf_comment("c1")]).unwrap();
+
+        update_comment_apply(&file_path, "c1", CommentPatch::SetResolved { resolved: true }).unwrap();
+        let loaded = load_sidecar(&file_path).unwrap().unwrap();
+        assert!(loaded.comments[0].resolved);
+    }
+
+    #[test]
+    fn update_comment_missing_comment_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("doc.md");
+        std::fs::write(&file, "x\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+        save_sidecar(&file_path, "doc.md", &[make_mrsf_comment("c1")]).unwrap();
+
+        let err = update_comment_apply(
+            &file_path,
+            "nonexistent",
+            CommentPatch::SetResolved { resolved: true },
+        )
+        .unwrap_err();
+        assert!(err.contains("not found"), "got: {err}");
+    }
+
+    #[test]
+    fn get_file_badges_returns_count_and_max_severity() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let file = canonical.join("doc.md");
+        std::fs::write(&file, "alpha\nbeta\n").unwrap();
+        let file_path = file.to_str().unwrap().to_string();
+
+        // Two unresolved (severity high + low) + one resolved.
+        let mut high = make_mrsf_comment("h");
+        high.severity = Some("high".into());
+        let mut low = make_mrsf_comment("l");
+        low.severity = Some("low".into());
+        let mut resolved = make_mrsf_comment("r");
+        resolved.resolved = true;
+        resolved.severity = Some("high".into());
+        save_sidecar(&file_path, "doc.md", &[high, low, resolved]).unwrap();
+
+        let state = watcher_state_allowing(&canonical);
+        let badges = get_file_badges_inner(&state, &[file_path.clone()]);
+        let badge = badges.get(&file_path).expect("badge for file");
+        assert_eq!(badge.count, 2);
+        assert_eq!(badge.max_severity, Severity::High);
+    }
+
+    #[test]
+    fn get_file_badges_skips_paths_outside_workspace() {
+        let workspace = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let outside_canonical = std::fs::canonicalize(outside.path()).unwrap();
+        let outside_file = outside_canonical.join("doc.md");
+        std::fs::write(&outside_file, "x\n").unwrap();
+        save_sidecar(
+            outside_file.to_str().unwrap(),
+            "doc.md",
+            &[make_mrsf_comment("c1")],
+        )
+        .unwrap();
+
+        let state = watcher_state_allowing(workspace.path());
+        let badges = get_file_badges_inner(
+            &state,
+            &[outside_file.to_str().unwrap().to_string()],
+        );
+        assert!(
+            badges.is_empty(),
+            "outside-workspace badges must be silently skipped: {:?}",
+            badges
+        );
+    }
+
+    #[test]
+    fn export_review_summary_emits_thread_under_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let file = canonical.join("doc.md");
+        std::fs::write(&file, "alpha\n").unwrap();
+        save_sidecar(
+            file.to_str().unwrap(),
+            "doc.md",
+            &[make_mrsf_comment("c1")],
+        )
+        .unwrap();
+
+        let out = export_review_summary_inner(canonical.to_str().unwrap());
+        assert!(out.contains("# Review summary"));
+        assert!(out.contains("c1"));
+        assert!(out.contains("```mdr-thread-"));
+    }
+
+    #[test]
+    fn set_author_validation_matrix() {
+        // Happy path
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("onboarding.json");
+        let stored = set_author_at(&path, "Alice").unwrap();
+        assert_eq!(stored, "Alice");
+
+        // >128 bytes
+        let long = "a".repeat(129);
+        match validate_author(&long).unwrap_err() {
+            ConfigError::InvalidAuthor { reason } => assert_eq!(reason, "too_long"),
+            _ => panic!("wrong variant"),
+        }
+
+        // newline
+        match validate_author("a\nb").unwrap_err() {
+            ConfigError::InvalidAuthor { reason } => assert_eq!(reason, "newline"),
+            _ => panic!("wrong variant"),
+        }
+
+        // control char
+        match validate_author("a\tb").unwrap_err() {
+            ConfigError::InvalidAuthor { reason } => assert_eq!(reason, "control_char"),
+            _ => panic!("wrong variant"),
+        }
+
+        // empty
+        match validate_author("   ").unwrap_err() {
+            ConfigError::InvalidAuthor { reason } => assert_eq!(reason, "empty"),
+            _ => panic!("wrong variant"),
+        }
+    }
 }
