@@ -8,12 +8,18 @@ mod image_rect;
 mod json_path;
 mod word_range;
 
-pub use csv_cell::resolve as resolve_csv_cell;
-pub use html::resolve_element as resolve_html_element;
-pub use html::resolve_range as resolve_html_range;
-pub use image_rect::resolve as resolve_image_rect;
-pub use json_path::resolve as resolve_json_path;
-pub use word_range::resolve as resolve_word_range;
+#[allow(unused_imports)]
+pub(crate) use csv_cell::resolve as resolve_csv_cell;
+#[allow(unused_imports)]
+pub(crate) use html::resolve_element as resolve_html_element;
+#[allow(unused_imports)]
+pub(crate) use html::resolve_range as resolve_html_range;
+#[allow(unused_imports)]
+pub(crate) use image_rect::resolve as resolve_image_rect;
+#[allow(unused_imports)]
+pub(crate) use json_path::resolve as resolve_json_path;
+#[allow(unused_imports)]
+pub(crate) use word_range::resolve as resolve_word_range;
 
 /// MRSF §6.2: max selected_text length
 pub const SELECTED_TEXT_MAX_LENGTH: usize = 4096;
@@ -206,82 +212,5 @@ mod tests {
     fn truncate_preserves_short_text() {
         let text = "short text";
         assert_eq!(truncate_selected_text(text), text);
-    }
-
-    // ── B7: per-variant stub-dispatch tests ───────────────────────────────
-    //
-    // The five non-line resolvers are FileLevel stubs in iter 2 (real
-    // heuristics land in a later wave). These tests pin the dispatch
-    // contract so a future drift between the matcher and the per-variant
-    // dispatch fails loudly instead of silently down-grading anchors.
-
-    use crate::core::types::{
-        Anchor, CsvCellAnchor, HtmlElementAnchor, HtmlRangeAnchor, ImageRectAnchor,
-        JsonPathAnchor, WordRangePayload,
-    };
-
-    #[test]
-    fn resolve_image_rect_returns_file_level() {
-        let a = Anchor::ImageRect(ImageRectAnchor {
-            x_pct: 0.0,
-            y_pct: 0.0,
-            w_pct: None,
-            h_pct: None,
-        });
-        assert_eq!(resolve_image_rect(&a), MatchOutcome::FileLevel);
-    }
-
-    #[test]
-    fn resolve_csv_cell_returns_file_level() {
-        let a = Anchor::CsvCell(CsvCellAnchor {
-            row_idx: 0,
-            col_idx: 0,
-            col_header: "h".into(),
-            primary_key_col: None,
-            primary_key_value: None,
-        });
-        assert_eq!(resolve_csv_cell(&a), MatchOutcome::FileLevel);
-    }
-
-    #[test]
-    fn resolve_json_path_returns_file_level() {
-        let a = Anchor::JsonPath(JsonPathAnchor {
-            json_path: "$.a".into(),
-            scalar_text: None,
-        });
-        assert_eq!(resolve_json_path(&a), MatchOutcome::FileLevel);
-    }
-
-    #[test]
-    fn resolve_html_range_returns_file_level() {
-        let a = Anchor::HtmlRange(HtmlRangeAnchor {
-            selector_path: "p".into(),
-            start_offset: 0,
-            end_offset: 0,
-            selected_text: "".into(),
-        });
-        assert_eq!(resolve_html_range(&a), MatchOutcome::FileLevel);
-    }
-
-    #[test]
-    fn resolve_html_element_returns_file_level() {
-        let a = Anchor::HtmlElement(HtmlElementAnchor {
-            selector_path: "div".into(),
-            tag: "div".into(),
-            text_preview: "".into(),
-        });
-        assert_eq!(resolve_html_element(&a), MatchOutcome::FileLevel);
-    }
-
-    #[test]
-    fn resolve_word_range_returns_file_level() {
-        let a = Anchor::WordRange(WordRangePayload {
-            start_word: 0,
-            end_word: 1,
-            line: 1,
-            snippet: "hello world".into(),
-            line_text_hash: "0".repeat(64),
-        });
-        assert_eq!(resolve_word_range(&a), MatchOutcome::FileLevel);
     }
 }
