@@ -8,6 +8,8 @@ export type FileCategory =
   | "mermaid"
   | "kql"
   | "image"
+  | "audio"
+  | "video"
   | "text";
 
 const CATEGORY_MAP: Record<string, FileCategory> = {
@@ -31,8 +33,23 @@ const CATEGORY_MAP: Record<string, FileCategory> = {
   ".webp": "image",
   ".bmp": "image",
   ".ico": "image",
+  ".mp3": "audio",
+  ".wav": "audio",
+  ".ogg": "audio",
+  ".flac": "audio",
+  ".m4a": "audio",
+  ".aac": "audio",
+  ".mp4": "video",
+  ".webm": "video",
+  ".mov": "video",
+  ".mkv": "video",
 };
 
+// Audio and video are handled by their own dedicated viewers (AudioViewer /
+// VideoViewer) — they don't share the source/visual toggle, but are listed as
+// "visualizable" so that filetype-keyed UI behaviour (toolbar, zoom store) is
+// consistent with the other media-only category, image. Zoom is not actually
+// applied to audio/video controls.
 const VISUALIZABLE: Set<FileCategory> = new Set([
   "markdown",
   "json",
@@ -40,6 +57,9 @@ const VISUALIZABLE: Set<FileCategory> = new Set([
   "html",
   "mermaid",
   "kql",
+  "pdf",
+  "audio",
+  "video",
 ]);
 
 const DEFAULT_VIEW: Record<FileCategory, "source" | "visual"> = {
@@ -50,6 +70,9 @@ const DEFAULT_VIEW: Record<FileCategory, "source" | "visual"> = {
   mermaid: "visual",
   kql: "visual",
   image: "visual",
+  pdf: "visual",
+  audio: "visual",
+  video: "visual",
   text: "source",
 };
 
@@ -68,6 +91,9 @@ export function getFileCategory(path: string): FileCategory {
 export function getFiletypeKey(path: string, viewMode?: "source" | "visual"): string {
   const cat = getFileCategory(path);
   if (cat === "image") return ".image";
+  if (cat === "audio") return ".audio";
+  if (cat === "video") return ".video";
+  if (cat === "pdf") return ".pdf";
   const view = viewMode ?? getDefaultView(cat);
   if (view === "source") return ".source";
   switch (cat) {

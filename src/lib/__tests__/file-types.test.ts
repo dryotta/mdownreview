@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getFileCategory, hasVisualization, getDefaultView, getShikiLanguage, getFoldLanguage } from "@/lib/file-types";
+import { getFileCategory, hasVisualization, getDefaultView, getShikiLanguage, getFoldLanguage, getFiletypeKey } from "@/lib/file-types";
 
 describe("getFileCategory", () => {
   it("classifies markdown files", () => {
@@ -43,6 +43,24 @@ describe("getFileCategory", () => {
     expect(getFileCategory("icon.ico")).toBe("image");
   });
 
+  it("classifies audio files", () => {
+    expect(getFileCategory("song.mp3")).toBe("audio");
+    expect(getFileCategory("song.wav")).toBe("audio");
+    expect(getFileCategory("song.ogg")).toBe("audio");
+    expect(getFileCategory("song.flac")).toBe("audio");
+    expect(getFileCategory("song.m4a")).toBe("audio");
+    expect(getFileCategory("song.aac")).toBe("audio");
+    expect(getFileCategory("UPPER.MP3")).toBe("audio");
+  });
+
+  it("classifies video files", () => {
+    expect(getFileCategory("clip.mp4")).toBe("video");
+    expect(getFileCategory("clip.webm")).toBe("video");
+    expect(getFileCategory("clip.mov")).toBe("video");
+    expect(getFileCategory("clip.mkv")).toBe("video");
+    expect(getFileCategory("UPPER.MP4")).toBe("video");
+  });
+
   it("classifies other text files", () => {
     expect(getFileCategory("app.ts")).toBe("text");
     expect(getFileCategory("main.py")).toBe("text");
@@ -74,6 +92,11 @@ describe("hasVisualization", () => {
     expect(hasVisualization("text")).toBe(false);
     expect(hasVisualization("image")).toBe(false);
   });
+
+  it("returns true for audio and video (toolbar consistency, #65 F1/F2)", () => {
+    expect(hasVisualization("audio")).toBe(true);
+    expect(hasVisualization("video")).toBe(true);
+  });
 });
 
 describe("getDefaultView", () => {
@@ -92,6 +115,11 @@ describe("getDefaultView", () => {
 
   it("returns visual for image", () => {
     expect(getDefaultView("image")).toBe("visual");
+  });
+
+  it("returns visual for audio and video (#65 F1/F2)", () => {
+    expect(getDefaultView("audio")).toBe("visual");
+    expect(getDefaultView("video")).toBe("visual");
   });
 });
 
@@ -147,5 +175,19 @@ describe("getFoldLanguage", () => {
     expect(getFoldLanguage("a.yml")).toBe("yaml");
     expect(getFoldLanguage("a.ts")).toBe("typescript");
     expect(getFoldLanguage("a.unknownext")).toBe("text");
+  });
+});
+
+describe("getFiletypeKey (#65 F1/F2)", () => {
+  it("returns .audio for audio files regardless of view mode", () => {
+    expect(getFiletypeKey("song.mp3")).toBe(".audio");
+    expect(getFiletypeKey("song.wav", "visual")).toBe(".audio");
+    expect(getFiletypeKey("song.ogg", "source")).toBe(".audio");
+  });
+
+  it("returns .video for video files regardless of view mode", () => {
+    expect(getFiletypeKey("clip.mp4")).toBe(".video");
+    expect(getFiletypeKey("clip.webm", "visual")).toBe(".video");
+    expect(getFiletypeKey("clip.mov", "source")).toBe(".video");
   });
 });

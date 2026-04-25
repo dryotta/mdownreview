@@ -4,6 +4,9 @@ import { useFileContent } from "@/hooks/useFileContent";
 import { SkeletonLoader } from "./SkeletonLoader";
 import { EnhancedViewer } from "./EnhancedViewer";
 import { ImageViewer } from "./ImageViewer";
+import { AudioViewer } from "./AudioViewer";
+import { VideoViewer } from "./VideoViewer";
+import { PdfViewer } from "./PdfViewer";
 import { BinaryPlaceholder } from "./BinaryPlaceholder";
 import { DeletedFileViewer } from "./DeletedFileViewer";
 
@@ -102,6 +105,30 @@ export function ViewerRouter({ path }: Props) {
     return (
       <div style={{ flex: 1, overflow: "auto" }}>
         <ImageViewer path={path} />
+      </div>
+    );
+  }
+
+  if (status === "audio") {
+    return (
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <AudioViewer path={path} />
+      </div>
+    );
+  }
+
+  if (status === "video") {
+    return (
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <VideoViewer path={path} />
+      </div>
+    );
+  }
+
+  if (status === "pdf") {
+    return (
+      <div style={{ flex: 1, overflow: "auto" }}>
+        <PdfViewer path={path} />
       </div>
     );
   }

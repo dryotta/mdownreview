@@ -37,7 +37,7 @@ Canonical for threat-model and safety rules. Cite violations as "violates rule N
 16. `SourceView`'s `dangerouslySetInnerHTML` payload comes only from Shiki output, `escapeHtml`, or search highlight built from `escapeHtml`-segmented pieces. (`SourceView.tsx:184-190`; `useSourceHighlighting.ts:8-10`.)
 
 ### Process-level hardening
-17. The CSP disallows inline scripts, `object`, `frame-ancestors`, and whitelists `asset:` for images only. (`tauri.conf.json:23`.)
+17. The CSP disallows inline scripts, `object`, `frame-ancestors`, and whitelists `asset:` (and the Windows `https://asset.localhost` form) for `img-src` and `media-src`. `media-src` is required for the audio/video viewers (#65 F1/F2) which stream files via the asset protocol — the same chokepoint (`convertAssetUrl`) is used for `<img>`, `<audio>`, and `<video>`. The asset protocol is enabled in `tauri.conf.json` with `scope: ["**"]` because mdownreview opens user-chosen folders and files from anywhere on the filesystem; narrowing the scope is not possible without knowing the user's working set. (`tauri.conf.json:23-28`.)
 18. The window requests only the minimal Tauri capability set: log, dialog open, clipboard write-text, opener open-url, updater. (`capabilities/default.json:5-16`.)
 19. The updater verifies payloads via the configured minisign public key. (`tauri.conf.json:55`.)
 20. `set_root_via_test` compiles out of release via `#[cfg(debug_assertions)]`. (`commands/launch.rs:31-33`.)

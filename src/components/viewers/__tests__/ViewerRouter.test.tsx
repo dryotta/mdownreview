@@ -19,6 +19,18 @@ vi.mock("../ImageViewer", () => ({
   ),
 }));
 
+vi.mock("../AudioViewer", () => ({
+  AudioViewer: ({ path }: { path: string }) => (
+    <div data-testid="audio-viewer" data-path={path}>AudioViewer</div>
+  ),
+}));
+
+vi.mock("../VideoViewer", () => ({
+  VideoViewer: ({ path }: { path: string }) => (
+    <div data-testid="video-viewer" data-path={path}>VideoViewer</div>
+  ),
+}));
+
 vi.mock("../BinaryPlaceholder", () => ({
   BinaryPlaceholder: ({ path }: { path: string }) => (
     <div data-testid="binary-placeholder" data-path={path}>BinaryPlaceholder</div>
@@ -75,6 +87,22 @@ describe("ViewerRouter routing", () => {
     useStore.setState({ tabs: [{ path: "/photos/test.png", scrollTop: 0 }] });
     render(<ViewerRouter path="/photos/test.png" />);
     expect(screen.getByTestId("image-viewer")).toBeInTheDocument();
+  });
+
+  it("audio status routes to AudioViewer (#65 F1)", () => {
+    mockUseFileContent.mockReturnValue({ status: "audio" });
+    useStore.setState({ tabs: [{ path: "/music/song.mp3", scrollTop: 0 }] });
+    render(<ViewerRouter path="/music/song.mp3" />);
+    expect(screen.getByTestId("audio-viewer")).toBeInTheDocument();
+    expect(screen.getByTestId("audio-viewer").dataset.path).toBe("/music/song.mp3");
+  });
+
+  it("video status routes to VideoViewer (#65 F2)", () => {
+    mockUseFileContent.mockReturnValue({ status: "video" });
+    useStore.setState({ tabs: [{ path: "/movies/clip.mp4", scrollTop: 0 }] });
+    render(<ViewerRouter path="/movies/clip.mp4" />);
+    expect(screen.getByTestId("video-viewer")).toBeInTheDocument();
+    expect(screen.getByTestId("video-viewer").dataset.path).toBe("/movies/clip.mp4");
   });
 
   it("loading status shows SkeletonLoader", () => {
