@@ -251,7 +251,6 @@ pub fn run() {
                 commands::search::strip_json_comments,
                 commands::onboarding::onboarding_state,
                 commands::onboarding::onboarding_mark_welcomed,
-                commands::onboarding::onboarding_skip,
                 commands::onboarding::onboarding_should_welcome,
                 commands::cli_shim::cli_shim_status,
                 commands::cli_shim::install_cli_shim,

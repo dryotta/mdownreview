@@ -160,6 +160,19 @@ describe("OnboardingSlice — panel toggles", () => {
     useStore.getState().closeSetup();
     expect(useStore.getState().setupPanelOpen).toBe(false);
   });
+
+  it("openSetup closes Welcome and vice versa (mutually exclusive)", () => {
+    useStore.getState().openWelcome();
+    expect(useStore.getState().welcomePanelOpen).toBe(true);
+    useStore.getState().openSetup();
+    const s1 = useStore.getState();
+    expect(s1.welcomePanelOpen).toBe(false);
+    expect(s1.setupPanelOpen).toBe(true);
+    useStore.getState().openWelcome();
+    const s2 = useStore.getState();
+    expect(s2.welcomePanelOpen).toBe(true);
+    expect(s2.setupPanelOpen).toBe(false);
+  });
 });
 
 describe("formatOnboardingError", () => {
@@ -167,6 +180,13 @@ describe("formatOnboardingError", () => {
     const out = formatOnboardingError({ kind: "permission_denied", path: "/x/y" });
     expect(out.toLowerCase()).toContain("permission denied");
     expect(out).toContain("/x/y");
+    expect(out).toContain("sudo");
+  });
+
+  it("renders io variant message, not raw JSON", () => {
+    const out = formatOnboardingError({ kind: "io", message: "disk full" });
+    expect(out).toBe("disk full");
+    expect(out).not.toContain("{");
   });
 
   it("returns Error.message for Error instances", () => {

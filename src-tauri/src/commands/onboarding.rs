@@ -48,13 +48,6 @@ pub fn onboarding_mark_welcomed(app: AppHandle, version: String) -> Result<(), S
     save_at(&path, &state)
 }
 
-#[tauri::command]
-pub fn onboarding_skip(_app: AppHandle) -> Result<(), String> {
-    // No-op per spec. Kept as an explicit IPC chokepoint so the FE has a
-    // single command for "user dismissed without completing".
-    Ok(())
-}
-
 /// Decide whether to show the welcome flow. Pure helper so tests can drive it
 /// against a temp `onboarding.json` without an `AppHandle`.
 fn should_welcome_at(path: &Path, current: &str) -> bool {

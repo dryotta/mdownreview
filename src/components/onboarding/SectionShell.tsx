@@ -12,7 +12,6 @@ export interface SectionShellProps {
   onSecondary?: () => void | Promise<void>;
   error?: string;
   helpText?: ReactNode;
-  badge?: "new";
   collapsedByDefault?: boolean;
   /** Hide the status pill (used for purely informational sections). */
   hideStatus?: boolean;
@@ -45,9 +44,6 @@ export function SectionShell(props: SectionShellProps) {
   const header = (
     <div className="section-shell-header">
       <h3 className="section-shell-title">{props.title}</h3>
-      {props.badge === "new" && (
-        <span className="section-shell-new-badge">New</span>
-      )}
       {!props.hideStatus && (
         <span
           className={`section-shell-pill section-shell-pill-${props.status}`}

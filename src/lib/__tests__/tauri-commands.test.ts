@@ -248,14 +248,6 @@ describe("onboarding & platform-integration wrappers", () => {
     expect(m).toHaveBeenCalledWith("onboarding_mark_welcomed", { version: "0.3.4" });
   });
 
-  it("onboardingSkip calls onboarding_skip", async () => {
-    const m = await getInvoke();
-    m.mockResolvedValueOnce(undefined);
-    const { onboardingSkip } = await import("../tauri-commands");
-    await onboardingSkip();
-    expect(m).toHaveBeenCalledWith("onboarding_skip");
-  });
-
   it("cliShimStatus returns the status string from invoke", async () => {
     const m = await getInvoke();
     m.mockResolvedValueOnce("done");

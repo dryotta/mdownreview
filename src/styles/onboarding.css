@@ -225,16 +225,3 @@
   color: var(--color-badge, #cf222e);
   border-color: rgba(207, 34, 46, 0.4);
 }
-
-/* "New" badge */
-.section-shell-new-badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--color-brand, #6366f1);
-  color: #fff;
-  padding: 1px 6px;
-  border-radius: 3px;
-}

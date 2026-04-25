@@ -44,8 +44,6 @@ vi.mock("@/lib/tauri-commands", () => ({
     last_seen_sections: [],
   }),
   onboardingMarkWelcomed: vi.fn().mockResolvedValue(undefined),
-  onboardingSkip: vi.fn().mockResolvedValue(undefined),
-  onboardingMarkSectionDone: vi.fn().mockResolvedValue(undefined),
   installCliShim: vi.fn().mockResolvedValue(undefined),
   removeCliShim: vi.fn().mockResolvedValue(undefined),
   setDefaultHandler: vi.fn().mockResolvedValue(undefined),

@@ -259,14 +259,8 @@ export const onboardingState = (): Promise<OnboardingState> =>
 export const onboardingMarkWelcomed = (version: string): Promise<void> =>
   invoke<void>("onboarding_mark_welcomed", { version });
 
-export const onboardingSkip = (): Promise<void> =>
-  invoke<void>("onboarding_skip");
-
 export const onboardingShouldWelcome = (): Promise<boolean> =>
   invoke<boolean>("onboarding_should_welcome");
-
-export const onboardingMarkSectionDone = (sectionKey: string): Promise<void> =>
-  invoke<void>("onboarding_mark_section_done", { sectionKey });
 
 export const cliShimStatus = (): Promise<CliShimStatus> =>
   invoke<CliShimStatus>("cli_shim_status");

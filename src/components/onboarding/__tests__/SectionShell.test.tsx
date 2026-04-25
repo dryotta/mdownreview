@@ -85,18 +85,6 @@ describe("SectionShell", () => {
     expect(screen.getByText("Help me")).toBeInTheDocument();
   });
 
-  it("renders 'New' badge when badge='new'", () => {
-    render(
-      <SectionShell
-        title="t"
-        description="d"
-        status="done"
-        badge="new"
-      />,
-    );
-    expect(screen.getByText("New")).toBeInTheDocument();
-  });
-
   it("collapsedByDefault renders <details> that is initially closed", () => {
     const { container } = render(
       <SectionShell

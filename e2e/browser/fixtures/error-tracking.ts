@@ -77,9 +77,7 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
                 cmd === "set_default_handler" ||
                 cmd === "register_folder_context" ||
                 cmd === "unregister_folder_context" ||
-                cmd === "onboarding_mark_welcomed" ||
-                cmd === "onboarding_skip" ||
-                cmd === "onboarding_mark_section_done"
+                cmd === "onboarding_mark_welcomed"
               )
                 return undefined;
             }
@@ -111,9 +109,7 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
             cmd === "set_default_handler" ||
             cmd === "register_folder_context" ||
             cmd === "unregister_folder_context" ||
-            cmd === "onboarding_mark_welcomed" ||
-            cmd === "onboarding_skip" ||
-            cmd === "onboarding_mark_section_done"
+            cmd === "onboarding_mark_welcomed"
           )
             return undefined;
           return null;

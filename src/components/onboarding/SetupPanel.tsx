@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useShallow } from "zustand/shallow";
 import { useStore } from "@/store";
 import { SectionShell } from "./SectionShell";
-import { buildSetupSections, type OnboardingActions } from "./sections";
+import { buildSetupSections, buildOnboardingActions } from "./sections";
 import "@/styles/onboarding.css";
 
 const USER_GUIDE_URL =
@@ -29,13 +29,7 @@ export function SetupPanel() {
 
   if (!setupPanelOpen) return null;
 
-  const actions: OnboardingActions = {
-    installCliShim: () => useStore.getState().installCliShim(),
-    removeCliShim: () => useStore.getState().removeCliShim(),
-    setDefaultHandler: () => useStore.getState().setDefaultHandler(),
-    registerFolderContext: () => useStore.getState().registerFolderContext(),
-    unregisterFolderContext: () => useStore.getState().unregisterFolderContext(),
-  };
+  const actions = buildOnboardingActions();
 
   const sections = buildSetupSections({
     statuses: onboardingStatuses,
