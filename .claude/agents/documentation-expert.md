@@ -18,6 +18,7 @@ Every finding MUST cite either a taxonomy rule below (form: **"violates taxonomy
 |---|---|---|---|
 | `docs/principles.md` | Charter: 5 pillars + 3 meta-principles + Non-Goals | Evergreen | Whole product |
 | `docs/architecture.md`, `performance.md`, `security.md`, `design-patterns.md`, `test-strategy.md` | Deep-dives with numbered rules cited throughout the codebase | Evergreen | Whole product |
+| `docs/best-practices/<stack>/<file>.md` | Project-agnostic, stack-specific patterns and rules (composition, rerender, JS perf, bundle hygiene, …). Distilled from external sources with attribution. | Evergreen | Cross-cutting; portable to other projects |
 | **`docs/features/<area>.md`** | **One file per major feature area. What it is, how it works, which files implement it. Written for a first-time developer reading the repo.** | **Evergreen; revised when the area changes; NEVER forked per increment.** | **User-visible capability (~7–10 total)** |
 | `AGENTS.md`, `BUILDING.md`, `README.md`, `CHANGELOG.md` | Router / how-to / history | Evergreen (CHANGELOG append-only) | Whole product |
 

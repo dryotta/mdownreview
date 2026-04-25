@@ -14,6 +14,10 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — 5 pillars + 3 meta-principles.
 - **Primary authority:** [`docs/design-patterns.md`](../../docs/design-patterns.md) — React 19 idioms, Tauri v2 command-vs-event rules, hook composition, persistence pattern.
 - **Secondary authority:** [`docs/architecture.md`](../../docs/architecture.md) — layer boundaries, IPC/logging chokepoints.
+- **Cross-cutting (project-agnostic):** when project docs are silent, fall back to:
+  - [`docs/best-practices/react/react19-apis.md`](../../docs/best-practices/react/react19-apis.md) — `use()`, `useTransition`, `useDeferredValue`, ref-as-prop, `useOptimistic`.
+  - [`docs/best-practices/react/composition-patterns.md`](../../docs/best-practices/react/composition-patterns.md) — composition over boolean props, lifted state.
+  - [`docs/best-practices/react/rerender-optimization.md`](../../docs/best-practices/react/rerender-optimization.md) — selector hygiene, derived state.
 
 If you propose a React 19 or Tauri v2 API that the docs don't mention, include a new-rule proposal with evidence.
 

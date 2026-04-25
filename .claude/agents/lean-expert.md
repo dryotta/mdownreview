@@ -13,6 +13,7 @@ Every finding MUST cite either a Lean-pillar rule or a file-size / dependency bu
 
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Lean pillar, applied to *implementation mass*: minimal memory, minimal disk, minimal dependencies, minimal binary size, minimal lines of code for the job. + Never Increase Engineering Debt (delete dead code in the same PR; hold debt flat or reduce).
 - **Secondary:** [`docs/architecture.md`](../../docs/architecture.md) — file-size budgets, layer directionality. [`docs/performance.md`](../../docs/performance.md) — startup/memory budgets that bloat erodes.
+- **Cross-cutting (project-agnostic):** [`docs/best-practices/vite/bundle-hygiene.md`](../../docs/best-practices/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, `bundle-defer-third-party`. [`docs/best-practices/react/composition-patterns.md`](../../docs/best-practices/react/composition-patterns.md) — `architecture-avoid-boolean-props` (a frequent source of code mass).
 
 ## The four checks (in order of priority)
 

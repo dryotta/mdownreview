@@ -6,6 +6,8 @@ Canonical for numeric budgets and hot-path rules. Cite violations as "violates r
 
 Unique to performance. Rust-First is a charter meta-principle.
 
+> Cross-cutting (project-agnostic) rules live in [`docs/best-practices/`](best-practices/) — see [`general/javascript-performance.md`](best-practices/general/javascript-performance.md), [`react/rerender-optimization.md`](best-practices/react/rerender-optimization.md), [`react/rendering-performance.md`](best-practices/react/rendering-performance.md), [`vite/bundle-hygiene.md`](best-practices/vite/bundle-hygiene.md). The numeric budgets and project-specific rules below override the generic guidance whenever they conflict.
+
 1. **Hard cap every unbounded input.** No loop or scan over user-supplied data without a numeric ceiling or early-exit guard.
 2. **One IPC round-trip per user action.** Never chain two `invoke` calls where a single Rust command could return the aggregate.
 3. **Debounce producers, not consumers.** Collapse watcher events, scans, and save loops at the source with a documented window; consumers render synchronously from post-debounce state.

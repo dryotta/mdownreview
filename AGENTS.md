@@ -52,8 +52,9 @@ Every rule is numbered and citable as "violates rule N in `docs/X.md`". Each doc
 | [`docs/security.md`](docs/security.md) | File-read bounds, path canonicalization, sidecar atomicity, CSP, capability ACL, markdown XSS posture |
 | [`docs/design-patterns.md`](docs/design-patterns.md) | React 19 + Tauri v2 idioms, hook composition, error capture, cross-hook communication |
 | [`docs/test-strategy.md`](docs/test-strategy.md) | Three-layer pyramid, coverage floors, IPC mock hygiene, console-spy contract |
+| [`docs/best-practices/`](docs/best-practices/) | **Project-agnostic, stack-specific** patterns (composition, rerender, JS perf, bundle hygiene). Distilled from external sources with attribution. Project-specific docs above always override. |
 
-**When reviewing:** cite specific rule numbers ("violates rule 14 in `docs/architecture.md`"). Do not hand-wave.
+**When reviewing:** cite specific rule numbers ("violates rule 14 in `docs/architecture.md`", "violates rule `architecture-avoid-boolean-props` in `docs/best-practices/react/composition-patterns.md`"). Do not hand-wave.
 
 ## What This Is
 

@@ -13,6 +13,7 @@ Every UX issue MUST be framed against a pillar. Use the form **"degrades Profess
 
 - **Primary authority:** [`docs/principles.md`](../../docs/principles.md) — **Professional** pillar: instant keyboard shortcuts, native menubar, polished interactions. Non-Goals list too.
 - **Secondary authority:** [`docs/design-patterns.md`](../../docs/design-patterns.md) — React 19 UX patterns (`useOptimistic`, `useDeferredValue`, `useTransition`) applicable to UX fixes.
+- **Cross-cutting (project-agnostic):** [`docs/best-practices/react/react19-apis.md`](../../docs/best-practices/react/react19-apis.md) — when reaching for a React 19 API to fix a UX issue, prefer the pattern listed there.
 
 A UX claim without a code citation showing the defect is not reportable.
 

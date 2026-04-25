@@ -13,6 +13,11 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 
 - **Charter:** [`docs/principles.md`](../../docs/principles.md) — Performant + Lean pillars.
 - **Primary authority:** [`docs/performance.md`](../../docs/performance.md) — numeric budgets, watcher debounce rules, render-cost rules, memory ceilings, benchmark requirements.
+- **Cross-cutting (project-agnostic):** rules below override only if `docs/performance.md` is silent.
+  - [`docs/best-practices/react/rerender-optimization.md`](../../docs/best-practices/react/rerender-optimization.md) — selector hygiene, derived state, transitions.
+  - [`docs/best-practices/react/rendering-performance.md`](../../docs/best-practices/react/rendering-performance.md) — `content-visibility`, hoist JSX, conditional render.
+  - [`docs/best-practices/general/javascript-performance.md`](../../docs/best-practices/general/javascript-performance.md) — JS hot-path rules (`js-set-map-lookups`, `js-hoist-regexp`, …).
+  - [`docs/best-practices/vite/bundle-hygiene.md`](../../docs/best-practices/vite/bundle-hygiene.md) — `bundle-barrel-imports`, `bundle-conditional`, …
 
 Claims without a benchmark, profile, or `file:line` code-bound are not reportable (the doc is evidence-based by design).
 
