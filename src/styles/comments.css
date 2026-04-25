@@ -41,7 +41,7 @@
   cursor: pointer;
 }
 
-.comment-panel-item.is-focused {
+.comment-panel-item:focus-within {
   outline: 2px solid var(--color-accent, #0969da);
   outline-offset: -2px;
   border-radius: 6px;

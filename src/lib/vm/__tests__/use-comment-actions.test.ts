@@ -442,4 +442,67 @@ describe("useCommentActions", () => {
       expect(logError).toHaveBeenCalled();
     });
   });
+
+  // ── addReaction ──────────────────────────────────────────────────────────
+
+  describe("addReaction", () => {
+    it("dispatches updateComment with add_reaction patch carrying user/kind/ts", async () => {
+      const { result } = renderHook(() => useCommentActions());
+
+      await act(async () => {
+        await result.current.addReaction("/test.md", "c1", "thumbsup");
+      });
+
+      expect(updateComment).toHaveBeenCalledTimes(1);
+      const [path, id, patch] = vi.mocked(updateComment).mock.calls[0];
+      expect(path).toBe("/test.md");
+      expect(id).toBe("c1");
+      expect(patch.kind).toBe("add_reaction");
+      const data = (patch as { data: { user: string; kind: string; ts: string } }).data;
+      expect(data.user).toBe("Test Author");
+      expect(data.kind).toBe("thumbsup");
+      // ts is an ISO date string
+      expect(typeof data.ts).toBe("string");
+      expect(Number.isNaN(Date.parse(data.ts))).toBe(false);
+    });
+
+    it('uses "Anonymous" when authorName is empty', async () => {
+      vi.mocked(useStore).mockImplementation(
+        ((selector: (state: { authorName: string }) => string) => {
+          const state = { authorName: "" };
+          return selector ? selector(state) : state;
+        }) as typeof useStore,
+      );
+
+      const { result } = renderHook(() => useCommentActions());
+
+      await act(async () => {
+        await result.current.addReaction("/test.md", "c1", "ack");
+      });
+
+      const data = vi.mocked(updateComment).mock.calls[0][2] as {
+        data: { user: string };
+      };
+      expect(data.data.user).toBe("Anonymous");
+    });
+
+    it("throws and logs on IPC failure", async () => {
+      const err = new Error("react failed");
+      vi.mocked(updateComment).mockRejectedValueOnce(err);
+
+      const { result } = renderHook(() => useCommentActions());
+
+      let thrownError: unknown;
+      await act(async () => {
+        try {
+          await result.current.addReaction("/test.md", "c1", "dismiss");
+        } catch (e) {
+          thrownError = e;
+        }
+      });
+
+      expect(thrownError).toBe(err);
+      expect(logError).toHaveBeenCalled();
+    });
+  });
 });

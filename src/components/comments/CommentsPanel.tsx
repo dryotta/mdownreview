@@ -101,23 +101,8 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
     return () => window.clearTimeout(id);
   }, [exportStatus]);
 
-  // C3 (iter 6 Group A) — track which item currently owns focus among its
-  // descendants so we can paint a halo on the item card. Uses
-  // focus/blur bubbling (React's onFocus/onBlur translate to focusin/
-  // focusout) and `relatedTarget` to ignore focus shifts that stay
-  // inside the same item.
-  const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
-  const handleItemFocus = useCallback((id: string) => {
-    setFocusedItemId(id);
-  }, []);
-  const handleItemBlur = useCallback(
-    (e: React.FocusEvent<HTMLDivElement>, id: string) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-        setFocusedItemId((prev) => (prev === id ? null : prev));
-      }
-    },
-    [],
-  );
+  // C3 (iter 6 Group A) — focus halo is now CSS-only via `:focus-within`
+  // on `.comment-panel-item`. See `src/styles/comments.css`.
 
   return (
     <div className="comments-panel">
@@ -167,13 +152,11 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
           displayed.map(thread => (
             <div
               key={thread.root.id}
-              className={`comment-panel-item${focusedItemId === thread.root.id ? " is-focused" : ""}`}
+              className="comment-panel-item"
               role="button"
               tabIndex={0}
               onClick={() => handleClick(thread.root)}
               onKeyDown={(e) => handleKeyDown(e, thread.root)}
-              onFocus={() => handleItemFocus(thread.root.id)}
-              onBlur={(e) => handleItemBlur(e, thread.root.id)}
             >
               <div className="comment-panel-item-line">
                 Line {thread.root.matchedLineNumber ?? thread.root.line ?? "?"}

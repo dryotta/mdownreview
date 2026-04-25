@@ -1,8 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ViewerToolbar } from "../ViewerToolbar";
+import { useStore } from "@/store";
+import { invoke } from "@tauri-apps/api/core";
 
 vi.mock("@tauri-apps/api/core");
 vi.mock("@/logger");
@@ -101,9 +103,13 @@ describe("ViewerToolbar", () => {
 
   // ── Iter 6 F8 — workspace-wide "Next unresolved" button ─────────────────
   describe("Next unresolved (workspace) (iter 6 F8)", () => {
-    it("renders the button when onCommentOnFile is wired", async () => {
-      const { useStore: store } = await import("@/store");
-      store.setState({
+    beforeEach(() => {
+      vi.mocked(invoke).mockReset();
+      useStore.setState({ tabs: [], activeTabPath: null, focusedThreadId: null });
+    });
+
+    it("renders the button when onCommentOnFile is wired", () => {
+      useStore.setState({
         tabs: [
           { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
           { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
@@ -118,9 +124,8 @@ describe("ViewerToolbar", () => {
       ).toBeInTheDocument();
     });
 
-    it("is disabled when only one tab is open (no other files)", async () => {
-      const { useStore: store } = await import("@/store");
-      store.setState({
+    it("is disabled when only one tab is open (no other files)", () => {
+      useStore.setState({
         tabs: [{ path: "/only.md", scrollTop: 0, lastAccessedAt: 0 }],
         activeTabPath: "/only.md",
       });
@@ -133,9 +138,7 @@ describe("ViewerToolbar", () => {
     });
 
     it("clicking it switches activeTabPath to a file with unresolved threads", async () => {
-      const { useStore: store } = await import("@/store");
-      const { invoke } = await import("@tauri-apps/api/core");
-      store.setState({
+      useStore.setState({
         tabs: [
           { path: "/clean.md", scrollTop: 0, lastAccessedAt: 0 },
           { path: "/has.md", scrollTop: 0, lastAccessedAt: 0 },
@@ -164,10 +167,7 @@ describe("ViewerToolbar", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: /next unresolved/i }));
 
-      // The action is async; wait for setActiveTab to have run.
-      await new Promise((r) => setTimeout(r, 0));
-      await new Promise((r) => setTimeout(r, 0));
-      expect(store.getState().activeTabPath).toBe("/has.md");
+      await waitFor(() => expect(useStore.getState().activeTabPath).toBe("/has.md"));
     });
   });
 });

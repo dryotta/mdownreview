@@ -20,11 +20,30 @@ pub fn export_review_summary(
 
 /// Pure helper for [`export_review_summary`] — no workspace guard, no IPC.
 pub fn export_review_summary_inner(workspace: &str) -> String {
-    let root = Path::new(workspace);
-    let pairs = crate::core::scanner::find_review_files(workspace, 10_000);
+    let workspace_path = Path::new(workspace);
+
+    // Iter 6 forward-fix B7 — when the user launched mdownreview on a
+    // single source file (no workspace root), `workspace` is that file's
+    // path, not a directory. Detect that case, scan the parent directory,
+    // and filter to that single file's sidecar so we still produce a
+    // sensible summary instead of an empty one.
+    let (root, single_file): (&Path, Option<String>) = if workspace_path.is_file() {
+        let parent = workspace_path.parent().unwrap_or(Path::new(""));
+        (parent, Some(workspace.to_string()))
+    } else {
+        (workspace_path, None)
+    };
+
+    let scan_root = root.to_string_lossy().to_string();
+    let pairs = crate::core::scanner::find_review_files(&scan_root, 10_000);
     let mut by_path: std::collections::BTreeMap<String, Vec<CommentThread>> =
         std::collections::BTreeMap::new();
     for (_sidecar_path, file_path) in pairs {
+        if let Some(target) = single_file.as_ref() {
+            if &file_path != target {
+                continue;
+            }
+        }
         let sidecar = match crate::core::sidecar::load_sidecar(&file_path) {
             Ok(Some(s)) => s,
             _ => continue,

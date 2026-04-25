@@ -938,6 +938,29 @@ mod f0_iter1 {
     }
 
     #[test]
+    fn export_review_summary_single_file_fallback_returns_only_that_file() {
+        // Iter 6 forward-fix B7 — single-file launch (no workspace root)
+        // passes the source file path as `workspace`. Exporter must
+        // detect that, scan the parent dir, and filter to that one file.
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let target = canonical.join("target.md");
+        let other = canonical.join("other.md");
+        std::fs::write(&target, "alpha\n").unwrap();
+        std::fs::write(&other, "beta\n").unwrap();
+        save_sidecar(target.to_str().unwrap(), "target.md", &[make_mrsf_comment("t1")]).unwrap();
+        save_sidecar(other.to_str().unwrap(), "other.md", &[make_mrsf_comment("o1")]).unwrap();
+
+        let out = export_review_summary_inner(target.to_str().unwrap());
+        assert!(out.contains("# Review summary"));
+        assert!(out.contains("t1"), "expected target's comment in output: {out}");
+        assert!(
+            !out.contains("o1"),
+            "single-file export must not include sibling file's comments: {out}"
+        );
+    }
+
+    #[test]
     fn set_author_validation_matrix() {
         // Happy path
         let dir = tempfile::tempdir().unwrap();

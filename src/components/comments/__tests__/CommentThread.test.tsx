@@ -424,22 +424,14 @@ describe("CommentThread — quick reactions (iter 6 F4)", () => {
     expect(screen.getByRole("button", { name: /dismiss/i })).toBeInTheDocument();
   });
 
-  it("clicking 👍 calls addReaction with 'thumbsup' kind on the right comment", () => {
+  it.each([
+    ["thumbs up", "thumbsup"],
+    ["acknowledge", "ack"],
+    ["dismiss", "dismiss"],
+  ])("clicking %s button dispatches addReaction with kind=%s", (label, kind) => {
     render(<CommentThread rootComment={makeComment({ id: "c-42" })} filePath="/test/file.md" />);
-    fireEvent.click(screen.getByRole("button", { name: /thumbs up/i }));
-    expect(mockAddReaction).toHaveBeenCalledWith("/test/file.md", "c-42", "thumbsup");
-  });
-
-  it("clicking ✓ calls addReaction with 'ack' kind", () => {
-    render(<CommentThread rootComment={makeComment({ id: "c-1" })} filePath="/test/file.md" />);
-    fireEvent.click(screen.getByRole("button", { name: /acknowledge/i }));
-    expect(mockAddReaction).toHaveBeenCalledWith("/test/file.md", "c-1", "ack");
-  });
-
-  it("clicking ✗ calls addReaction with 'dismiss' kind", () => {
-    render(<CommentThread rootComment={makeComment({ id: "c-1" })} filePath="/test/file.md" />);
-    fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
-    expect(mockAddReaction).toHaveBeenCalledWith("/test/file.md", "c-1", "dismiss");
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+    expect(mockAddReaction).toHaveBeenCalledWith("/test/file.md", "c-42", kind);
   });
 
   it("renders existing reaction counts grouped by kind", () => {
@@ -458,26 +450,5 @@ describe("CommentThread — quick reactions (iter 6 F4)", () => {
     // Dismiss has no reactions, so no count badge.
     const dismiss = screen.getByRole("button", { name: /dismiss/i });
     expect(dismiss.querySelector(".comment-reaction-count")).toBeNull();
-  });
-
-  it("count increments after a re-render with the new reaction appended", () => {
-    const initial = makeComment({ reactions: [] });
-    const { rerender } = render(<CommentThread rootComment={initial} filePath="/test/file.md" />);
-    expect(
-      screen.getByRole("button", { name: /thumbs up/i }).querySelector(".comment-reaction-count"),
-    ).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: /thumbs up/i }));
-    expect(mockAddReaction).toHaveBeenCalledWith("/test/file.md", initial.id, "thumbsup");
-
-    // Simulate the comments-changed reload that the Rust command emits: the
-    // comment now carries the new reaction.
-    const updated = makeComment({
-      reactions: [{ user: "Test User", kind: "thumbsup", ts: "2024-01-01T00:00:00Z" }],
-    });
-    rerender(<CommentThread rootComment={updated} filePath="/test/file.md" />);
-    expect(
-      screen.getByRole("button", { name: /thumbs up/i }).querySelector(".comment-reaction-count")?.textContent,
-    ).toBe("1");
   });
 });

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { CommentsPanel } from "../CommentsPanel";
 import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
@@ -425,13 +425,33 @@ describe("CommentsPanel — file-level draft persistence (iter 6 C5)", () => {
 // ─── Iter 6 F2 — Export review summary button ──────────────────────────────
 
 describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
+  let originalClipboard: typeof navigator.clipboard;
+  let originalRoot: string | null;
+
   beforeEach(() => {
+    originalClipboard = navigator.clipboard;
+    originalRoot = useStore.getState().root;
     // Default workspace root for these tests; tests may override.
     useStore.setState({ root: "/ws" });
     // Provide a clipboard mock that vitest can spy on.
-    Object.assign(navigator, {
-      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+      writable: true,
     });
+  });
+
+  afterEach(() => {
+    // testing-library's afterEach (cleanup) is registered first and runs
+    // last (LIFO). Unmount before mutating store state so a re-render of a
+    // still-mounted CommentsPanel doesn't fire an act() warning.
+    cleanup();
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+      writable: true,
+    });
+    useStore.setState({ root: originalRoot });
   });
 
   it("renders the Export button in the panel header", () => {
@@ -469,27 +489,3 @@ describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
   });
 });
 
-describe("CommentsPanel — focus halo (iter 6 C3)", () => {
-  it("toggles 'is-focused' class on the item when descendant gains/loses focus", () => {
-    setMockComments([
-      makeThread(makeComment("1", "Halo me", { line: 1, matchedLineNumber: 1 })),
-    ]);
-    render(<CommentsPanel filePath={FILE} />);
-
-    const item = document.querySelector(".comment-panel-item") as HTMLElement;
-    expect(item.classList.contains("is-focused")).toBe(false);
-
-    // Focus the item itself (it has tabIndex=0).
-    act(() => {
-      item.focus();
-      fireEvent.focus(item);
-    });
-    expect(item.classList.contains("is-focused")).toBe(true);
-
-    // Blur to outside (no relatedTarget inside the item).
-    act(() => {
-      fireEvent.blur(item, { relatedTarget: document.body });
-    });
-    expect(item.classList.contains("is-focused")).toBe(false);
-  });
-});
