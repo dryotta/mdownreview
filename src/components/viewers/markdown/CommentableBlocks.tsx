@@ -175,10 +175,9 @@ export function MdCommentPopover({
 
   const lineThreads = threadsByLine.get(activeLine) ?? [];
   return (
-    <div className="md-comment-popover" style={{
+    <div className="md-comment-popover md-comment-popover-inline" style={{
       position: "absolute",
       top: position.top,
-      left: 24,
       zIndex: 20,
     }}>
       {lineThreads.length > 0 && (

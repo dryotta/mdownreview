@@ -37,6 +37,10 @@ export function useComments(filePath: string | null): UseCommentsResult {
         if (!isCancelled()) {
           setThreads(result);
           useStore.getState().setLastCommentsReloadedAt(filePath, Date.now());
+          // A4 (iter 7) — share the loaded threads with the workspace
+          // store so cross-tab selectors (e.g. `workspaceHasOtherUnresolved`)
+          // can make precise decisions instead of guessing from tab count.
+          useStore.getState().setThreadsForFile(filePath, result);
         }
       } catch (e) {
         error(`[vm] Failed to load comments for ${filePath}: ${e}`);

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useComments } from "@/lib/vm/use-comments";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
@@ -83,15 +83,25 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
   // root is open (single-file launches).
   const exportWorkspace = root ?? filePath;
   const canExport = exportWorkspace.length > 0;
+  // A3 (iter 7) — race guard. Each click increments the token; only the
+  // most-recent in-flight call is allowed to set `exportStatus`. Without
+  // this, a slow first click that resolves AFTER a fast second click would
+  // overwrite the second click's status with stale chrome.
+  const exportTokenRef = useRef(0);
   const handleExport = useCallback(async () => {
     if (!canExport) return;
+    const token = ++exportTokenRef.current;
     try {
       const markdown = await exportReviewSummary(exportWorkspace);
       await navigator.clipboard.writeText(markdown);
-      setExportStatus("Exported to clipboard");
+      if (token === exportTokenRef.current) {
+        setExportStatus("Exported to clipboard");
+      }
     } catch (e) {
       error(`[CommentsPanel] export failed: ${e}`);
-      setExportStatus("Export failed");
+      if (token === exportTokenRef.current) {
+        setExportStatus("Export failed");
+      }
     }
   }, [exportWorkspace, canExport]);
 

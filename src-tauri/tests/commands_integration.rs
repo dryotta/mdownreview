@@ -961,6 +961,46 @@ mod f0_iter1 {
     }
 
     #[test]
+    fn export_review_summary_single_file_canonicalizes_target_path() {
+        // A5 (iter 7) — `workspace` may differ in representation from
+        // the path the scanner emits (e.g. drive-letter casing on
+        // Windows, presence/absence of UNC prefix, or `.`/`..` segments).
+        // The export filter must canonicalize both sides so the target's
+        // comments still surface.
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = std::fs::canonicalize(dir.path()).unwrap();
+        let target = canonical.join("target.md");
+        std::fs::write(&target, "alpha\n").unwrap();
+        save_sidecar(target.to_str().unwrap(), "target.md", &[make_mrsf_comment("t1")]).unwrap();
+
+        // Build a non-canonical-but-equivalent input path. We use the
+        // tempdir's *original* (non-canonicalized) form joined with the
+        // file name, plus a redundant `.` segment, so the raw string
+        // equality with the scanner-derived (canonical) path will fail —
+        // forcing the canonicalize fallback to do the work.
+        let mangled = dir.path().join(".").join("target.md");
+        let mangled_str = mangled.to_string_lossy().to_string();
+        // Sanity: make sure the test exercises the new code path. If the
+        // mangled string already equals the canonical scanner path, the
+        // raw-equality fast path would mask the canonicalize logic.
+        assert_ne!(
+            mangled_str,
+            target.to_string_lossy(),
+            "test setup must produce a path that differs from the canonical form",
+        );
+
+        let out = export_review_summary_inner(&mangled_str);
+        assert!(
+            out.contains("# Review summary"),
+            "expected a summary heading: {out}"
+        );
+        assert!(
+            out.contains("t1"),
+            "expected target's comment to survive path canonicalization: {out}"
+        );
+    }
+
+    #[test]
     fn set_author_validation_matrix() {
         // Happy path
         let dir = tempfile::tempdir().unwrap();

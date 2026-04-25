@@ -105,7 +105,7 @@ describe("ViewerToolbar", () => {
   describe("Next unresolved (workspace) (iter 6 F8)", () => {
     beforeEach(() => {
       vi.mocked(invoke).mockReset();
-      useStore.setState({ tabs: [], activeTabPath: null, focusedThreadId: null });
+      useStore.setState({ tabs: [], activeTabPath: null, focusedThreadId: null, threadsByFile: {} });
     });
 
     it("renders the button when onCommentOnFile is wired", () => {
@@ -168,6 +168,79 @@ describe("ViewerToolbar", () => {
       fireEvent.click(screen.getByRole("button", { name: /next unresolved/i }));
 
       await waitFor(() => expect(useStore.getState().activeTabPath).toBe("/has.md"));
+    });
+
+    // A4 (iter 7) — precise disabled state: when other tabs' threads are
+    // loaded into `threadsByFile`, the button reflects the *actual* presence
+    // of unresolved threads, not just `tabs.length > 1`.
+    it("is disabled when other tabs are loaded but have NO unresolved threads", () => {
+      useStore.setState({
+        tabs: [
+          { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
+          { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
+        ],
+        activeTabPath: "/a.md",
+        // Other tab loaded — only resolved threads. Heuristic-style code
+        // would leave the button enabled; precise selector must disable.
+        threadsByFile: {
+          "/b.md": [
+            {
+              root: {
+                id: "r1",
+                author: "u",
+                timestamp: "2025-01-01T00:00:00Z",
+                text: "done",
+                resolved: true,
+                line: 1,
+                matchedLineNumber: 1,
+                isOrphaned: false,
+                anchor: { kind: "line", line: 1 },
+              },
+              replies: [],
+            },
+          ],
+        },
+      });
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      expect(
+        screen.getByRole("button", { name: /next unresolved/i }),
+      ).toBeDisabled();
+    });
+
+    it("is enabled when another tab is loaded with at least one unresolved thread", () => {
+      useStore.setState({
+        tabs: [
+          { path: "/a.md", scrollTop: 0, lastAccessedAt: 0 },
+          { path: "/b.md", scrollTop: 0, lastAccessedAt: 0 },
+        ],
+        activeTabPath: "/a.md",
+        threadsByFile: {
+          "/b.md": [
+            {
+              root: {
+                id: "r1",
+                author: "u",
+                timestamp: "2025-01-01T00:00:00Z",
+                text: "todo",
+                resolved: false,
+                line: 1,
+                matchedLineNumber: 1,
+                isOrphaned: false,
+                anchor: { kind: "line", line: 1 },
+              },
+              replies: [],
+            },
+          ],
+        },
+      });
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onCommentOnFile={vi.fn()} />,
+      );
+      expect(
+        screen.getByRole("button", { name: /next unresolved/i }),
+      ).not.toBeDisabled();
     });
   });
 });

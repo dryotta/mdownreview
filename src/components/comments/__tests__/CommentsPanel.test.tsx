@@ -487,5 +487,43 @@ describe("CommentsPanel — Export review summary (iter 6 F2)", () => {
       expect(invoke).toHaveBeenCalledWith("export_review_summary", { workspace: FILE });
     });
   });
+
+  // A3 (iter 7) — token race guard. If a slow first click resolves AFTER
+  // a fast second click, only the second click's status must be visible.
+  it("ignores the first export's resolution when a second click resolves first", async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    vi.mocked(invoke).mockClear();
+
+    let resolveFirst!: (v: string) => void;
+    const firstPromise = new Promise<string>((r) => { resolveFirst = r; });
+    let rejectSecond!: (e: unknown) => void;
+    const secondPromise = new Promise<string>((_r, rej) => { rejectSecond = rej; });
+
+    vi.mocked(invoke)
+      .mockImplementationOnce(() => firstPromise)
+      .mockImplementationOnce(() => secondPromise);
+
+    render(<CommentsPanel filePath={FILE} />);
+    const btn = screen.getByRole("button", { name: /export review summary/i });
+
+    // Fire two clicks back-to-back. Token increments on each.
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+
+    // Resolve SECOND first (with rejection) → status should be "Export failed".
+    rejectSecond(new Error("boom"));
+    expect(await screen.findByText(/export failed/i)).toBeInTheDocument();
+
+    // Now finish the slow FIRST call with success. Without the token guard,
+    // this would flip the status back to "Exported to clipboard". With the
+    // guard, the stale resolution is dropped and "Export failed" persists.
+    resolveFirst("# first");
+    // Flush microtasks.
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(screen.getByText(/export failed/i)).toBeInTheDocument();
+    expect(screen.queryByText(/exported to clipboard/i)).toBeNull();
+  });
 });
 

@@ -2,6 +2,7 @@ import "@/styles/viewer-toolbar.css";
 import type { ReactNode } from "react";
 import { ZoomControl } from "./ZoomControl";
 import { useStore } from "@/store";
+import { workspaceHasOtherUnresolved } from "@/store/comments";
 
 /**
  * L5 — share the same prop shape as `ZoomControl`. Callers spread it directly
@@ -49,11 +50,17 @@ interface Props {
 export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, onCommentOnFile, trailing }: Props) {
   // Iter 6 F8 — workspace-wide "Next unresolved" surfacing. Reads the action
   // and tab count straight from the Zustand store (MVVM rule 9 single-field
-  // selectors). Disabled when the user has only the active tab open, since
-  // the action can never advance to "another file" in that case.
+  // selectors).
+  //
+  // A4 (iter 7) — the disabled state used to be a coarse "any other tab
+  // open?" heuristic. It now consults `workspaceHasOtherUnresolved`, which
+  // checks `threadsByFile` for actually-unresolved threads in other tabs
+  // and falls back to the heuristic only when those tabs haven't been
+  // loaded yet (lazy-load semantics).
   const nextUnresolvedAcrossFiles = useStore((s) => s.nextUnresolvedAcrossFiles);
-  const otherTabCount = useStore((s) => s.tabs.length - (s.activeTabPath ? 1 : 0));
-  const canNextUnresolved = otherTabCount > 0;
+  const canNextUnresolved = useStore((s) =>
+    workspaceHasOtherUnresolved(s, s.activeTabPath),
+  );
 
   if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile) return null;
 

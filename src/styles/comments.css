@@ -287,6 +287,14 @@
   padding: 6px;
 }
 
+/* A1 (iter 7) — full-width inline variant. Replaces the historical `left: 24px`
+ * inline-style hardcode. The popover stretches across its (relatively
+ * positioned) parent column rather than offsetting by a magic pixel value. */
+.md-comment-popover-inline {
+  left: 0;
+  right: 0;
+}
+
 /* Remove nested frame from comment input inside popover */
 .md-comment-popover .comment-input {
   padding: 0;

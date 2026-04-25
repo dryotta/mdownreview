@@ -34,14 +34,35 @@ pub fn export_review_summary_inner(workspace: &str) -> String {
         (workspace_path, None)
     };
 
+    // A5 (iter 7) — canonicalize the single-file target up-front so the
+    // equality check below is robust to case differences (Windows), mixed
+    // path separators, and `.`/`..` segments. Falls back to the raw string
+    // if canonicalization fails (e.g. file doesn't exist on disk).
+    let single_file_canonical: Option<String> = single_file
+        .as_deref()
+        .map(|p| canonicalize_string(p));
+
     let scan_root = root.to_string_lossy().to_string();
     let pairs = crate::core::scanner::find_review_files(&scan_root, 10_000);
     let mut by_path: std::collections::BTreeMap<String, Vec<CommentThread>> =
         std::collections::BTreeMap::new();
     for (_sidecar_path, file_path) in pairs {
-        if let Some(target) = single_file.as_ref() {
-            if &file_path != target {
-                continue;
+        if let Some(target_canonical) = single_file_canonical.as_ref() {
+            // Compare canonical forms of both sides so the filter still
+            // matches when `workspace` and the scanner-derived path differ
+            // only in casing or separator style.
+            let scanned_canonical = canonicalize_string(&file_path);
+            if &scanned_canonical != target_canonical {
+                // Last-resort fallback to raw equality — guards against
+                // platforms/filesystems where canonicalize behaves
+                // unexpectedly (e.g. removed file mid-scan).
+                if let Some(raw_target) = single_file.as_ref() {
+                    if &file_path != raw_target {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
             }
         }
         let sidecar = match crate::core::sidecar::load_sidecar(&file_path) {
@@ -62,4 +83,14 @@ pub fn export_review_summary_inner(workspace: &str) -> String {
         .map(|(k, v)| (k.as_str(), v.as_slice()))
         .collect();
     crate::core::export::export_summary(root, &view)
+}
+
+/// Canonicalize `p` to a stable comparison string. Falls back to the
+/// original input on error (missing file, permission denied) so callers
+/// can still attempt raw-equality matching as a last resort.
+fn canonicalize_string(p: &str) -> String {
+    match std::fs::canonicalize(p) {
+        Ok(canon) => canon.to_string_lossy().to_string(),
+        Err(_) => p.to_string(),
+    }
 }

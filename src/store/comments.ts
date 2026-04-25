@@ -25,6 +25,14 @@ import { error } from "@/logger";
 export interface CommentsSlice {
   focusedThreadId: string | null;
   /**
+   * Per-file thread cache populated by `useComments` when it loads a file's
+   * threads. Used by `workspaceHasOtherUnresolved` to make the toolbar's
+   * "Next unresolved (workspace)" disabled state precise. Lazy: a tab path
+   * with no entry has not been opened/loaded yet — selectors must treat
+   * "absent" as "unknown", not as "no unresolved".
+   */
+  threadsByFile: Record<string, CommentThread[]>;
+  /**
    * VM-registered handler for the focused-thread resolve action. The
    * slice does not call `update_comment` directly — it routes through
    * the VM hook (`useCommentActions.resolveFocusedThread`) registered
@@ -33,6 +41,7 @@ export interface CommentsSlice {
   _resolveFocusedThreadHandler: (() => Promise<void>) | null;
 
   setFocusedThread: (id: string | null) => void;
+  setThreadsForFile: (filePath: string, threads: CommentThread[]) => void;
   setResolveFocusedThreadHandler: (
     fn: (() => Promise<void>) | null,
   ) => void;
@@ -75,9 +84,14 @@ export function createCommentsSlice(
 ): CommentsSlice {
   return {
     focusedThreadId: null,
+    threadsByFile: {},
     _resolveFocusedThreadHandler: null,
 
     setFocusedThread: (id) => set({ focusedThreadId: id }),
+    setThreadsForFile: (filePath, threads) =>
+      set((s) => ({
+        threadsByFile: { ...s.threadsByFile, [filePath]: threads },
+      })),
     setResolveFocusedThreadHandler: (fn) =>
       set({ _resolveFocusedThreadHandler: fn }),
 
@@ -185,4 +199,47 @@ export function createCommentsSlice(
       dispatchScrollToLine(lineOf(first));
     },
   };
+}
+
+/**
+ * A4 (iter 7) — workspace-wide selector for the "Next unresolved" toolbar
+ * button's disabled state.
+ *
+ * Returns `true` iff there is plausibly an unresolved thread in some tab
+ * other than `currentFilePath`. Logic:
+ *
+ *   1. If no other tab is open → `false` (button must be disabled).
+ *   2. If any other tab has loaded threads with at least one unresolved
+ *      → `true` (definitely something to jump to).
+ *   3. Otherwise some other tabs may not have been loaded yet
+ *      (`threadsByFile` is lazy-populated by `useComments`). We fall back
+ *      to the conservative "tabs.length > 1" heuristic and return `true`
+ *      so the user can click and let the action's badge query decide —
+ *      same behaviour as before the precise selector existed.
+ *   4. All other tabs loaded with zero unresolved → `false`.
+ *
+ * Limitation: precision depends on the user having visited the other tabs
+ * (so `useComments` could populate `threadsByFile`). Files never opened
+ * in the current session fall through case (3) and keep the heuristic.
+ */
+export function workspaceHasOtherUnresolved(
+  state: Store,
+  currentFilePath: string | null,
+): boolean {
+  const otherTabs = state.tabs.filter((t) => t.path !== currentFilePath);
+  if (otherTabs.length === 0) return false;
+
+  let allLoaded = true;
+  for (const tab of otherTabs) {
+    const threads = state.threadsByFile[tab.path];
+    if (!threads) {
+      allLoaded = false;
+      continue;
+    }
+    if (threads.some((t) => !t.root.resolved)) return true;
+  }
+  // No loaded other-tab has unresolved. If some are unloaded, fall back
+  // to the heuristic (assume there might be unresolved). If all loaded
+  // and none have unresolved, return false (button disabled).
+  return !allLoaded;
 }
