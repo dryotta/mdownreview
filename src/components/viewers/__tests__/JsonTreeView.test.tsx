@@ -42,7 +42,9 @@ vi.mock("@/lib/tauri-commands", () => ({
 }));
 
 const { addCommentMock, setFocusedThreadMock } = vi.hoisted(() => ({
-  addCommentMock: vi.fn(async () => {}),
+  addCommentMock: vi.fn<(filePath: string, text: string, anchor?: unknown) => Promise<void>>(
+    async () => {},
+  ),
   setFocusedThreadMock: vi.fn(),
 }));
 
@@ -211,6 +213,6 @@ describe("JsonTreeView — Group C iter 7 (commentable paths)", () => {
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     await waitFor(() => expect(addCommentMock).toHaveBeenCalledTimes(1));
     const [, , anchor] = addCommentMock.mock.calls[0];
-    expect(anchor.scalar_text.length).toBe(200);
+    expect((anchor as { scalar_text: string }).scalar_text.length).toBe(200);
   });
 });

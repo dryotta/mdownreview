@@ -3,7 +3,9 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 const { addCommentMock, setFocusedThreadMock } = vi.hoisted(() => ({
-  addCommentMock: vi.fn(async () => {}),
+  addCommentMock: vi.fn<(filePath: string, text: string, anchor?: unknown) => Promise<void>>(
+    async () => {},
+  ),
   setFocusedThreadMock: vi.fn(),
 }));
 
