@@ -342,3 +342,72 @@ fn word_range_promotes_to_v1_1() {
     assert_eq!(mrsf_version_for(&[c]), "1.1");
 }
 
+
+//  Wave 0a: selected_text clamp on the wire ─
+//
+// `truncate_selected_text` clamps to SELECTED_TEXT_MAX_LENGTH (4096 chars).
+// These tests exercise each TryFrom path in `wire.rs` that previously
+// passed `selected_text` through unbounded.
+
+#[test]
+fn try_from_mrsf_comment_repr_line_clamps_selected_text() {
+    let long = "a".repeat(5000);
+    let body = format!(
+        r#"{{"id":"c1","author":"a","timestamp":"t","text":"x","resolved":false,"line":1,"selected_text":"{}"}}"#,
+        long
+    );
+    let c = parse_one(&wrap_comment(&body));
+    match &c.anchor {
+        Anchor::Line { selected_text, .. } => {
+            let s = selected_text.as_ref().expect("selected_text present");
+            assert_eq!(s.chars().count(), 4096, "Line selected_text must clamp to 4096 chars");
+        }
+        _ => panic!("expected Line"),
+    }
+}
+
+#[test]
+fn try_from_mrsf_comment_repr_html_range_clamps_selected_text() {
+    let long = "a".repeat(5000);
+    let body = format!(
+        r#"{{"id":"c1","author":"a","timestamp":"t","text":"x","resolved":false,"anchor_kind":"html_range","html_range":{{"selector_path":"p","start_offset":0,"end_offset":5,"selected_text":"{}"}}}}"#,
+        long
+    );
+    let c = parse_one(&wrap_comment(&body));
+    match &c.anchor {
+        Anchor::HtmlRange(p) => {
+            assert_eq!(
+                p.selected_text.chars().count(),
+                4096,
+                "HtmlRange selected_text must clamp to 4096 chars"
+            );
+        }
+        _ => panic!("expected HtmlRange"),
+    }
+}
+
+#[test]
+fn try_from_anchor_repr_line_clamps_selected_text() {
+    // AnchorRepr::Line lives in `anchor_history` entries (tagged
+    // `anchor_kind` + `anchor_data` payload). Long selected_text on
+    // that path must clamp via the same truncate helper.
+    let long = "a".repeat(5000);
+    let body = format!(
+        r#"{{"id":"c1","author":"a","timestamp":"t","text":"x","resolved":false,"line":1,"anchor_history":[{{"anchor_kind":"line","anchor_data":{{"line":2,"selected_text":"{}"}}}}]}}"#,
+        long
+    );
+    let c = parse_one(&wrap_comment(&body));
+    let history = c.anchor_history.as_ref().expect("anchor_history present");
+    assert_eq!(history.len(), 1);
+    match &history[0] {
+        Anchor::Line { selected_text, .. } => {
+            let s = selected_text.as_ref().expect("selected_text present");
+            assert_eq!(
+                s.chars().count(),
+                4096,
+                "AnchorRepr::Line selected_text must clamp to 4096 chars"
+            );
+        }
+        _ => panic!("expected Line in history"),
+    }
+}
