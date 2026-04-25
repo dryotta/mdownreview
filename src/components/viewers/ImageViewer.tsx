@@ -9,6 +9,7 @@ import { useStore } from "@/store";
 import { deriveAnchor, type Anchor } from "@/types/comments";
 import { CommentInput } from "@/components/comments/CommentInput";
 import { useImageCommentDrag } from "@/hooks/useImageCommentDrag";
+import { useCollisionLayout, type CollisionItem } from "@/hooks/useCollisionLayout";
 import type { CommentThread as CommentThreadType } from "@/lib/tauri-commands";
 import "@/styles/image-viewer.css";
 
@@ -225,6 +226,21 @@ export function ImageViewer({ path }: Props) {
     setMarkers(next);
   }, [imageRectThreads, pan.x, pan.y, zoom, fit, dimensions, dataUrl, layoutTick]);
 
+  // Collision layout: stack 2-3 overlapping markers; collapse ≥4 into +N.
+  const collisionItems = useMemo<CollisionItem[]>(
+    () => markers.map((m) => ({
+      id: m.thread.root.id,
+      rect: { top: m.top, left: m.left, width: m.width, height: m.height },
+    })),
+    [markers],
+  );
+  const layoutGroups = useCollisionLayout(collisionItems);
+  const markersById = useMemo(() => {
+    const map = new Map<string, typeof markers[number]>();
+    for (const m of markers) map.set(m.thread.root.id, m);
+    return map;
+  }, [markers]);
+
   return (
     <div className="image-viewer" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div className="image-viewer-header" style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderBottom: "1px solid var(--color-border, #d0d7de)", fontSize: 13 }}>
@@ -290,10 +306,40 @@ export function ImageViewer({ path }: Props) {
         )}
         {/* Existing image_rect thread markers. Pointer-events: auto on each
             marker so the canvas-level pointer handlers ignore clicks that
-            target a marker (the marker's own onClick handles them). */}
-        {markers.map(({ idx, thread, top, left, width, height }) => {
+            target a marker (the marker's own onClick handles them).
+
+            Markers are routed through useCollisionLayout so that 2-3
+            overlapping markers stack with a small offset and ≥4 collide
+            into a single "+N" cluster badge. */}
+        {layoutGroups.map((group) => {
+          if (group.kind === "cluster") {
+            const { rect: cr, count, ids } = group;
+            return (
+              <button
+                key={`cluster:${ids.join(",")}`}
+                type="button"
+                className="image-viewer-cluster-badge"
+                aria-label={`${count} comments at this location`}
+                data-cluster-count={count}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setFocusedThread(ids[0]); }}
+                style={{ position: "absolute", top: cr.top, left: cr.left, padding: 0 }}
+              >+{count}</button>
+            );
+          }
+          const id = group.kind === "single" ? group.id : group.ids[group.offsetIndex];
+          const marker = markersById.get(id);
+          if (!marker) return null;
+          const { idx, thread, top, left, width, height } = marker;
           const number = idx + 1;
           const isRect = width !== undefined && height !== undefined;
+          const stackOff = group.kind === "stack" ? group.offsetIndex * 6 : 0;
+          const baseStyle = isRect
+            ? { position: "absolute" as const, top, left, width, height, padding: 0 }
+            : { position: "absolute" as const, top: top - 12, left: left - 12, width: 24, height: 24, padding: 0 };
+          const style = stackOff
+            ? { ...baseStyle, transform: `translate(${stackOff}px, ${stackOff}px)` }
+            : baseStyle;
           return (
             <button
               key={thread.root.id}
@@ -301,14 +347,10 @@ export function ImageViewer({ path }: Props) {
               className={"image-viewer-marker" + (isRect ? " is-rect" : " is-pin")}
               aria-label={`Open comment ${number}`}
               data-thread-id={thread.root.id}
+              data-stack-index={group.kind === "stack" ? group.offsetIndex : undefined}
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                setFocusedThread(thread.root.id);
-              }}
-              style={isRect
-                ? { position: "absolute", top, left, width, height, padding: 0 }
-                : { position: "absolute", top: top - 12, left: left - 12, width: 24, height: 24, padding: 0 }}
+              onClick={(e) => { e.stopPropagation(); setFocusedThread(thread.root.id); }}
+              style={style}
             >
               <span className="image-viewer-marker-label">{number}</span>
             </button>

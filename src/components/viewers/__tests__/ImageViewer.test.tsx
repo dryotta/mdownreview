@@ -301,3 +301,78 @@ describe("ImageViewer (iter 8 A) — image_rect comments", () => {
     expect(container.querySelector(".image-viewer-draw-preview")).toBeNull();
   });
 });
+
+/**
+ * Iter 9 Group B — useCollisionLayout integration: stack 2-3 overlapping
+ * markers; collapse ≥4 into a +N cluster badge.
+ */
+describe("ImageViewer (iter 9 B) — collision clustering", () => {
+  function makeRectThread(id: string, x_pct: number, y_pct: number) {
+    return {
+      root: {
+        id,
+        author: "Tester",
+        timestamp: "2024-01-01T00:00:00Z",
+        text: "t",
+        resolved: false,
+        line: 0,
+        anchor_kind: "image_rect",
+        image_rect: { x_pct, y_pct },
+      },
+      replies: [],
+    };
+  }
+
+  it("4 pin markers near same coord → renders one +4 cluster, no individual pins", async () => {
+    useCommentsMock.mockReturnValue({
+      threads: [
+        makeRectThread("t1", 0.50, 0.50),
+        makeRectThread("t2", 0.505, 0.505),
+        makeRectThread("t3", 0.51, 0.51),
+        makeRectThread("t4", 0.515, 0.515),
+      ],
+      comments: [],
+      loading: false,
+      reload: () => {},
+    });
+    const { container } = render(<ImageViewer path="/photos/test.png" />);
+    const img = (await screen.findByRole("img")) as HTMLImageElement;
+    setupImageGeometry(container, img);
+    act(() => { window.dispatchEvent(new Event("resize")); });
+
+    const badge = await waitFor(() => {
+      const b = container.querySelector(".image-viewer-cluster-badge");
+      if (!b) throw new Error("cluster badge not yet rendered");
+      return b as HTMLElement;
+    });
+    expect(badge.textContent).toBe("+4");
+    expect(badge.getAttribute("data-cluster-count")).toBe("4");
+    // No individual marker buttons.
+    expect(container.querySelectorAll('[data-thread-id]').length).toBe(0);
+  });
+
+  it("2 overlapping pins → both render with data-stack-index 0 and 1", async () => {
+    useCommentsMock.mockReturnValue({
+      threads: [
+        makeRectThread("a", 0.50, 0.50),
+        makeRectThread("b", 0.505, 0.505),
+      ],
+      comments: [],
+      loading: false,
+      reload: () => {},
+    });
+    const { container } = render(<ImageViewer path="/photos/test.png" />);
+    const img = (await screen.findByRole("img")) as HTMLImageElement;
+    setupImageGeometry(container, img);
+    act(() => { window.dispatchEvent(new Event("resize")); });
+
+    await waitFor(() => {
+      const pins = container.querySelectorAll('[data-stack-index]');
+      if (pins.length !== 2) throw new Error(`expected 2 stacked pins, got ${pins.length}`);
+    });
+    expect(container.querySelector('[data-thread-id="a"][data-stack-index="0"]')).not.toBeNull();
+    expect(container.querySelector('[data-thread-id="b"][data-stack-index="1"]')).not.toBeNull();
+    // No cluster badge.
+    expect(container.querySelector(".image-viewer-cluster-badge")).toBeNull();
+  });
+});

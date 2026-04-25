@@ -47,6 +47,22 @@
   border-radius: 0 0 4px 0;
 }
 
+/* +N cluster badge (≥4 overlapping markers collapse into one of these). */
+.image-viewer-cluster-badge {
+  background: rgba(9, 105, 218, 0.95);
+  color: #fff;
+  border: 2px solid #fff;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 6px;
+  z-index: 6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
 /* Drawing-feedback rectangle while dragging in comment mode. */
 .image-viewer-draw-preview {
   background: rgba(9, 105, 218, 0.12);
