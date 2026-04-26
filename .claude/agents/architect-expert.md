@@ -40,7 +40,7 @@ For each file: dispatch one subagent given ONLY that file + the diff/code. Subag
 - File system operations that go through multiple React state hops → simplify via a single Rust command
 For each found violation, recommend a specific Rust command signature and the TypeScript wrapper shape.
 
-**Zero bug policy.** If you encounter a definite bug during architectural analysis, report it as a Priority 1 item with a failing test outline — do not defer to the bug-hunter.
+**Zero bug policy.** If you encounter a definite bug during architectural analysis, report it as a Priority 1 item with a failing test outline — do not defer to the bug-expert.
 
 ## Architecture layers to evaluate
 
@@ -64,6 +64,15 @@ For each found violation, recommend a specific Rust command signature and the Ty
   comments/          ← annotation system
   TabBar/, FolderTree/
 ```
+
+## Scope boundary (what this agent does NOT cover)
+
+Sharpened to keep the review panel non-overlapping:
+
+- **API/idiom correctness** of React 19 hooks and Tauri v2 commands → `react-tauri-expert`. This agent owns the *contract* (Rust↔TS signature sync, layer obeyed, error types defined); `react-tauri-expert` owns the *idiom* (correct hook used, correct plugin call shape).
+- **Vulnerabilities** (path traversal, XSS, capability scope) → `security-expert`.
+- **Mass / bytes / dependency justification** → `lean-expert`.
+- **Confirmed defects + regression tests** → `bug-expert` (architect surfaces structural bugs but defers the proof to bug-expert when the defect is class-bound rather than structural).
 
 ## Key architectural questions
 

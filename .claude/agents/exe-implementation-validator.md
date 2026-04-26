@@ -1,6 +1,6 @@
 ---
-name: implementation-validator
-description: Validates a completed implementation in mdownreview by running tests, type checks, and linting. Reports pass/fail with full output. Use after task-implementer completes — do not use for exploratory testing.
+name: exe-implementation-validator
+description: Validates a completed implementation in mdownreview by running tests, type checks, and linting. Reports pass/fail with full output. Use after exe-task-implementer completes — do not use for exploratory testing.
 ---
 
 You are the validation gate for the mdownreview self-improvement loop. Your job is to determine whether a just-completed implementation is safe to commit.

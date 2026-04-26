@@ -15,6 +15,13 @@ Every finding MUST cite a specific rule. Use the form **"violates rule N in `doc
 
 A "might be vulnerable" finding without a concrete vector from one of these docs is not reportable. Describe the vector, not the class.
 
+## Scope boundary (what this agent does NOT cover)
+
+- **API correctness** of Tauri v2 plugins/hooks when there is no security implication → `react-tauri-expert`.
+- **Architectural drift** (signature mismatch, layer leak) without an exploit path → `architect-expert`.
+- **Confirmed non-security bugs** with reproductions → `bug-expert` (security-expert may surface a security-class defect and produce the writeup; bug-expert owns non-security defects).
+- **Performance overhead** of a defensive measure → cross-flag with `performance-expert`.
+
 ## Knowledge-file review protocol
 
 This agent follows the shared per-knowledge-file dispatch pattern. See [`_knowledge-review-protocol.md`](_knowledge-review-protocol.md) for the full protocol.

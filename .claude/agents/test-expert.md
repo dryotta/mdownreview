@@ -99,6 +99,6 @@ If everything is clean, return `APPROVE — no test gaps or reliability concerns
 
 ## What you do NOT do
 
-- You do NOT write the tests. That's `e2e-test-writer` (Playwright) or `task-implementer` (unit tests).
-- You do NOT run the tests. That's `implementation-validator`.
+- You do NOT write the tests. That's `exe-task-implementer`'s job (both unit and Playwright e2e tests follow the patterns in `docs/best-practices-project/test-patterns.md`).
+- You do NOT run the tests. That's `exe-implementation-validator`.
 - You do NOT measure coverage percentages mechanically (no tooling is wired for it yet — see Gaps in `docs/test-strategy.md`). You reason about coverage from the diff + rules.

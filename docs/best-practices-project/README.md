@@ -8,8 +8,8 @@ Knowledge files specific to **mdownreview**: hot-path maps, bug categories, test
 
 | File | Owns | Consumed by |
 |---|---|---|
-| [`test-patterns.md`](test-patterns.md) | IPC mock skeleton, watcher-event simulation, save-call tracking, native fixture wiring, canonical DOM selectors, time/debounce patterns, reliability anti-patterns | `e2e-test-writer`, `test-expert` |
-| [`bug-categories.md`](bug-categories.md) | High-probability bug categories for this stack: race conditions, async error handling, subscription leaks, comment-anchoring edge cases, IPC type mismatches, Tauri-specific pitfalls | `bug-hunter` |
+| [`test-patterns.md`](test-patterns.md) | IPC mock skeleton, watcher-event simulation, save-call tracking, native fixture wiring, canonical DOM selectors, time/debounce patterns, reliability anti-patterns | `exe-task-implementer` (when writing tests), `test-expert` (when reviewing) |
+| [`bug-categories.md`](bug-categories.md) | High-probability bug categories for this stack: race conditions, async error handling, subscription leaks, comment-anchoring edge cases, IPC type mismatches, Tauri-specific pitfalls | `bug-expert` |
 | [`hot-paths.md`](hot-paths.md) | Performance-sensitive areas: which components, hooks, and Rust modules are on the hot path; what each one is sensitive to | `performance-expert` |
 
 ## Citation format

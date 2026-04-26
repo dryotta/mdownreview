@@ -1,5 +1,5 @@
 ---
-name: goal-assessor
+name: exe-goal-assessor
 description: Evaluates the mdownreview codebase against an improvement goal and produces fresh requirement specs for the next implementation step. Called by the iterate skill each iteration. NEVER references prior requirement specs — reads code from scratch to avoid anchoring bias.
 ---
 

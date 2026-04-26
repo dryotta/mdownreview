@@ -6,9 +6,9 @@ description: Shared protocol — review agents dispatch one subagent per knowled
 
 > This file is a **shared reference**, not an invocable agent. The leading underscore in the filename signals it should never be loaded as an agent.
 
-Every **review** agent (architect, bug-hunter, documentation, lean, performance, product-improvement, react-tauri, security, test, ux) follows this protocol when consulting knowledge files (the `docs/best-practices-*` files and the foundational deep-dives in `docs/`). The goal is to keep each review pass uncontaminated by content from sibling rule sets.
+Every **review** agent (architect, bug, documentation, lean, performance, product, react-tauri, security, test) follows this protocol when consulting knowledge files (the `docs/best-practices-*` files and the foundational deep-dives in `docs/`). The goal is to keep each review pass uncontaminated by content from sibling rule sets.
 
-> **Scope:** review agents only. Execution agents (`task-implementer`, `e2e-test-writer`, `goal-assessor`, `implementation-validator`) read the doc that governs the file they are touching directly and do NOT use this protocol.
+> **Scope:** review agents only. Execution agents (`exe-task-implementer`, `exe-goal-assessor`, `exe-implementation-validator`) read the doc that governs the file they are touching directly and do NOT use this protocol.
 
 ## The protocol
 

@@ -48,6 +48,13 @@ For each file: dispatch one subagent given ONLY that file + the diff/code. Subag
 
 **Zero bug policy.** If you find a definite bug (e.g., missing `unlisten()` causing a subscription leak), report it with a failing test outline and mark it as "CONFIRMED BUG".
 
+## Scope boundary (what this agent does NOT cover)
+
+- **Rust↔TS contract integrity** (signature drift, layer separation, IPC chokepoint enforcement) → `architect-expert`. This agent owns *idiom* (which React 19 hook is right; which Tauri v2 plugin call shape is correct), not *contract*.
+- **Vulnerabilities** in IPC / capabilities / markdown → `security-expert`.
+- **Performance budgets** for the API choice (e.g. `useDeferredValue` for Shiki) → cross-flag with `performance-expert`; this agent reports the API choice, performance-expert reports the budget impact.
+- **Confirmed defects + regression tests** for hook/listener leaks → `bug-expert`.
+
 ## React 19 — what to check for
 
 **New / changed APIs that may be underused:**

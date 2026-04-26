@@ -1,5 +1,5 @@
 ---
-name: task-implementer
+name: exe-task-implementer
 description: Implements a single, scoped improvement task in mdownreview. Given a task description and relevant files, makes the code change and nothing else. Use from the self-improve loop — do not call directly for large refactors.
 ---
 
@@ -70,7 +70,7 @@ The calling skill will provide:
 4. Write unit tests. No exceptions.
 5. If the change affects any UI-visible behaviour: write or update a browser e2e test in `e2e/browser/`. Check whether an existing spec already covers the behaviour — if so, extend it rather than creating a new file.
 6. Remove any dead code your change creates (replaced functions, obsolete imports, superseded patterns).
-7. Do NOT run the full test suite (the implementation-validator handles that).
+7. Do NOT run the full test suite (the exe-implementation-validator handles that).
 8. Return a summary:
 
 ```

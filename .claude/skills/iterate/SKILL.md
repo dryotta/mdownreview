@@ -153,7 +153,7 @@ Fold the answers back into the goal so every downstream agent sees them:
 - Goal mode: append `"  (clarifications: <answer summary>)"` to `GOAL_FOR_ASSESSOR`.
 - Issue mode: append a new `### Operator clarifications (captured <ISO date>)` section to the end of `SPEC_MARKDOWN` containing the Q&A verbatim.
 
-Once you advance to step 0f, no further user interaction is permitted for the remainder of the run. Every `task-implementer`, expert, and forward-fix operates on the goal/spec as it stands after this step.
+Once you advance to step 0f, no further user interaction is permitted for the remainder of the run. Every `exe-task-implementer`, expert, and forward-fix operates on the goal/spec as it stands after this step.
 
 ### 0f. Compute branch, PR title, and goal-for-assessor
 
@@ -272,7 +272,7 @@ While a rebase is in progress (`.git/rebase-merge` or `.git/rebase-apply` exists
    ```
    `commits_replayed += 1`, `attempt = 0`. Continue loop.
 
-3. **Auto-resolve in parallel** — one `task-implementer` per conflicted file, dispatched in ONE message:
+3. **Auto-resolve in parallel** — one `exe-task-implementer` per conflicted file, dispatched in ONE message:
    ```
    Resolve merge conflicts in <FILE> from rebasing the iterate branch onto main.
 
@@ -339,13 +339,13 @@ npx tsc --noEmit
 (cd src-tauri && cargo check)
 ```
 
-If either fails, spawn `task-implementer` with the compile/type errors and instruction to fix as a follow-up commit. Commit + push. Only proceed to Step 2 once the tree compiles.
+If either fails, spawn `exe-task-implementer` with the compile/type errors and instruction to fix as a follow-up commit. Commit + push. Only proceed to Step 2 once the tree compiles.
 
 ---
 
 ### Step 2 — Assess
 
-Spawn `goal-assessor` in ONE call. Inputs:
+Spawn `exe-goal-assessor` in ONE call. Inputs:
 
 ```
 Goal: <GOAL_FOR_ASSESSOR>
@@ -401,7 +401,7 @@ Scan `NEXT_REQUIREMENTS` text for domain triggers. For each triggered expert, sp
 | any source-code change (virtually always) | `test-expert` |
 | change that might affect a `docs/features/` area OR modifies `AGENTS.md`/`BUILDING.md`/`docs/**/*.md` | `documentation-expert` |
 | new dependency in `package.json`/`Cargo.toml`, large new module, significant net-new LOC, or file that might breach a budget in `docs/architecture.md` | `lean-expert` |
-| `IS_BUG = true` AND `iteration == 1` (run ONCE per loop) | `bug-hunter` (root-cause + test-gap analysis — see Step 3a) |
+| `IS_BUG = true` AND `iteration == 1` (run ONCE per loop) | `bug-expert` (root-cause + test-gap analysis — see Step 3a) |
 
 Each expert prompt:
 
@@ -428,7 +428,7 @@ Collect any guidance into a short `ADVISORY_SUMMARY`. If no expert was spawned, 
 
 This runs once per loop, in the **same parallel message** as the other Step 3 experts. It exists because rule 3 of the charter (Zero Bug Policy) requires every fix to ship with the regression test that *would have caught the bug* — which means we have to know why the bug was introduced and which test was missing before we plan the fix.
 
-Spawn `bug-hunter`:
+Spawn `bug-expert`:
 
 ```
 Root-cause this bug for mdownreview's iterate loop. We are about to plan iteration 1; your output gates the plan.
@@ -462,7 +462,7 @@ Cite docs/X.md rule numbers wherever applicable.
 
 Capture the output as `BUG_RCA`. Append the regression-test plan and fix direction to `ADVISORY_SUMMARY` so Step 4 (Plan) builds on it.
 
-If `bug-hunter` reports it cannot reproduce or cannot localise the root cause, do NOT halt — log a `DEGRADED — bug-mode RCA inconclusive: <summary>` note to the state file (and to the iteration-1 retrospective) and continue. The plan must still include a regression test that captures whatever observable failure mode we *can* express; speculative fixes without a regression test are forbidden.
+If `bug-expert` reports it cannot reproduce or cannot localise the root cause, do NOT halt — log a `DEGRADED — bug-mode RCA inconclusive: <summary>` note to the state file (and to the iteration-1 retrospective) and continue. The plan must still include a regression test that captures whatever observable failure mode we *can* express; speculative fixes without a regression test are forbidden.
 
 ---
 
@@ -487,7 +487,7 @@ Next requirements (assessor):
 Expert guidance:
 <ADVISORY_SUMMARY>
 <If IS_BUG and iteration == 1, also include:>
-Bug root-cause analysis (from bug-hunter — load-bearing for this plan):
+Bug root-cause analysis (from bug-expert — load-bearing for this plan):
 <BUG_RCA>
 The first plan group MUST add the regression test specified in section 5 of BUG_RCA, and the fix in this plan MUST follow the canonical shape from section 6. Do not propose any fix that does not have a corresponding test in section 5 — that is a Zero Bug Policy violation.
 <End.>
@@ -526,9 +526,9 @@ Incorporate mitigations into a revised `PLAN` and continue. If the architect jud
 
 ### Step 5 — Implement (parallel by plan group)
 
-For each **independent group** in `PLAN`, spawn ONE `task-implementer`. Send ALL independent groups in one parallel message. Dependent groups wait for their dependency waves.
+For each **independent group** in `PLAN`, spawn ONE `exe-task-implementer`. Send ALL independent groups in one parallel message. Dependent groups wait for their dependency waves.
 
-Each `task-implementer` prompt:
+Each `exe-task-implementer` prompt:
 
 ```
 Implement this group of changes for mdownreview.
@@ -575,7 +575,7 @@ Both include `Co-authored-by: Claude Opus 4.7 <noreply@anthropic.com>`.
 
 Spawn both in ONE message:
 
-**Agent A** — `implementation-validator`:
+**Agent A** — `exe-implementation-validator`:
 ```
 Run the full local test suite in order:
 1. npm run lint
@@ -602,7 +602,7 @@ Wait for both.
 
 Repeat until both PASS or 5 attempts exhausted:
 
-1. Spawn `task-implementer`:
+1. Spawn `exe-task-implementer`:
    ```
    Fix the following failures. Do not revert — make a forward fix.
    Local failures: <full local output>
@@ -633,14 +633,13 @@ git diff $ITER_BASE_SHA HEAD --stat
 git diff $ITER_BASE_SHA HEAD
 ```
 
-Spawn the **9-expert panel** in ONE parallel message:
+Spawn the **8-expert panel** in ONE parallel message:
 
-- `product-improvement-expert`
+- `product-expert`
 - `performance-expert`
 - `architect-expert`
 - `react-tauri-expert`
-- `ux-expert`
-- `bug-hunter`
+- `bug-expert`
 - `test-expert`
 - `documentation-expert`
 - `lean-expert`
@@ -687,7 +686,7 @@ Return: APPROVE or BLOCK with file:line evidence AND "violates rule N in docs/X.
 
 Wait for ALL experts.
 
-**If any BLOCK**: spawn `task-implementer` with the union of blocking issues:
+**If any BLOCK**: spawn `exe-task-implementer` with the union of blocking issues:
 
 ```
 Fix the following blocking review issues. Do not revert — forward fix.
@@ -778,7 +777,7 @@ Context (load-bearing — your output will be committed to the PR and synthesise
 - Forward-fix attempts in Step 6: <K>
 - Forward-fix attempts in Step 7 expert review: <0 or 1>
 - Expert blocks (cite expert name + rule number): <list or "none">
-- Goal-assessor confidence delta: <prev% → curr%>
+- exe-goal-assessor confidence delta: <prev% → curr%>
 - Iteration log entry from .claude/iterate-state.md: <verbatim>
 - BUG_RCA (if applicable): <verbatim>
 
@@ -893,7 +892,7 @@ Release-gate jobs are slower than CI — use 60 min timeout (not 30) and 60 s po
 
 On FAIL:
 
-1. Spawn `task-implementer`:
+1. Spawn `exe-task-implementer`:
    ```
    Fix the following Release Gate failures. Do not revert — forward fix.
    Failed checks: <names>
@@ -1239,7 +1238,7 @@ Every halt above runs **Phase 2** (retrospective synthesis → maybe a follow-up
 The skill **logs `DEGRADED` and continues** on:
 - Validate/CI fails after 5 forward-fix attempts (Step 6)
 - Expert review blocks after one forward-fix attempt (Step 7)
-- `IS_BUG` and `bug-hunter` reports inconclusive root cause (Step 3a)
+- `IS_BUG` and `bug-expert` reports inconclusive root cause (Step 3a)
 
 The skill **logs `SKIPPED` and continues** on:
 - `risk=high` plan is rejected by `architect-expert` as fundamentally unsound (Step 4)
