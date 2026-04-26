@@ -6,15 +6,6 @@ For the **rules** every agent must follow, read [`AGENTS.md`](AGENTS.md). This d
 
 ---
 
-## TL;DR
-
-- Issues are the only durable backlog.
-- **`/iterate-loop`** drains the backlog continuously; **`/iterate-one-issue`** does one issue or one freeform goal.
-- **`/test-exploratory-loop`** dogfoods the live app and files new bugs as issues; the iterate loop then fixes them.
-- Every autonomous run writes a retrospective and, if it found a process gap, files a `iterate-improvement` issue — closing the loop.
-
----
-
 ## Three flows
 
 ### Flow 1 — New feature (human-driven)
