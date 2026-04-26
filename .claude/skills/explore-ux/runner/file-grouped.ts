@@ -1,13 +1,21 @@
 // One-shot: file grouped GitHub issues from an existing findings.jsonl.
 // Usage:
-//   tsx file-grouped.ts <runDir> [--dry-run]
+//   tsx file-grouped.ts <runDir> [--dry-run] [--update <issue#> ...]
 //
+// `--update <n>` re-renders the body of an existing GitHub issue using
+// the current findings + uploaded screenshot URLs (no new issues filed).
 // Reuses the same grouping + body rendering as the REPL's file_issues act.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { fileGroupedIssue, type GroupedFinding } from "./issues";
+import {
+  fileGroupedIssue, renderGroupedIssueBody, topSeverity,
+  type GroupedFinding,
+} from "./issues";
 import { loadStore, saveStore } from "./dedupe";
+import { uploadEvidence, resolveScreenshotUrl } from "./evidence";
 
 interface FindingRecord {
   ts: string; step: number; heuristic_id: string;
@@ -33,9 +41,14 @@ function inferGroup(heuristicId: string): string {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
-  const runDir = args.find((a) => !a.startsWith("--"));
+  const updateIdx = args.indexOf("--update");
+  const updateMode = updateIdx >= 0;
+  const updateIssueNumbers: number[] = updateMode
+    ? args.slice(updateIdx + 1).filter((a) => /^\d+$/.test(a)).map(Number)
+    : [];
+  const runDir = args.find((a) => !a.startsWith("--") && !/^\d+$/.test(a));
   if (!runDir) {
-    console.error("Usage: tsx file-grouped.ts <runDir> [--dry-run]");
+    console.error("Usage: tsx file-grouped.ts <runDir> [--dry-run] [--update <issue#> ...]");
     process.exit(2);
   }
   const findingsPath = join(runDir, "findings.jsonl");
@@ -47,22 +60,56 @@ async function main(): Promise<void> {
     .split("\n").filter(Boolean).map((l) => JSON.parse(l));
   const newRecs = recs.filter((r) => r.status === "NEW");
 
+  const runId = runDir.replace(/.*[\\/]/, "");
+
+  // Upload screenshots first (skipped in dry-run).
+  let upload: Awaited<ReturnType<typeof uploadEvidence>> | null = null;
+  if (!dryRun) {
+    console.log(`Uploading screenshots to evidence branch...`);
+    upload = await uploadEvidence(runDir, runId);
+    console.log(`  ${upload.count} png(s) → ${upload.baseUrl}/${upload.remoteDir}\n`);
+  }
+
   const buckets = new Map<string, GroupedFinding[]>();
   for (const r of newRecs) {
     const groupKey = r.group ?? inferGroup(r.heuristic_id);
     const arr = buckets.get(groupKey) ?? [];
     arr.push({
       heuristic_id: r.heuristic_id, severity: r.severity, anchor: r.anchor,
-      detail: r.detail, screenshot: r.screenshot, step: r.step,
-      reproductions: 1, firstSeen: r.ts,
+      detail: r.detail,
+      screenshot: resolveScreenshotUrl(r.screenshot, upload),
+      step: r.step, reproductions: 1, firstSeen: r.ts,
     });
     buckets.set(groupKey, arr);
   }
 
   const SEV_RANK = { P1: 0, P2: 1, P3: 2 } as const;
-  const runId = runDir.replace(/.*[\\/]/, "");
   const storePath = ".claude/explore-ux/known-findings.json";
   const store = loadStore(storePath);
+
+  if (updateMode) {
+    console.log(`Updating ${updateIssueNumbers.length} existing issue(s) with re-rendered bodies:\n`);
+    const groups = Array.from(buckets.entries());
+    if (groups.length !== updateIssueNumbers.length) {
+      console.warn(
+        `WARNING: ${groups.length} group(s) but ${updateIssueNumbers.length} issue number(s). ` +
+        `Pairing in order.`);
+    }
+    for (let i = 0; i < Math.min(groups.length, updateIssueNumbers.length); i++) {
+      const [group, findings] = groups[i];
+      findings.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+      const issueNum = updateIssueNumbers[i];
+      const body = renderGroupedIssueBody({ group, runId, findings });
+      const sev = topSeverity(findings);
+      try {
+        await ghEditBody(issueNum, body);
+        console.log(`  [${sev}] #${issueNum} ← ${group} (${findings.length} finding(s)) — body updated`);
+      } catch (e) {
+        console.error(`  [FAIL] #${issueNum}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return;
+  }
 
   console.log(`\n${dryRun ? "[DRY-RUN] " : ""}Filing ${buckets.size} grouped issue(s) from ${newRecs.length} NEW finding(s):\n`);
 
@@ -89,6 +136,20 @@ async function main(): Promise<void> {
     saveStore(storePath, store);
     console.log("\nDedupe store updated.");
   }
+}
+
+async function ghEditBody(issueNumber: number, body: string): Promise<void> {
+  const tmp = mkdtempSync(join(tmpdir(), "ux-edit-"));
+  const bodyPath = join(tmp, "body.md");
+  writeFileSync(bodyPath, body);
+  await new Promise<void>((resolve, reject) => {
+    const p = spawn("gh", ["issue", "edit", String(issueNumber), "--body-file", bodyPath],
+      { stdio: ["ignore", "pipe", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => (err += d));
+    p.once("exit", (code) =>
+      code === 0 ? resolve() : reject(new Error(err.trim() || `gh exit ${code}`)));
+  });
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

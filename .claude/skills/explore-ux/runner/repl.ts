@@ -18,6 +18,7 @@ import { attachDrains, capture } from "./capture";
 import { runRules } from "./analyze";
 import { loadStore, mergeFinding, saveStore, type Finding } from "./dedupe";
 import { fileGroupedIssue, type GroupedFinding } from "./issues";
+import { uploadEvidence, resolveScreenshotUrl } from "./evidence";
 import {
   parseCommand, ok, err, type Command, type Response,
   type Interactive, type Landmark, type Observation, type StopResult,
@@ -342,6 +343,16 @@ function inferGroup(heuristicId: string): string {
 async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssuesResult> {
   const recs = readFindingsRecords(s.runDir);
   const newRecs = recs.filter((r) => r.status === "NEW");
+  // Upload screenshots first so GitHub can render them inline.
+  let upload: Awaited<ReturnType<typeof uploadEvidence>> | null = null;
+  if (!dryRun && newRecs.length > 0) {
+    try {
+      upload = await uploadEvidence(s.runDir, s.runId);
+      process.stderr.write(`[repl] uploaded ${upload.count} screenshot(s) to ${upload.baseUrl}/${upload.remoteDir}\n`);
+    } catch (e) {
+      process.stderr.write(`[repl] evidence upload failed: ${e instanceof Error ? e.message : e}\n`);
+    }
+  }
   // Group by explicit `group` (agent-supplied) → fallback to inferred group.
   const buckets = new Map<string, GroupedFinding[]>();
   const SEV_RANK = { P1: 0, P2: 1, P3: 2 } as const;
@@ -353,7 +364,7 @@ async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssue
       severity: r.severity,
       anchor: r.anchor,
       detail: r.detail,
-      screenshot: r.screenshot,
+      screenshot: resolveScreenshotUrl(r.screenshot, upload),
       step: r.step,
       reproductions: 1,
       firstSeen: r.ts,
