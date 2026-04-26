@@ -117,8 +117,58 @@ test.describe("HtmlPreviewView link interception (safe mode)", () => {
       const calls = await captureCalls(page);
       expect(calls.openUrl).toHaveLength(0);
       // No new tab should have opened beyond the existing page.html tab.
-      const tabCount = await page.locator(".tab-bar .tab").count();
+      const tabCount = await page.locator(".tab-bar .tab", { hasText: "page.html" }).count();
       expect(tabCount).toBeLessThanOrEqual(1);
     },
   );
+});
+
+test.describe("HtmlPreviewView link interception (scripts mode, bridge)", () => {
+  async function enableScripts(page: Page): Promise<void> {
+    await page.getByRole("button", { name: /enable scripts/i }).click();
+    // Sandbox flips to allow-scripts; iframe re-renders.
+    await expect(page.locator("iframe[title='HTML preview']")).toHaveAttribute(
+      "sandbox",
+      "allow-scripts",
+    );
+  }
+
+  test("scripts mode: external https link routes via openExternalUrl", async ({ page }) => {
+    await setupHtmlPreviewMocks(page, `<a id="ext" href="https://example.com">e</a>`);
+    await openPreview(page);
+    await enableScripts(page);
+
+    const iframe = page.frameLocator("iframe[title='HTML preview']");
+    await iframe.locator("#ext").click();
+
+    await expect.poll(async () => (await captureCalls(page)).openUrl).toContain(
+      "https://example.com",
+    );
+  });
+
+  test("scripts mode: workspace link calls openFile", async ({ page }) => {
+    await setupHtmlPreviewMocks(page, `<a id="local" href="./foo.md">l</a>`);
+    await openPreview(page);
+    await enableScripts(page);
+
+    const iframe = page.frameLocator("iframe[title='HTML preview']");
+    await iframe.locator("#local").click();
+
+    await expect(page.locator(".tab-bar .tab", { hasText: "foo.md" })).toBeVisible();
+    const calls = await captureCalls(page);
+    expect(calls.openUrl).toHaveLength(0);
+  });
+
+  test("scripts mode: javascript: link triggers neither openExternalUrl nor openFile", async ({ page }) => {
+    await setupHtmlPreviewMocks(page, `<a id="js" href="javascript:alert(1)">j</a>`);
+    await openPreview(page);
+    await enableScripts(page);
+
+    const iframe = page.frameLocator("iframe[title='HTML preview']");
+    await iframe.locator("#js").click();
+    await page.waitForTimeout(100);
+
+    const calls = await captureCalls(page);
+    expect(calls.openUrl).toHaveLength(0);
+  });
 });

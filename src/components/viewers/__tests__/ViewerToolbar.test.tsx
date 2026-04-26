@@ -237,4 +237,22 @@ describe("ViewerToolbar", () => {
       ).not.toBeDisabled();
     });
   });
+
+  // ── #65 G3 — Print button ────────────────────────────────────────────────
+  describe("onPrint (#65 G3)", () => {
+    it("does NOT render the Print button when onPrint is omitted", () => {
+      render(<ViewerToolbar activeView="source" onViewChange={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: /^print$/i })).toBeNull();
+    });
+
+    it("renders the Print button when onPrint is provided and invokes the callback on click", () => {
+      const onPrint = vi.fn();
+      render(
+        <ViewerToolbar activeView="source" onViewChange={vi.fn()} onPrint={onPrint} />,
+      );
+      const btn = screen.getByRole("button", { name: /^print$/i });
+      fireEvent.click(btn);
+      expect(onPrint).toHaveBeenCalledTimes(1);
+    });
+  });
 });

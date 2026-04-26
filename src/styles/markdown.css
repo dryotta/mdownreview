@@ -168,7 +168,57 @@
   margin: 24px 0;
 }
 
+/* G2 — hover-revealed copy button for fenced code blocks. The host div is a
+ * positioning context placed OUTSIDE the shiki <pre> so the button's
+ * background does not collide with shiki's themed surface. */
+.code-block-host { position: relative; }
+.code-block-host .code-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  font-size: 12px;
+  padding: 2px 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.code-block-host:hover .code-copy-btn,
+.code-block-host:focus-within .code-copy-btn {
+  opacity: 1;
+}
+.code-block-host .code-copy-btn:focus {
+  opacity: 1;
+  outline: 2px solid var(--color-accent);
+}
+
 /* Task list */
 .markdown-body input[type="checkbox"] {
   margin-right: 6px;
+}
+
+/* G3 (#65)  Shiki dual-theme. The highlighter emits inline styles using
+   --shiki-light / --shiki-dark CSS variables; the rules below pick the
+   active set off the document data-theme so a single render covers both
+   light and dark. The @media print branch forces the light variant so
+   printed code blocks render in black-on-white regardless of the on-screen
+   theme; background is dropped so colored ink does not flood the page. */
+.shiki, .shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+[data-theme="dark"] .shiki, [data-theme="dark"] .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+@media print {
+  .shiki, .shiki span,
+  [data-theme="dark"] .shiki, [data-theme="dark"] .shiki span {
+    color: var(--shiki-light) !important;
+    background-color: transparent !important;
+  }
 }

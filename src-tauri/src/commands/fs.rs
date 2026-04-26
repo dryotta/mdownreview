@@ -142,6 +142,10 @@ pub fn read_binary_file(path: String) -> Result<String, String> {
 #[derive(serde::Serialize, Debug)]
 pub struct FileStat {
     pub size_bytes: u64,
+    /// Last-modified time as epoch milliseconds. `None` if the platform/FS
+    /// does not expose mtime or it is before the UNIX epoch. Field name
+    /// mirrors the MRSF `*_ms` epoch convention.
+    pub mtime_ms: Option<i64>,
 }
 
 #[tauri::command]
@@ -167,8 +171,14 @@ pub fn stat_file_inner(
         tracing::error!("[rust] command error: {}", e);
         e.to_string()
     })?;
+    let mtime_ms = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as i64);
     Ok(FileStat {
         size_bytes: meta.len(),
+        mtime_ms,
     })
 }
 

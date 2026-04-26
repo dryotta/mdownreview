@@ -102,4 +102,22 @@ describe("BinaryPlaceholder — Section E", () => {
     fireEvent.click(screen.getByRole("button", { name: /comment on this file/i }));
     expect(screen.getByPlaceholderText(/comment on this file/i)).toBeInTheDocument();
   });
+
+  it("renders mtime row when mtime prop is present", () => {
+    const mtime = Date.UTC(2024, 0, 15, 12, 0, 0);
+    render(<BinaryPlaceholder path="/ws/sample.bin" size={100} mtime={mtime} />);
+    const row = screen.getByTestId("binary-mtime");
+    expect(row).toBeInTheDocument();
+    expect(row.textContent).toBe(new Date(mtime).toLocaleString());
+  });
+
+  it("omits mtime row when mtime undefined", () => {
+    render(<BinaryPlaceholder path="/ws/sample.bin" size={100} />);
+    expect(screen.queryByTestId("binary-mtime")).toBeNull();
+  });
+
+  it("omits mtime row when mtime null", () => {
+    render(<BinaryPlaceholder path="/ws/sample.bin" size={100} mtime={null} />);
+    expect(screen.queryByTestId("binary-mtime")).toBeNull();
+  });
 });

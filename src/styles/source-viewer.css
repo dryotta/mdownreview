@@ -42,6 +42,10 @@
   font-size: 12px;
 }
 
+.binary-mtime {
+  font-size: 12px;
+}
+
 /* ── SourceView line-based layout ────────────────────────────────── */
 
 .source-view {

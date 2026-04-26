@@ -56,6 +56,8 @@ export const readBinaryFile = (path: string): Promise<string> =>
 
 export interface FileStat {
   size_bytes: number;
+  /** Last-modified time as epoch milliseconds; `null`/missing when the FS does not expose it. */
+  mtime_ms?: number | null;
 }
 
 export const statFile = (path: string): Promise<FileStat> =>

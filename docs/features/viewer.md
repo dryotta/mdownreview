@@ -22,6 +22,8 @@ A single Shiki highlighter instance is shared across viewers — see the Shiki s
 
 Markdown and HTML preview render inside a centred `.reading-width` column whose width is clamped to `--reading-width` (default 720 px, persisted in `uiSlice.readingWidth`, clamped to `[400, 1600]` by `setReadingWidth`). The viewer toolbar (Source / Visual / Wrap) is sticky-positioned at the top of its scroll container so it stays in view while the body scrolls. Two `ReadingWidthHandle` instances (left and right edges) let the user drag either side of the column outward to grow width symmetrically — a centred-column resize, not an asymmetric drag. The handle writes `--reading-width` to the container during pointermove (no React re-renders mid-drag) and only commits to the Zustand store on pointerup, so the resize stays at 60 fps regardless of body size.
 
+- Print rendered markdown via toolbar Print button (Ctrl+P also works natively); hides app chrome via `@media print` stylesheet (`src/styles/print.css`) so only the rendered body prints, full width, black on white. Shiki code blocks render in dual-theme mode (`themes: { light, dark }` + CSS variables) so the print branch can flip them to the light variant without re-highlighting (#65 G3).
+
 ```mermaid
 flowchart TD
     File["selected file<br/>(path + watcher status)"] --> Router{"ViewerRouter"}

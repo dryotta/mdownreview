@@ -10,6 +10,8 @@ export interface FileContent {
   content?: string;
   /** Raw byte size of the file on disk; defined only when `status === "ready"`. */
   sizeBytes?: number;
+  /** Last-modified time as epoch ms; populated for binary/too_large placeholders when stat succeeds. */
+  mtimeMs?: number | null;
   /** Logical line count (per Rust `str::lines`); defined only when `status === "ready"`. */
   lineCount?: number;
   error?: string;
@@ -86,7 +88,7 @@ export function useFileContent(path: string): FileContent {
           setState({ status });
           statFile(path)
             .then((s) => {
-              if (!cancelled) setState({ status, sizeBytes: s.size_bytes });
+              if (!cancelled) setState({ status, sizeBytes: s.size_bytes, mtimeMs: s.mtime_ms ?? null });
             })
             .catch(() => {
               /* keep placeholder without size on stat failure */

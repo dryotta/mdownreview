@@ -39,19 +39,33 @@ export interface BridgeClick {
   clientY: number;
 }
 
-export type BridgeMsg = BridgeSelection | BridgeClick;
+export interface BridgeLink {
+  source: "mdr-html-bridge";
+  nonce: string;
+  type: "link";
+  href: string;
+}
+
+export type BridgeMsg = BridgeSelection | BridgeClick | BridgeLink;
 
 export function isBridgeMsg(d: unknown): d is BridgeMsg {
   if (!d || typeof d !== "object") return false;
   const o = d as Record<string, unknown>;
-  return o.source === "mdr-html-bridge" &&
-    typeof o.nonce === "string" &&
-    (o.type === "selection" || o.type === "click");
+  if (o.source !== "mdr-html-bridge" || typeof o.nonce !== "string") return false;
+  if (o.type === "selection" || o.type === "click") return true;
+  if (o.type === "link" && typeof o.href === "string") return true;
+  return false;
 }
 
 export interface BuildBridgeOptions {
   /** Per-mount nonce. The host validates incoming messages against this. */
   nonce: string;
+  /**
+   * If true, the bridge installs the comment-mode listeners (mouseup +
+   * element-click). The link interceptor is ALWAYS installed (any time the
+   * bridge is loaded), so scripts-on previews still get link routing.
+   */
+  commentMode?: boolean;
 }
 
 /**
@@ -83,9 +97,13 @@ export function buildBridgeSrcDoc(
   html: string,
   opts: BuildBridgeOptions,
 ): string {
+  // Always tag with link-bridge dataset; tag with comment-mode only when asked.
+  const attrs =
+    'data-mdr-link-bridge="true"' +
+    (opts.commentMode ? ' data-mdr-comment-mode="true"' : "");
   const tagged = /<body\b/i.test(html)
-    ? html.replace(/<body\b([^>]*)>/i, '<body$1 data-mdr-comment-mode="true">')
-    : `<body data-mdr-comment-mode="true">${html}</body>`;
+    ? html.replace(/<body\b([^>]*)>/i, `<body$1 ${attrs}>`)
+    : `<body ${attrs}>${html}</body>`;
   const script = buildBridgeScript(opts);
   const m = tagged.match(/<\/body\s*>/i);
   if (!m || m.index === undefined) return tagged + script;
@@ -93,6 +111,13 @@ export function buildBridgeSrcDoc(
 }
 
 function buildBridgeScript(opts: BuildBridgeOptions): string {
+  // Defense-in-depth: nonce must match the format we produce
+  // (`crypto.randomUUID`). Reject anything else BEFORE we splice it into a
+  // <script> body — a malformed nonce is the only way the JSON-stringified
+  // value below could escape its string literal.
+  if (!/^[0-9a-f-]{36}$/i.test(opts.nonce)) {
+    throw new Error("buildBridgeScript: invalid nonce");
+  }
   const nonce = JSON.stringify(opts.nonce);
   return `<script>(function(){
   var NONCE=${nonce};
@@ -115,14 +140,15 @@ function buildBridgeScript(opts: BuildBridgeOptions): string {
     }
     return parts.join(" > ");
   }
-  function active(){return document.body&&document.body.dataset&&document.body.dataset.mdrCommentMode==="true";}
+  function commentActive(){return document.body&&document.body.dataset&&document.body.dataset.mdrCommentMode==="true";}
+  function linkActive(){return document.body&&document.body.dataset&&document.body.dataset.mdrLinkBridge==="true";}
   function isFormTarget(t){
     if(!t||!t.tagName) return false;
     var tag=t.tagName.toLowerCase();
     return tag==="input"||tag==="textarea"||tag==="button"||tag==="select"||tag==="option";
   }
   document.addEventListener("mouseup",function(e){
-    if(!active()) return;
+    if(!commentActive()) return;
     if(isFormTarget(e.target)) return;
     var sel=window.getSelection&&window.getSelection();
     if(!sel) return;
@@ -140,8 +166,25 @@ function buildBridgeScript(opts: BuildBridgeOptions): string {
       clientX:e.clientX,clientY:e.clientY
     },"*");
   },true);
+  // Link interceptor — runs whenever the bridge is loaded, independent of
+  // comment mode. Posts the raw href to the parent which routes it through
+  // the shared routeLinkClick chokepoint. NOTE: when comment mode is ALSO
+  // active the comment-click listener also calls preventDefault on anchors;
+  // both calling preventDefault is a no-op; only THIS listener posts a link
+  // message so there is no double-fire.
   document.addEventListener("click",function(e){
-    if(!active()) return;
+    if(!linkActive()) return;
+    var t=e.target;
+    var a=t&&t.closest&&t.closest("a");
+    if(!a) return;
+    var href=a.getAttribute("href");
+    if(href===null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    parent.postMessage({source:"mdr-html-bridge",nonce:NONCE,type:"link",href:href},"*");
+  },true);
+  document.addEventListener("click",function(e){
+    if(!commentActive()) return;
     if(isFormTarget(e.target)) return;
     var t=e.target;
     if(!t||t.nodeType!==1) return;

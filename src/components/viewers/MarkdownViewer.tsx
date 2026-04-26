@@ -37,7 +37,10 @@ import { useThreadsByLine } from "@/hooks/useThreadsByLine";
 import { useScrollToLine } from "@/hooks/useScrollToLine";
 import { useSelectionToolbar } from "@/hooks/useSelectionToolbar";
 import { useViewerContextMenu } from "@/hooks/useViewerContextMenu";
+import { useFindInPage } from "@/hooks/useFindInPage";
+import { FindInPageBar } from "@/components/FindInPageBar";
 import "@/styles/markdown.css";
+import "@/styles/find-in-page.css";
 
 interface Props {
   content: string;
@@ -255,6 +258,31 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
   // F6 — right-click context menu. Markdown nodes carry `data-source-line`
   // (1-indexed). Selection-toolbar priming so "Comment on selection" routes
   // through the same code path as the mouseup-driven flow.
+  // #65 G1 — Ctrl+F find-in-page. Body content drives the change signature
+  // so highlights re-walk after edits/reloads. The bar's `.find-bar` class
+  // is referenced by the print stylesheet to hide it on print.
+  const find = useFindInPage(bodyRef, body);
+  const openFindBar = find.openBar;
+
+  useEffect(() => {
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key !== "f" && e.key !== "F") return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      // Don't hijack when the user is typing in a textarea/input that
+      // is NOT the find-bar's own input (e.g. an open comment editor).
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const inFindBar = !!target.closest(".find-bar");
+        if (!inFindBar && (tag === "TEXTAREA" || tag === "INPUT")) return;
+      }
+      e.preventDefault();
+      openFindBar();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [openFindBar]);
+
   const { ctxMenu, handleContextMenu, handleContextAction, closeContextMenu } = useViewerContextMenu({
     filePath,
     resolveLine: (target) => {
@@ -269,6 +297,16 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
 
   return (
     <div className="markdown-viewer" data-zoom={zoom} style={{ fontSize: `${zoom * 100}%` }}>
+      <FindInPageBar
+        open={find.open}
+        query={find.query}
+        matches={find.matches}
+        current={find.current}
+        onChange={find.setQuery}
+        onNext={find.next}
+        onPrev={find.prev}
+        onClose={find.close}
+      />
       <div
         className="reading-width"
         ref={readingContainerRef}

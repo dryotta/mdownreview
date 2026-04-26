@@ -1,0 +1,90 @@
+/*
+ * Print stylesheet (#65 Group C — G3).
+ *
+ * window.print() in mdownreview should produce a clean printout of the
+ * rendered markdown body only — sidebar, comments panel, top toolbar,
+ * viewer toolbar, status bar, and other app chrome are hidden. The reading
+ * column expands to full width and is forced to a black-on-white palette so
+ * dark-theme readers do not waste ink on a dark background.
+ *
+ * Class names below were verified against the live JSX (App.tsx and the
+ * concrete viewer/panel components). Do NOT add selectors that match no
+ * element — the stylesheet ships only with rules that hide real surfaces.
+ */
+@media print {
+  /* Force the light palette regardless of the current data-theme attribute.
+     The Shiki rule in markdown.css also flips highlighted code to its light
+     variant via CSS variables when @media print matches. */
+  :root,
+  [data-theme="light"],
+  [data-theme="dark"] {
+    color-scheme: light;
+    --color-bg: #ffffff;
+    --color-text: #000000;
+    --color-surface: #ffffff;
+    --color-border: #cccccc;
+    --color-muted: #444444;
+    --color-code-bg: #f5f5f5;
+    --color-blockquote-border: #cccccc;
+    --color-toolbar: #ffffff;
+    --color-toolbar-border: #cccccc;
+  }
+
+  /* App chrome — verified selectors only.
+     - .toolbar             top app toolbar (App.tsx)
+     - .viewer-toolbar      per-viewer toolbar (ViewerToolbar.tsx)
+     - .folder-tree,
+       .folder-pane-wrapper sidebar tree + its layout wrapper (App.tsx,
+                            FolderTree.tsx)
+     - .tab-bar,
+       .tab-bar-wrapper     tab strip + wrapper (TabBar.tsx)
+     - .comments-panel      review comments side panel (CommentsPanel.tsx)
+     - .status-bar          bottom status bar (StatusBar.tsx)
+     - .reading-width-handle   drag handle on the reading column edges
+     - .drag-handle         sidebar resize handle (App.tsx)
+     - .selection-toolbar   text-selection comment popover
+     - .search-bar          per-viewer find bar (SourceView/MarkdownViewer)
+     - .code-copy-btn       hover-revealed copy button on fenced code blocks
+     - .html-preview-banner sandbox warning banner above HtmlPreviewView
+     - .move-anchor-banner  iter-banner at the top of App.tsx in move mode
+  */
+  .toolbar,
+  .viewer-toolbar,
+  .folder-tree,
+  .folder-pane-wrapper,
+  .tab-bar,
+  .tab-bar-wrapper,
+  .comments-panel,
+  .status-bar,
+  .reading-width-handle,
+  .drag-handle,
+  .selection-toolbar,
+  .search-bar,
+  .code-copy-btn,
+  .html-preview-banner,
+  .move-anchor-banner {
+    display: none !important;
+  }
+
+  /* Maximise the reading area so the markdown body uses the full page width
+     instead of being centred in the on-screen reading column. */
+  .markdown-body,
+  .reading-width,
+  .viewer-scroll-region {
+    max-width: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Page-break hints for typographic surfaces. */
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; }
+  pre, table, blockquote, img { break-inside: avoid; }
+
+  /* Belt-and-braces: even if a CSS variable above is missed, the body
+     itself is forced to black-on-white so the printed page never inherits
+     a dark background. */
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
