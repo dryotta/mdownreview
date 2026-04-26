@@ -11,7 +11,7 @@ For the **rules** every agent must follow, read [`AGENTS.md`](AGENTS.md). This d
 ### Flow 1 — New feature (human-driven)
 
 ```
-You file an issue   →   /groom-issues #N   →   /iterate-one-issue N
+You file an issue   →   /groom-issues #N   →   /iterate-one-issue #N
                                                    │
                                        branch + tests + PR + retro
 ```
@@ -26,7 +26,7 @@ File the issue manually or use prompt:
 /groom-issues #142
 ```
 ```
-/iterate-one-issue 142
+/iterate-one-issue #142
 ```
 
 ### Flow 2 — Self-improvement via dogfood (fully autonomous)
@@ -51,8 +51,10 @@ Terminal A (fix loop):
 
 Terminal B (explore loop, Windows-only):
 ```
-/test-exploratory-loop --iterations 100
+/test-exploratory-loop
 ```
+
+(Defaults to 50 iterations; pass `--iterations N` to override.)
 
 This is the intended steady-state for the project.
 
@@ -66,6 +68,20 @@ When you have a freeform goal that doesn't decompose into known issues, hand it 
 ```
 
 The skill assesses, plans, implements, runs gates, opens PR, retros. No issue required.
+
+---
+
+## PR merge policy
+
+**Skills never merge.** `iterate-one-issue` ends by flipping the PR out of draft (`gh pr ready`) once the release gate passes — the PR is left **"ready for review"** for a human (or follow-up prompt) to merge. `iterate-loop` releases the issue claim and moves on; merged or not, merging is out of scope for the autonomous loops.
+
+To merge after a successful run, prompt explicitly, e.g.:
+
+```
+> the PR from /iterate-one-issue #142 is green — squash-merge it and delete the branch
+```
+
+This default keeps a human in the loop for the only irreversible step (mutating `main`) while letting everything up to that point run autonomously.
 
 ---
 
@@ -163,7 +179,7 @@ If the new skill is **fully autonomous**, wire up [`.claude/shared/retrospective
 
 ## Anti-patterns
 
-- "Look at this and make it better" — too vague. Use a scenario prompt or file an issue and run `/iterate-one-issue <N>`.
+- "Look at this and make it better" — too vague. Use a scenario prompt or file an issue and run `/iterate-one-issue #N`.
 - Editing `main` directly — feature branch + PR is mandatory.
 - Calling reviewer agents one-by-one — skills dispatch them in parallel.
 - Skipping `/run-build-test` before a PR — CI catches it, but local catch is faster.
