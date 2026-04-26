@@ -70,7 +70,7 @@ export async function fileIssue(
   const tmp = mkdtempSync(join(tmpdir(), "ux-issue-"));
   const bodyPath = join(tmp, "body.md");
   writeFileSync(bodyPath, body);
-  const labels = ["explore-ux", "needs-grooming", `severity-${i.severity.toLowerCase()}`];
+  const labels = ["explore-ux", `severity-${i.severity.toLowerCase()}`];
   const isUx = i.heuristic_id.startsWith("NIELSEN-") || i.heuristic_id.startsWith("AP-")
     || i.heuristic_id.startsWith("WCAG-");
   labels.push(isUx ? "ux" : "bug");
@@ -166,7 +166,7 @@ export async function fileGroupedIssue(
   const tmp = mkdtempSync(join(tmpdir(), "ux-issue-"));
   const bodyPath = join(tmp, "body.md");
   writeFileSync(bodyPath, body);
-  const labels = ["explore-ux", "needs-grooming", `severity-${sev.toLowerCase()}`];
+  const labels = ["explore-ux", `severity-${sev.toLowerCase()}`];
   const isUx = heuristics.every((h) =>
     h.startsWith("NIELSEN-") || h.startsWith("AP-") || h.startsWith("WCAG-"));
   labels.push(isUx ? "ux" : "bug");
