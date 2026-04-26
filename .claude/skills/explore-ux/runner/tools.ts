@@ -79,7 +79,7 @@ export type FiledGroup = {
   title: string;
   severity: "P1" | "P2" | "P3";
   findingCount: number;
-  status: "filed" | "dry-run" | "skipped-existing";
+  status: "filed" | "dry-run" | "skipped-existing" | "reproduced";
   issue?: number;
   url?: string;
   reason?: string;

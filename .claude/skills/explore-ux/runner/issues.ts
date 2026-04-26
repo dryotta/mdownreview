@@ -112,6 +112,8 @@ export function renderGroupedIssueBody(g: GroupedIssueInput): string {
   const sevList = Array.from(new Set(g.findings.map((f) => f.severity)))
     .sort((a, b) => SEV_RANK[a] - SEV_RANK[b]);
   const lines: string[] = [
+    `<!-- explore-ux:group=${g.group} -->`,
+    ``,
     `## Summary`,
     `${g.findings.length} related finding(s) surfaced by explore-ux run \`${g.runId}\`.`,
     `Severity mix: ${sevList.join(", ")}.`,
@@ -151,8 +153,8 @@ export function topSeverity(findings: GroupedFinding[]): "P1" | "P2" | "P3" {
 
 export async function fileGroupedIssue(
   g: GroupedIssueInput,
-  opts: { dryRun: boolean; gh?: GhExec },
-): Promise<{ status: "dry-run" | "filed"; issue?: number; url?: string; title: string; severity: "P1" | "P2" | "P3" }> {
+  opts: { dryRun: boolean; gh?: GhExec; existingIssue?: number },
+): Promise<{ status: "dry-run" | "filed" | "reproduced"; issue?: number; url?: string; title: string; severity: "P1" | "P2" | "P3" }> {
   const sev = topSeverity(g.findings);
   const heuristics = Array.from(new Set(g.findings.map((f) => f.heuristic_id)));
   const heuristicSnippet = heuristics.length <= 3
@@ -160,8 +162,29 @@ export async function fileGroupedIssue(
     : `${heuristics.slice(0, 3).join(", ")} (+${heuristics.length - 3} more)`;
   const title =
     `[explore-ux] ${humaniseGroup(g.group)} — ${g.findings.length} finding(s) (${heuristicSnippet})`;
-  if (opts.dryRun) return { status: "dry-run", title, severity: sev };
+  if (opts.dryRun) {
+    return {
+      status: opts.existingIssue !== undefined ? "reproduced" : "dry-run",
+      issue: opts.existingIssue,
+      title,
+      severity: sev,
+    };
+  }
   const gh = opts.gh ?? realGh;
+
+  // If an open issue already covers this group, comment on it instead of
+  // filing a duplicate.
+  if (opts.existingIssue !== undefined) {
+    const lines = [
+      `Reproduced in run \`${g.runId}\`.`,
+      ``,
+      `${g.findings.length} finding(s), top severity ${sev}:`,
+      ...g.findings.map((f) => `- \`${f.heuristic_id}\` (${f.severity}) — ${f.detail}`),
+    ];
+    await gh(["issue", "comment", String(opts.existingIssue), "--body", lines.join("\n")]);
+    return { status: "reproduced", issue: opts.existingIssue, title, severity: sev };
+  }
+
   const body = renderGroupedIssueBody(g);
   const tmp = mkdtempSync(join(tmpdir(), "ux-issue-"));
   const bodyPath = join(tmp, "body.md");
@@ -179,4 +202,57 @@ export async function fileGroupedIssue(
   const out = await gh(args);
   const m = /\/issues\/(\d+)/.exec(out);
   return { status: "filed", issue: m ? +m[1] : undefined, url: out.trim(), title, severity: sev };
+}
+
+/**
+ * Open explore-ux-labelled issues that already exist on the remote. Used by
+ * the filing step to avoid creating duplicates of groups still being worked.
+ */
+export interface OpenIssueRef {
+  number: number;
+  group: string;
+  title: string;
+}
+
+export async function listOpenExploreUxIssues(gh: GhExec = realGh): Promise<OpenIssueRef[]> {
+  const out = await gh([
+    "issue", "list",
+    "--state", "open",
+    "--label", "explore-ux",
+    "--limit", "200",
+    "--json", "number,title,body",
+  ]);
+  let arr: { number: number; title: string; body: string }[];
+  try {
+    arr = JSON.parse(out);
+  } catch {
+    return [];
+  }
+  const refs: OpenIssueRef[] = [];
+  for (const i of arr) {
+    // Prefer the explicit group marker.
+    const m = /<!--\s*explore-ux:group=([a-z0-9_-]+)\s*-->/i.exec(i.body ?? "");
+    if (m) {
+      refs.push({ number: i.number, title: i.title, group: m[1].toLowerCase() });
+      continue;
+    }
+    // Fallback for legacy issues filed before the marker was added: parse
+    // the humanised group name out of the title prefix.
+    const t = /^\[explore-ux\]\s+([^—\-]+?)\s+[—-]/.exec(i.title);
+    if (t) {
+      const slug = t[1].trim().toLowerCase().replace(/\s+/g, "-");
+      refs.push({ number: i.number, title: i.title, group: slug });
+    }
+  }
+  return refs;
+}
+
+export function indexOpenIssuesByGroup(refs: OpenIssueRef[]): Map<string, number> {
+  // If multiple open issues share a group, pick the lowest number (oldest).
+  const map = new Map<string, number>();
+  for (const r of refs) {
+    const cur = map.get(r.group);
+    if (cur === undefined || r.number < cur) map.set(r.group, r.number);
+  }
+  return map;
 }

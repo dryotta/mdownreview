@@ -17,7 +17,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { attachDrains, capture } from "./capture";
 import { runRules } from "./analyze";
 import { loadStore, mergeFinding, saveStore, type Finding } from "./dedupe";
-import { fileGroupedIssue, type GroupedFinding } from "./issues";
+import { fileGroupedIssue, listOpenExploreUxIssues, indexOpenIssuesByGroup, type GroupedFinding } from "./issues";
 import { uploadEvidence, resolveScreenshotUrl } from "./evidence";
 import {
   parseCommand, ok, err, type Command, type Response,
@@ -353,6 +353,20 @@ async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssue
       process.stderr.write(`[repl] evidence upload failed: ${e instanceof Error ? e.message : e}\n`);
     }
   }
+  // Look up open explore-ux issues so we can reuse them instead of filing
+  // duplicates. Failures are non-fatal — fall back to fresh-file behaviour.
+  let openByGroup = new Map<string, number>();
+  if (newRecs.length > 0) {
+    try {
+      const refs = await listOpenExploreUxIssues();
+      openByGroup = indexOpenIssuesByGroup(refs);
+      if (refs.length > 0) {
+        process.stderr.write(`[repl] ${refs.length} open explore-ux issue(s); ${openByGroup.size} group(s) covered\n`);
+      }
+    } catch (e) {
+      process.stderr.write(`[repl] open-issue lookup failed: ${e instanceof Error ? e.message : e}\n`);
+    }
+  }
   // Group by explicit `group` (agent-supplied) → fallback to inferred group.
   const buckets = new Map<string, GroupedFinding[]>();
   const SEV_RANK = { P1: 0, P2: 1, P3: 2 } as const;
@@ -379,7 +393,7 @@ async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssue
     try {
       const filed = await fileGroupedIssue(
         { group, runId: s.runId, findings },
-        { dryRun },
+        { dryRun, existingIssue: openByGroup.get(group) },
       );
       groups.push({
         group,
@@ -390,8 +404,8 @@ async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssue
         issue: filed.issue,
         url: filed.url,
       });
-      if (filed.status === "filed") {
-        filedCount += 1;
+      if (filed.status === "filed" || filed.status === "reproduced") {
+        if (filed.status === "filed") filedCount += 1;
         // Stamp the issue number onto every finding in the group so future
         // runs that REPRODUCE one of them can comment on the existing issue.
         if (filed.issue !== undefined) {

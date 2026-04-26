@@ -11,7 +11,8 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
 import {
-  fileGroupedIssue, renderGroupedIssueBody, topSeverity,
+  fileGroupedIssue, listOpenExploreUxIssues, indexOpenIssuesByGroup,
+  renderGroupedIssueBody, topSeverity,
   type GroupedFinding,
 } from "./issues";
 import { loadStore, saveStore } from "./dedupe";
@@ -113,13 +114,28 @@ async function main(): Promise<void> {
 
   console.log(`\n${dryRun ? "[DRY-RUN] " : ""}Filing ${buckets.size} grouped issue(s) from ${newRecs.length} NEW finding(s):\n`);
 
+  // Look up open explore-ux issues so we re-use them rather than re-file.
+  let openByGroup = new Map<string, number>();
+  try {
+    const refs = await listOpenExploreUxIssues();
+    openByGroup = indexOpenIssuesByGroup(refs);
+    if (refs.length > 0) {
+      console.log(`  ${refs.length} open explore-ux issue(s); ${openByGroup.size} group(s) already covered.\n`);
+    }
+  } catch (e) {
+    console.warn(`  open-issue lookup failed: ${e instanceof Error ? e.message : e}\n`);
+  }
+
   for (const [group, findings] of buckets) {
     findings.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
     try {
-      const r = await fileGroupedIssue({ group, runId, findings }, { dryRun });
+      const r = await fileGroupedIssue(
+        { group, runId, findings },
+        { dryRun, existingIssue: openByGroup.get(group) },
+      );
       console.log(`  [${r.severity}] ${r.title}`);
       console.log(`         status=${r.status}${r.issue ? `, issue=#${r.issue}` : ""}${r.url ? `, url=${r.url}` : ""}`);
-      if (r.status === "filed" && r.issue !== undefined) {
+      if ((r.status === "filed" || r.status === "reproduced") && r.issue !== undefined) {
         for (const rec of newRecs) {
           const groupKey = rec.group ?? inferGroup(rec.heuristic_id);
           if (groupKey !== group) continue;

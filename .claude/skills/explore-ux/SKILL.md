@@ -89,9 +89,18 @@ Two findings belong in the same group if a single PR would naturally fix both.
 
 ## Filing issues
 
-After you have finished recording, send `{"act":"file_issues","dryRun":false}` (use `dryRun:true` first to preview titles). The REPL groups all NEW findings, calls `gh issue create` once per group, and stamps the resulting issue numbers into the dedupe store so future runs can comment on the same issue when a finding REPRODUCES.
+After you have finished recording, send `{"act":"file_issues","dryRun":false}` (use `dryRun:true` first to preview titles). The REPL:
 
-If the user did NOT explicitly approve filing, run `{"act":"file_issues","dryRun":true}` first and report the grouped titles back for confirmation.
+1. Uploads all new screenshots to the orphan `explore-ux-evidence` branch so GitHub can render them inline.
+2. **Lists open `explore-ux`-labelled issues on the repo and matches each by group tag** (hidden `<!-- explore-ux:group=<g> -->` marker, with title-prefix fallback for legacy issues).
+3. For each group:
+   - If an open issue already covers the group → posts a `Reproduced in run <id>` comment listing the new findings; status is `reproduced`. **No duplicate issue is created.**
+   - Otherwise → calls `gh issue create` once for the group; status is `filed`.
+4. Stamps the resulting issue number into the dedupe store so future runs that REPRODUCE one of the findings comment on the same issue.
+
+`groups[].status` in the response is one of `filed | reproduced | dry-run | skipped-existing`.
+
+If the user did NOT explicitly approve filing, run `{"act":"file_issues","dryRun":true}` first and report the grouped titles back for confirmation. In dry-run, groups already covered by an open issue are reported as `reproduced` (with the issue number) so the agent can summarise "filing 2 new + reproducing 1 existing" before approving.
 
 When you stop, send `{"act":"stop"}`. Read the response, view `reportPath`, and report findings to the user.
 
