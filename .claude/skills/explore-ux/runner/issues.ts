@@ -79,16 +79,10 @@ export async function fileIssue(
     "--title", `[explore-ux] ${i.heuristic_id}: ${i.reproSteps[i.reproSteps.length - 1] ?? "issue"}`,
     "--body-file", bodyPath,
     ...labels.flatMap((l) => ["--label", l]),
-    "--json", "number,html_url",
   ];
   const out = await gh(args);
-  try {
-    const parsed = JSON.parse(out);
-    return { status: "filed", issue: parsed.number, url: parsed.html_url };
-  } catch {
-    const m = /\/issues\/(\d+)/.exec(out);
-    return { status: "filed", issue: m ? +m[1] : undefined, url: out.trim() };
-  }
+  const m = /\/issues\/(\d+)/.exec(out);
+  return { status: "filed", issue: m ? +m[1] : undefined, url: out.trim() };
 }
 
 export interface GroupedFinding {
@@ -181,14 +175,8 @@ export async function fileGroupedIssue(
     "--title", title,
     "--body-file", bodyPath,
     ...labels.flatMap((l) => ["--label", l]),
-    "--json", "number,html_url",
   ];
   const out = await gh(args);
-  try {
-    const parsed = JSON.parse(out);
-    return { status: "filed", issue: parsed.number, url: parsed.html_url, title, severity: sev };
-  } catch {
-    const m = /\/issues\/(\d+)/.exec(out);
-    return { status: "filed", issue: m ? +m[1] : undefined, url: out.trim(), title, severity: sev };
-  }
+  const m = /\/issues\/(\d+)/.exec(out);
+  return { status: "filed", issue: m ? +m[1] : undefined, url: out.trim(), title, severity: sev };
 }

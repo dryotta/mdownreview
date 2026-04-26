@@ -41,9 +41,7 @@ describe("fileIssue", () => {
   });
 
   it("file mode invokes gh issue create with labels and body file", async () => {
-    const gh = vi.fn(async (args: string[]) => {
-      return JSON.stringify({ number: 142, html_url: "https://github.com/x/y/issues/142" });
-    });
+    const gh = vi.fn(async () => "https://github.com/x/y/issues/142\n");
     const r = await fileIssue(INPUT, { dryRun: false, gh });
     expect(gh).toHaveBeenCalled();
     const args = gh.mock.calls[0][0] as string[];
@@ -52,6 +50,7 @@ describe("fileIssue", () => {
     expect(args).toContain("--label");
     expect(args).toContain("explore-ux");
     expect(args).toContain("severity-p1");
+    expect(args).not.toContain("--json");
     expect(r).toMatchObject({ status: "filed", issue: 142 });
   });
 });
@@ -106,14 +105,14 @@ describe("fileGroupedIssue", () => {
   });
 
   it("file mode emits one gh call with severity label of the worst finding", async () => {
-    const gh = vi.fn(async () =>
-      JSON.stringify({ number: 200, html_url: "https://github.com/x/y/issues/200" }));
+    const gh = vi.fn(async () => "https://github.com/x/y/issues/200\n");
     const r = await fileGroupedIssue(INPUT, { dryRun: false, gh });
     expect(gh).toHaveBeenCalledTimes(1);
     const args = gh.mock.calls[0][0] as string[];
     expect(args).toContain("severity-p1");
     expect(args).toContain("explore-ux");
     expect(args).toContain("bug");
+    expect(args).not.toContain("--json");
     expect(r).toMatchObject({ status: "filed", issue: 200, severity: "P1" });
   });
 
