@@ -69,9 +69,8 @@
   border-radius: 4px;
   font-size: 0.875em;
   font-family: "SFMono-Regular", Consolas, monospace;
-  /* #91 — wrap long unbreakable inline tokens (e.g. backticked paths) so they do not push the page sideways. Fenced `pre code` is reset below. */
+  /* #91 — wrap long unbreakable inline tokens (e.g. backticked paths) so they do not push the page sideways. `anywhere` (vs. `break-word`) also contributes to min-content sizing so flex/table cells can shrink past their longest token. Fenced `pre code` is reset below. */
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 .markdown-body pre {
@@ -96,7 +95,6 @@
 .markdown-body pre,
 .markdown-body pre code {
   overflow-wrap: normal;
-  word-break: normal;
   white-space: pre;
 }
 
