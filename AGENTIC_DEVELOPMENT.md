@@ -29,7 +29,7 @@ File the issue manually or use prompt:
 /iterate-one-issue #142
 ```
 
-### Flow 2 — Self-improvement via dogfood (fully autonomous)
+### Flow 2 — Self-improvement via agentic dogfood (fully autonomous)
 
 ```
 /test-exploratory-loop      ──files──►   GitHub issues (explore-ux, bug)
