@@ -50,9 +50,14 @@ test("author identity round-trips through set_author / get_author", async ({ pag
   await page.goto("/");
   await expect(page.locator(".app-layout")).toBeVisible();
 
-  // Open Settings and verify the OS-user fallback is pre-filled (proving
-  // the launch-time `useAuthor` hydration ran).
-  await page.getByRole("button", { name: "Open settings" }).click();
+  // Open Settings via the native menu event (toolbar button removed in #41 —
+  // Settings is reachable via File → Settings… (Cmd/Ctrl+,) which dispatches
+  // the `menu-open-settings` Tauri event).
+  await page.evaluate(() => {
+    (window as unknown as {
+      __DISPATCH_TAURI_EVENT__?: (event: string, payload: unknown) => void;
+    }).__DISPATCH_TAURI_EVENT__?.("menu-open-settings", null);
+  });
   const input = page.getByLabel("Display name");
   await expect(input).toBeVisible();
   await expect(input).toHaveValue("OS-Default-User");
@@ -71,7 +76,11 @@ test("author identity round-trips through set_author / get_author", async ({ pag
 
   // Re-open Settings — the input now reflects the persisted value via
   // `useAuthor` reading the Zustand cache that was updated on save.
-  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.evaluate(() => {
+    (window as unknown as {
+      __DISPATCH_TAURI_EVENT__?: (event: string, payload: unknown) => void;
+    }).__DISPATCH_TAURI_EVENT__?.("menu-open-settings", null);
+  });
   await expect(page.getByLabel("Display name")).toHaveValue("Reviewer-2");
 });
 
