@@ -20,6 +20,8 @@ interface Props {
   path: string;
   /** File size in bytes; gates the "Show as hex" toggle (≥ 1 MB → disabled). */
   size?: number;
+  /** Last-modified time as epoch milliseconds; row is omitted when null/undefined. */
+  mtime?: number | null;
 }
 
 /** Hex view is gated to keep memory + render cost predictable. */
@@ -100,7 +102,7 @@ function FileIcon({ category }: { category: BinaryIconCategory }) {
   );
 }
 
-export function BinaryPlaceholder({ path, size }: Props) {
+export function BinaryPlaceholder({ path, size, mtime }: Props) {
   const [showHex, setShowHex] = useState(false);
   const [showFileLevelInput, setShowFileLevelInput] = useState(false);
   const name = basename(path);
@@ -149,6 +151,11 @@ export function BinaryPlaceholder({ path, size }: Props) {
       <FileIcon category={category} />
       <p className="binary-filename">{name}</p>
       <p className="binary-mime">{mime}</p>
+      {mtime != null && (
+        <p className="binary-mtime" data-testid="binary-mtime">
+          {new Date(mtime).toLocaleString()}
+        </p>
+      )}
       {size !== undefined && (
         <p className="binary-size">{formatBytes(size)}</p>
       )}

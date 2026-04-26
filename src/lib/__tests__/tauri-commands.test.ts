@@ -408,11 +408,11 @@ describe("system integration wrappers (Section E)", () => {
 
   it("statFile forwards path to stat_file and returns the FileStat", async () => {
     const m = await getInvoke();
-    m.mockResolvedValueOnce({ size_bytes: 4242 });
+    m.mockResolvedValueOnce({ size_bytes: 4242, mtime_ms: 1700000000000 });
     const { statFile } = await import("../tauri-commands");
     const result = await statFile("/ws/foo.bin");
     expect(m).toHaveBeenCalledWith("stat_file", { path: "/ws/foo.bin" });
-    expect(result).toEqual({ size_bytes: 4242 });
+    expect(result).toEqual({ size_bytes: 4242, mtime_ms: 1700000000000 });
   });
 
   it("revealInFolder propagates rejection (typed SystemError)", async () => {

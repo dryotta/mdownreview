@@ -18,6 +18,9 @@ vi.mock("@/lib/tauri-commands", async () => ({
 
 vi.mock("@/logger");
 
+const writeText = vi.fn().mockResolvedValue(undefined);
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText }));
+
 // Mock shared Shiki module
 vi.mock("@/lib/shiki", () => ({
   getSharedHighlighter: vi.fn().mockResolvedValue({
@@ -95,6 +98,8 @@ const FILE_PATH = "/docs/README.md";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  writeText.mockClear();
+  writeText.mockResolvedValue(undefined);
 });
 
 // ─── 10.1: headings, code blocks ─────────────────────────────────────────────
@@ -128,6 +133,55 @@ describe("10.1 – headings and code blocks", () => {
       expect(document.querySelector(".markdown-body")).toBeInTheDocument();
     });
     consoleErrorSpy.mockRestore();
+  });
+
+  // ── #65 G2: code-block hover copy button ────────────────────────────────
+  it("clicking the copy button writes the raw code source to the clipboard", async () => {
+    const content = "```js\nconst x = 1;\nconsole.log(x);\n```";
+    render(<MarkdownViewer content={content} filePath={FILE_PATH} />);
+
+    const btn = await screen.findByRole("button", { name: /copy code/i });
+    fireEvent.click(btn);
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("const x = 1;\nconsole.log(x);");
+    });
+  });
+
+  it("after click, the copy button reads 'Copied' then reverts to 'Copy' after 1.5s", async () => {
+    const content = "```js\nconst x = 1;\n```";
+    render(<MarkdownViewer content={content} filePath={FILE_PATH} />);
+
+    const btn = await screen.findByRole("button", { name: /copy code/i });
+    expect(btn).toHaveTextContent(/^Copy$/);
+
+    fireEvent.click(btn);
+    await waitFor(() => expect(btn).toHaveTextContent(/^Copied$/));
+    // The 1500ms revert timer runs on real timers; allow up to 3000ms to
+    // avoid flake without slowing the suite materially.
+    await waitFor(() => expect(btn).toHaveTextContent(/^Copy$/), {
+      timeout: 3000,
+    });
+  });
+
+  it("mermaid code blocks do NOT render a copy button", async () => {
+    const content = "```mermaid\ngraph TD; A-->B;\n```";
+    const { container } = render(
+      <MarkdownViewer content={content} filePath={FILE_PATH} />,
+    );
+    await waitFor(() => {
+      expect(document.querySelector(".markdown-body")).toBeInTheDocument();
+    });
+    expect(container.querySelector(".code-copy-btn")).toBeNull();
+    expect(screen.queryByRole("button", { name: /copy code/i })).toBeNull();
+  });
+
+  it("plain ``` blocks (no language tag) DO render a copy button", async () => {
+    const content = "```\nplain text\n```";
+    render(<MarkdownViewer content={content} filePath={FILE_PATH} />);
+    expect(
+      await screen.findByRole("button", { name: /copy code/i }),
+    ).toBeInTheDocument();
   });
 });
 

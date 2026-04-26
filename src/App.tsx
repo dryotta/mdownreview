@@ -25,6 +25,7 @@ import { WelcomeView } from "@/components/WelcomeView";
 import { getFileCategory } from "@/lib/file-types";
 import { IconFile, IconFolder, IconComment, IconSettings } from "@/components/Icons";
 import "@/styles/app.css";
+import "@/styles/print.css";
 
 export default function App() {
   const {

@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function ViewerRouter({ path }: Props) {
-  const { status, content, error, sizeBytes } = useFileContent(path);
+  const { status, content, error, sizeBytes, mtimeMs } = useFileContent(path);
   const scrollRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const setScrollTop = useStore((s) => s.setScrollTop);
@@ -237,7 +237,7 @@ export function ViewerRouter({ path }: Props) {
           hidden
           onCommentOnFile={handleCommentOnFile}
         />
-        <BinaryPlaceholder key={path} path={path} size={sizeBytes} />
+        <BinaryPlaceholder key={path} path={path} size={sizeBytes} mtime={mtimeMs} />
       </div>
     );
   }

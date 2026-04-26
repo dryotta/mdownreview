@@ -656,6 +656,25 @@ fn stat_file_returns_size_in_bytes() {
 }
 
 #[test]
+fn stat_file_returns_mtime_for_existing_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let canonical = std::fs::canonicalize(dir.path()).unwrap();
+    let file = canonical.join("hello.bin");
+    std::fs::write(&file, b"hello").unwrap();
+    let state = watcher_state_allowing(dir.path());
+    let result = stat_file_inner(file.to_str().unwrap(), &state).unwrap();
+    let mtime = result.mtime_ms.expect("mtime_ms should be Some on a freshly-written file");
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    assert!(
+        (now - mtime).abs() < 60_000,
+        "mtime {mtime} should be within 60s of now {now}"
+    );
+}
+
+#[test]
 fn stat_file_returns_err_for_missing_path() {
     let dir = tempfile::tempdir().unwrap();
     let canonical = std::fs::canonicalize(dir.path()).unwrap();

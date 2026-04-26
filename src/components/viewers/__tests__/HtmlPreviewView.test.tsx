@@ -12,36 +12,104 @@ vi.mock("@/logger");
 vi.mock("@/lib/tauri-commands", () => ({
   resolveHtmlAssets: vi.fn((html: string) => Promise.resolve(html)),
   openExternalUrl: vi.fn(async () => {}),
+  fetchRemoteAsset: vi.fn(async () => ({
+    bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    contentType: "image/png",
+  })),
 }));
 vi.mock("@/lib/vm/use-comment-actions", () => ({
   useCommentActions: () => ({ addComment: addCommentMock }),
 }));
 
 import { HtmlPreviewView } from "../HtmlPreviewView";
+import { openExternalUrl, fetchRemoteAsset } from "@/lib/tauri-commands";
+import { useStore } from "@/store";
 
 beforeEach(() => {
   addCommentMock.mockClear();
+  (openExternalUrl as unknown as { mockClear: () => void }).mockClear();
+  (fetchRemoteAsset as unknown as { mockClear: () => void }).mockClear();
 });
 
-describe("HtmlPreviewView (legacy)", () => {
-  it("renders sandboxed iframe with content", () => {
+describe("HtmlPreviewView — sandbox toggles (H1)", () => {
+  it("renders sandboxed iframe with default safe sandbox", () => {
     const { container } = render(<HtmlPreviewView content="<h1>Hello</h1>" />);
     const iframe = container.querySelector("iframe");
     expect(iframe).toBeInTheDocument();
     expect(iframe?.getAttribute("sandbox")).toBe("allow-same-origin");
+    expect(screen.getByRole("button", { name: /allow external images/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /enable scripts/i })).toBeInTheDocument();
+    cleanup();
   });
 
   it("shows safety warning banner", () => {
     render(<HtmlPreviewView content="<p>test</p>" />);
     expect(screen.getByText(/sandboxed preview/i)).toBeInTheDocument();
+    cleanup();
   });
 
-  it("toggles to unsafe mode", () => {
+  it("toggling 'Allow external images' keeps sandbox safe and flips aria-pressed", () => {
+    const { container } = render(<HtmlPreviewView content="<p>test</p>" />);
+    const btn = screen.getByRole("button", { name: /allow external images/i });
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(btn);
+    const iframe = container.querySelector("iframe");
+    expect(iframe?.getAttribute("sandbox")).toBe("allow-same-origin");
+    const btn2 = screen.getByRole("button", { name: /disallow external images/i });
+    expect(btn2.getAttribute("aria-pressed")).toBe("true");
+    cleanup();
+  });
+
+  it("toggling 'Enable scripts' switches sandbox to allow-scripts (no allow-same-origin)", () => {
     const { container } = render(<HtmlPreviewView content="<p>test</p>" />);
     fireEvent.click(screen.getByRole("button", { name: /enable scripts/i }));
     const iframe = container.querySelector("iframe");
     expect(iframe?.getAttribute("sandbox")).toContain("allow-scripts");
     expect(iframe?.getAttribute("sandbox")).not.toContain("allow-same-origin");
+    cleanup();
+  });
+
+  it("invariant: sandbox NEVER combines allow-scripts and allow-same-origin", () => {
+    const { container } = render(<HtmlPreviewView content="<p>test</p>" />);
+    const imgBtn = () => screen.getByRole("button", { name: /(allow|disallow) external images/i });
+    const scrBtn = () => screen.getByRole("button", { name: /(enable|disable) scripts/i });
+    const sandboxOf = () => container.querySelector("iframe")!.getAttribute("sandbox") ?? "";
+    const combos: [boolean, boolean][] = [[false,false],[true,false],[false,true],[true,true],[true,false],[false,false]];
+    let curImg = false, curScr = false;
+    for (const [wantImg, wantScr] of combos) {
+      if (wantImg !== curImg) { fireEvent.click(imgBtn()); curImg = wantImg; }
+      if (wantScr !== curScr) { fireEvent.click(scrBtn()); curScr = wantScr; }
+      const sb = sandboxOf();
+      const hasScripts = sb.includes("allow-scripts");
+      const hasSameOrigin = sb.includes("allow-same-origin");
+      expect(hasScripts && hasSameOrigin).toBe(false);
+    }
+    cleanup();
+  });
+
+  it("with images on + scripts off, fetches remote <img> via fetch_remote_asset", async () => {
+    // jsdom URL.createObjectURL is not implemented by default — stub it.
+    const originalCreate = URL.createObjectURL;
+    const originalRevoke = URL.revokeObjectURL;
+    let next = 0;
+    URL.createObjectURL = vi.fn(() => `blob:mock-${++next}`) as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn() as unknown as typeof URL.revokeObjectURL;
+    try {
+      const html = '<p><img src="https://cdn.example.com/x.png" alt="x"></p>';
+      const { container } = render(<HtmlPreviewView content={html} filePath="/wk/page.html" />);
+      fireEvent.click(screen.getByRole("button", { name: /allow external images/i }));
+      await waitFor(() => {
+        expect(fetchRemoteAsset).toHaveBeenCalledWith("https://cdn.example.com/x.png");
+      });
+      await waitFor(() => {
+        const srcdoc = container.querySelector("iframe")?.getAttribute("srcdoc") ?? "";
+        expect(srcdoc).toMatch(/src="blob:mock-\d+"/);
+      });
+    } finally {
+      URL.createObjectURL = originalCreate;
+      URL.revokeObjectURL = originalRevoke;
+      cleanup();
+    }
   });
 });
 
@@ -60,16 +128,19 @@ function dispatchBridgeMsg(
   });
 }
 
+function nonceOf(iframe: HTMLIFrameElement): string {
+  const srcdoc = iframe.getAttribute("srcdoc") ?? "";
+  const m = srcdoc.match(/NONCE=("[^"]+")/);
+  if (!m) throw new Error("no NONCE in srcdoc");
+  return JSON.parse(m[1]) as string;
+}
+
 describe("HtmlPreviewView — comment-mode bridge", () => {
   it("selection event triggers addComment with html_range", async () => {
     const { container } = render(<HtmlPreviewView content="<p>hi</p>" filePath="/wk/page.html" />);
     fireEvent.click(screen.getByRole("button", { name: /enter comment mode/i }));
     const iframe = container.querySelector("iframe") as HTMLIFrameElement;
-    // Read the per-mount nonce from the injected srcdoc.
-    const srcdoc = iframe.getAttribute("srcdoc") ?? "";
-    const nonceMatch = srcdoc.match(/NONCE=("[^"]+")/);
-    expect(nonceMatch).toBeTruthy();
-    const nonce = JSON.parse(nonceMatch![1]) as string;
+    const nonce = nonceOf(iframe);
 
     dispatchBridgeMsg(iframe, {
       source: "mdr-html-bridge",
@@ -105,7 +176,7 @@ describe("HtmlPreviewView — comment-mode bridge", () => {
     const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
     fireEvent.click(screen.getByRole("button", { name: /enter comment mode/i }));
     const iframe = container.querySelector("iframe") as HTMLIFrameElement;
-    const nonce = JSON.parse(iframe.getAttribute("srcdoc")!.match(/NONCE=("[^"]+")/)![1]) as string;
+    const nonce = nonceOf(iframe);
 
     dispatchBridgeMsg(iframe, {
       source: "mdr-html-bridge",
@@ -155,8 +226,7 @@ describe("HtmlPreviewView — comment-mode bridge", () => {
     const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
     fireEvent.click(screen.getByRole("button", { name: /enter comment mode/i }));
     const iframe = container.querySelector("iframe") as HTMLIFrameElement;
-    const nonce = JSON.parse(iframe.getAttribute("srcdoc")!.match(/NONCE=("[^"]+")/)![1]) as string;
-    // source: a different window object (the host window itself)
+    const nonce = nonceOf(iframe);
     dispatchBridgeMsg(iframe, {
       source: "mdr-html-bridge",
       nonce,
@@ -191,7 +261,7 @@ describe("HtmlPreviewView — comment-mode bridge", () => {
     // Toggle ON.
     fireEvent.click(screen.getByRole("button", { name: /enter comment mode/i }));
     const iframe2 = container.querySelector("iframe") as HTMLIFrameElement;
-    const nonce = JSON.parse(iframe2.getAttribute("srcdoc")!.match(/NONCE=("[^"]+")/)![1]) as string;
+    const nonce = nonceOf(iframe2);
     dispatchBridgeMsg(iframe2, {
       source: "mdr-html-bridge", nonce, type: "click",
       selectorPath: "body", tag: "body", textPreview: "", clientX: 0, clientY: 0,
@@ -206,6 +276,76 @@ describe("HtmlPreviewView — comment-mode bridge", () => {
       selectorPath: "body", tag: "body", textPreview: "", clientX: 0, clientY: 0,
     });
     expect(screen.queryByTestId("html-preview-composer")).toBeNull();
+    cleanup();
+  });
+});
+
+describe("HtmlPreviewView — link bridge in scripts mode (H2)", () => {
+  function enableScripts() {
+    fireEvent.click(screen.getByRole("button", { name: /enable scripts/i }));
+  }
+
+  it("external link → openExternalUrl", () => {
+    const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
+    enableScripts();
+    const iframe = container.querySelector("iframe") as HTMLIFrameElement;
+    const nonce = nonceOf(iframe);
+    dispatchBridgeMsg(iframe, {
+      source: "mdr-html-bridge", nonce, type: "link", href: "https://example.com",
+    });
+    expect(openExternalUrl).toHaveBeenCalledWith("https://example.com");
+    cleanup();
+  });
+
+  it("workspace link → store.openFile with resolved path", () => {
+    useStore.setState({ root: "/wk" });
+    const openFileSpy = vi.spyOn(useStore.getState(), "openFile").mockImplementation(() => {});
+    const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
+    enableScripts();
+    const iframe = container.querySelector("iframe") as HTMLIFrameElement;
+    const nonce = nonceOf(iframe);
+    dispatchBridgeMsg(iframe, {
+      source: "mdr-html-bridge", nonce, type: "link", href: "./other.md",
+    });
+    expect(openFileSpy).toHaveBeenCalledWith("/wk/other.md");
+    openFileSpy.mockRestore();
+    cleanup();
+  });
+
+  it("javascript: link is blocked, openExternalUrl NOT called", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
+    enableScripts();
+    const iframe = container.querySelector("iframe") as HTMLIFrameElement;
+    const nonce = nonceOf(iframe);
+    dispatchBridgeMsg(iframe, {
+      source: "mdr-html-bridge", nonce, type: "link", href: "javascript:alert(1)",
+    });
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+    cleanup();
+  });
+
+  it("non-string href is blocked", () => {
+    const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
+    enableScripts();
+    const iframe = container.querySelector("iframe") as HTMLIFrameElement;
+    const nonce = nonceOf(iframe);
+    dispatchBridgeMsg(iframe, {
+      source: "mdr-html-bridge", nonce, type: "link", href: 42,
+    });
+    expect(openExternalUrl).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("link message with wrong nonce is ignored", () => {
+    const { container } = render(<HtmlPreviewView content="<p>x</p>" filePath="/wk/page.html" />);
+    enableScripts();
+    const iframe = container.querySelector("iframe") as HTMLIFrameElement;
+    dispatchBridgeMsg(iframe, {
+      source: "mdr-html-bridge", nonce: "WRONG", type: "link", href: "https://evil.example",
+    });
+    expect(openExternalUrl).not.toHaveBeenCalled();
     cleanup();
   });
 });
