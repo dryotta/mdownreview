@@ -1,7 +1,7 @@
 import yaml from "js-yaml";
 
 export type StepKind =
-  | "click" | "type" | "press" | "hover" | "goto" | "wait" | "resize";
+  | "click" | "type" | "press" | "hover" | "goto" | "wait" | "resize" | "emit";
 
 export interface FlowStep {
   kind: StepKind;
@@ -12,6 +12,7 @@ export interface FlowStep {
   ms?: number;
   width?: number;
   height?: number;
+  event?: string;
 }
 
 export interface Flow {
@@ -25,7 +26,7 @@ export interface Flow {
 }
 
 const STEP_KINDS = new Set<StepKind>([
-  "click","type","press","hover","goto","wait","resize",
+  "click","type","press","hover","goto","wait","resize","emit",
 ]);
 
 export function parseFlowCatalogue(md: string): Flow[] {

@@ -59,6 +59,6 @@ describe("parseFlowCatalogue", () => {
     );
     const flows = parseFlowCatalogue(md);
     expect(flows.length).toBeGreaterThanOrEqual(8);
-    expect(flows.map((f) => f.id)).toContain("open-folder");
+    expect(flows.map((f) => f.id)).toContain("about-dialog");
   });
 });

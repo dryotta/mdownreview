@@ -88,18 +88,31 @@ const ruleWcag412: Rule = (s) =>
     }));
 
 const ruleApEmojiAsIcon: Rule = (s) => {
-  const buttonRe = /<button\b[^>]*>([\s\S]*?)<\/button>/gi;
-  const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
+  const buttonRe = /<button\b([^>]*)>([\s\S]*?)<\/button>/gi;
+  const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2700}-\u{27BF}\u{1F000}-\u{1F2FF}]|[\u00D7\u2715\u2716\u2717\u2718\u00D8\u2304\u2303]/u;
   const hits: RuleHit[] = [];
+  const seen = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = buttonRe.exec(s.html)) !== null) {
-    if (emojiRe.test(m[1]) && !/<(svg|img)\b/i.test(m[1])) {
-      hits.push({
-        id: "AP-EMOJI-AS-ICON",
-        detail: "button uses emoji as icon",
-        anchor: "button",
-      });
-    }
+    const attrs = m[1];
+    const inner = m[2];
+    if (!emojiRe.test(inner) || /<(svg|img)\b/i.test(inner)) continue;
+    const aria = /aria-label=(?:"|')([^"']+)(?:"|')/i.exec(attrs)?.[1];
+    const testid = /data-testid=(?:"|')([^"']+)(?:"|')/i.exec(attrs)?.[1];
+    const cls = /class=(?:"|')([^"']+)(?:"|')/i.exec(attrs)?.[1]?.split(/\s+/)[0];
+    const text = inner.replace(/<[^>]+>/g, "").trim().slice(0, 24);
+    const anchor = testid ? `button[data-testid='${testid}']`
+      : aria ? `button[aria-label='${aria}']`
+      : cls ? `button.${cls}`
+      : text ? `button:has-text("${text}")`
+      : "button";
+    if (seen.has(anchor)) continue;
+    seen.add(anchor);
+    hits.push({
+      id: "AP-EMOJI-AS-ICON",
+      detail: aria ? `button "${aria}" uses emoji "${text}"` : `button uses emoji "${text}" as icon`,
+      anchor,
+    });
   }
   return hits;
 };

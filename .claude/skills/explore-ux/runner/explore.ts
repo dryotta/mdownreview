@@ -16,16 +16,33 @@ export interface ExploreOptions {
 
 async function executeStep(page: Page, step: FlowStep): Promise<void> {
   switch (step.kind) {
-    case "click":  await page.click(step.selector!); break;
-    case "type":   await page.fill(step.selector!, step.text ?? ""); break;
+    case "click":  await page.click(step.selector!, { timeout: 2000 }); break;
+    case "type":   await page.fill(step.selector!, step.text ?? "", { timeout: 2000 }); break;
     case "press":  await page.keyboard.press(step.key!); break;
-    case "hover":  await page.hover(step.selector!); break;
+    case "hover":  await page.hover(step.selector!, { timeout: 2000 }); break;
     case "goto":   await page.goto(step.url!); break;
     case "wait":   await page.waitForTimeout(step.ms ?? 100); break;
     case "resize": await page.setViewportSize({
                      width: step.width ?? 1280,
                      height: step.height ?? 800,
                    }); break;
+    case "emit": {
+      const event = step.event!;
+      await page.evaluate(async (ev) => {
+        const w = window as unknown as {
+          __TAURI__?: { event?: { emit: (e: string, p?: unknown) => Promise<void> } };
+          __TAURI_INTERNALS__?: { invoke: (cmd: string, args?: unknown) => Promise<unknown> };
+        };
+        if (w.__TAURI__?.event?.emit) {
+          await w.__TAURI__.event.emit(ev);
+        } else if (w.__TAURI_INTERNALS__?.invoke) {
+          await w.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event: ev, payload: null });
+        } else {
+          throw new Error(`Tauri event API unavailable; cannot emit '${ev}'`);
+        }
+      }, event);
+      break;
+    }
   }
 }
 
@@ -48,25 +65,29 @@ export async function explore(
       try {
         await executeStep(page, step);
       } catch (e) {
+        const errMsg = (e as Error).message.split("\n")[0].slice(0, 200);
+        // Try to capture current screen even though step failed
+        let cap: CaptureBundle | undefined;
+        try { cap = await capture(page, stepCount, opts.runDir); } catch { /* page gone */ }
         bundles.push({
           step: stepCount,
           ts: new Date().toISOString(),
           flow: flow.id,
           action: step,
-          screenshot: "",
-          domSnapshotSha: "",
-          screenId: "(error)",
-          snapshot: {
+          screenshot: cap?.screenshot ?? "",
+          domSnapshotSha: cap?.domSnapshotSha ?? "",
+          screenId: cap?.screenId ?? "(error)",
+          snapshot: cap?.snapshot ?? {
             html: "",
-            console: [{ level: "error", text: `step failed: ${(e as Error).message}` }],
+            console: [],
             ipc_errors: [],
             a11y_nodes: [],
             computed_styles: [],
           },
           rule_hits: [{
-            id: "MDR-CONSOLE-ERROR",
-            detail: `flow ${flow.id} step ${step.kind} failed`,
-            anchor: step.selector ?? "(action)",
+            id: "MDR-FLOW-SELECTOR-MISSING",
+            detail: `flow ${flow.id} step ${step.kind} failed: ${errMsg}`,
+            anchor: step.selector ?? step.key ?? `(${step.kind})`,
           }],
         });
         continue;

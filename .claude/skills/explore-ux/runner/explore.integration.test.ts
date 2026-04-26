@@ -58,6 +58,6 @@ describe("explore loop", () => {
     const dir = mkdtempSync(join(tmpdir(), "ux-int-"));
     const bundles = await explore(page, [FLOW], { steps: 10, runDir: dir });
     expect(bundles).toHaveLength(2);
-    expect(bundles[0].rule_hits.map((h) => h.id)).toContain("MDR-CONSOLE-ERROR");
+    expect(bundles[0].rule_hits.map((h) => h.id)).toContain("MDR-FLOW-SELECTOR-MISSING");
   });
 });

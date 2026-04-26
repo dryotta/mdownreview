@@ -85,15 +85,36 @@ export async function capture(
   const computed_styles = await page.evaluate(() => {
     const out: { anchor: string; color: string; background: string; fontSize: number; fontWeight: number }[] = [];
     const seen = new Set<Element>();
-    document.querySelectorAll("*").forEach((el) => {
+    const SKIP = new Set(["SCRIPT","STYLE","TITLE","META","HEAD","LINK","NOSCRIPT","SVG","PATH","CIRCLE","RECT","G","DEFS","USE","SYMBOL"]);
+    document.querySelectorAll("body *").forEach((el) => {
       if (seen.has(el)) return;
+      if (SKIP.has(el.tagName)) return;
       const text = el.textContent?.trim() ?? "";
       if (!text || el.children.length > 0) return;
       const cs = getComputedStyle(el);
+      if (cs.visibility === "hidden" || cs.display === "none" || cs.opacity === "0") return;
+      const rect = (el as HTMLElement).getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      // Walk up ancestors to find first opaque background (handles inherited bg)
+      let bg = cs.backgroundColor;
+      let cur: Element | null = el.parentElement;
+      while (cur && (bg === "rgba(0, 0, 0, 0)" || bg === "transparent" || bg.startsWith("rgba(") && bg.endsWith(", 0)"))) {
+        bg = getComputedStyle(cur).backgroundColor;
+        cur = cur.parentElement;
+      }
+      if (bg === "rgba(0, 0, 0, 0)" || bg === "transparent") {
+        // Fallback to body/html computed background
+        bg = getComputedStyle(document.body).backgroundColor;
+        if (bg === "rgba(0, 0, 0, 0)" || bg === "transparent") {
+          bg = getComputedStyle(document.documentElement).backgroundColor;
+        }
+        if (bg === "rgba(0, 0, 0, 0)" || bg === "transparent") bg = "rgb(255,255,255)";
+      }
+      const firstClass = el.classList && el.classList.length > 0 ? el.classList[0] : "";
       out.push({
-        anchor: `${el.tagName.toLowerCase()}${el.className ? "." + (el.className as string).split(/\s+/)[0] : ""}`,
+        anchor: `${el.tagName.toLowerCase()}${firstClass ? "." + firstClass : ""}`,
         color: cs.color,
-        background: cs.backgroundColor === "rgba(0, 0, 0, 0)" ? "rgb(255,255,255)" : cs.backgroundColor,
+        background: bg,
         fontSize: parseFloat(cs.fontSize),
         fontWeight: parseInt(cs.fontWeight, 10) || 400,
       });
@@ -102,24 +123,54 @@ export async function capture(
     return out;
   });
 
-  // Accessibility snapshot via Playwright's a11y API.
-  const a11y = await page.accessibility.snapshot();
+  // Accessibility snapshot via Playwright's a11y API (unavailable on WebView2 CDP).
   const a11y_nodes: { role: string; name: string }[] = [];
-  const walk = (n: { role?: string; name?: string; children?: unknown[] } | null) => {
-    if (!n) return;
-    if (n.role) a11y_nodes.push({ role: n.role, name: n.name ?? "" });
-    (n.children as { role?: string; name?: string; children?: unknown[] }[] | undefined)?.forEach(walk);
-  };
-  walk(a11y as never);
+  if (page.accessibility) {
+    try {
+      const a11y = await page.accessibility.snapshot();
+      const walk = (n: { role?: string; name?: string; children?: unknown[] } | null) => {
+        if (!n) return;
+        if (n.role) a11y_nodes.push({ role: n.role, name: n.name ?? "" });
+        (n.children as { role?: string; name?: string; children?: unknown[] }[] | undefined)?.forEach(walk);
+      };
+      walk(a11y as never);
+    } catch {
+      // a11y unavailable — fall back to ARIA-attribute scrape below
+    }
+  }
+  if (a11y_nodes.length === 0) {
+    const aria = await page.evaluate(() => {
+      const tagToRole: Record<string, string> = {
+        nav: "navigation", header: "banner", main: "main",
+        footer: "contentinfo", aside: "complementary", dialog: "dialog",
+      };
+      const out: { role: string; name: string }[] = [];
+      document.querySelectorAll("[role], button, a, h1, h2, h3, nav, main, header, footer, aside, dialog").forEach((el) => {
+        const tag = el.tagName.toLowerCase();
+        const role = el.getAttribute("role") ?? tagToRole[tag] ?? tag;
+        const name = el.getAttribute("aria-label") ?? el.getAttribute("title") ?? (el.textContent?.trim().slice(0, 60) ?? "");
+        out.push({ role, name });
+      });
+      return out;
+    });
+    a11y_nodes.push(...aria);
+  }
 
-  // screen_id: route + landmark fingerprint
+  // screen_id: route + landmark fingerprint (visible h1/h2 + landmarks + open dialog)
   const url = page.url();
-  const landmarkSig = a11y_nodes
-    .filter((n) => /banner|main|navigation|complementary|contentinfo|dialog/.test(n.role))
-    .map((n) => `${n.role}:${n.name}`)
-    .sort()
-    .join("|");
-  const screenId = `${url}:${createHash("sha1").update(landmarkSig).digest("hex").slice(0, 8)}`;
+  const landmarks = a11y_nodes
+    .filter((n) => /^(banner|main|navigation|complementary|contentinfo|dialog|h1|h2|tab)$/.test(n.role))
+    .map((n) => `${n.role}:${n.name.slice(0, 40)}`);
+  const visibleHeaders = await page.evaluate(() => {
+    const out: string[] = [];
+    document.querySelectorAll("h1, h2, [role='heading']").forEach((el) => {
+      const t = el.textContent?.trim() ?? "";
+      if (t) out.push(t.slice(0, 40));
+    });
+    return out;
+  });
+  const sig = [...landmarks, ...visibleHeaders.map((h) => `h:${h}`)].sort().join("|");
+  const screenId = `${url}:${createHash("sha1").update(sig).digest("hex").slice(0, 8)}`;
 
   return {
     step,

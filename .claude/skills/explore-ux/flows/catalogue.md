@@ -1,118 +1,153 @@
 # Flow Catalogue
 
 Each flow is a YAML block under an `## <id>` heading; see `flow-schema.md`.
+Catalogue avoids native OS dialogs (file/folder pickers) which block WebView2 and freeze CDP.
+Use `kind: emit` with the menu event name to trigger app actions that would otherwise need clicking a native menu.
 
-## open-folder
+## about-dialog
 
 ```yaml
-id: open-folder
-name: Open a folder via menu
+id: about-dialog
+name: Open then close the About dialog
 priority: 1
 steps:
-  - { kind: press, key: "Control+O" }
-  - { kind: wait, ms: 500 }
-success_signal:
-  selector: "[data-testid='folder-tree']"
-recovery:
+  - { kind: emit, event: "menu-about" }
+  - { kind: wait, ms: 200 }
   - { kind: press, key: "Escape" }
-```
-
-## open-file
-
-```yaml
-id: open-file
-name: Open the first .md file in the tree
-priority: 1
-preconditions:
-  - folder is loaded
-steps:
-  - { kind: click, selector: "[data-testid='folder-tree'] .file-item:first-child" }
+  - { kind: wait, ms: 100 }
 success_signal:
-  selector: "[data-testid='viewer']"
+  selector: "[data-testid='about-dialog']"
 ```
 
-## tab-switch-churn
+## settings-dialog
 
 ```yaml
-id: tab-switch-churn
-name: Rapidly switch tabs to surface MDR-TAB-CHURN
-priority: 2
-preconditions:
-  - at least 2 tabs are open
+id: settings-dialog
+name: Open then close Settings
+priority: 1
 steps:
-  - { kind: press, key: "Control+Tab" }
-  - { kind: press, key: "Control+Tab" }
-  - { kind: press, key: "Control+Tab" }
-  - { kind: press, key: "Control+Tab" }
-  - { kind: press, key: "Control+Tab" }
+  - { kind: emit, event: "menu-open-settings" }
+  - { kind: wait, ms: 300 }
+  - { kind: press, key: "Escape" }
+  - { kind: wait, ms: 100 }
+success_signal:
+  selector: ".settings-dialog, [role='dialog']"
+```
+
+## comments-pane-toggle
+
+```yaml
+id: comments-pane-toggle
+name: Toggle comments pane on and off
+priority: 2
+steps:
+  - { kind: press, key: "Control+Shift+C" }
+  - { kind: wait, ms: 150 }
+  - { kind: press, key: "Control+Shift+C" }
+  - { kind: wait, ms: 150 }
 ```
 
 ## theme-toggle-flash
 
 ```yaml
 id: theme-toggle-flash
-name: Toggle theme to surface MDR-THEME-FLASH
+name: Toggle theme via menu events to surface MDR-THEME-FLASH
 priority: 2
 steps:
-  - { kind: click, selector: "[data-testid='theme-toggle']" }
-  - { kind: wait, ms: 50 }
-  - { kind: click, selector: "[data-testid='theme-toggle']" }
+  - { kind: emit, event: "menu-theme-light" }
+  - { kind: wait, ms: 100 }
+  - { kind: emit, event: "menu-theme-dark" }
+  - { kind: wait, ms: 100 }
+  - { kind: emit, event: "menu-theme-light" }
+  - { kind: wait, ms: 100 }
 ```
 
-## comment-add
+## tab-shortcut-noops
 
 ```yaml
-id: comment-add
-name: Add a comment to current file
-priority: 1
-preconditions:
-  - one file is open
-steps:
-  - { kind: click, selector: "[data-testid='add-comment-btn']" }
-  - { kind: type,  selector: "textarea[name='comment']", text: "explore-ux probe" }
-  - { kind: click, selector: "button[type='submit']" }
-success_signal:
-  selector: ".comment-thread .comment:last-child"
-recovery:
-  - { kind: press, key: "Escape" }
-```
-
-## search
-
-```yaml
-id: search
-name: Workspace search
-priority: 2
-steps:
-  - { kind: press, key: "Control+Shift+F" }
-  - { kind: type, selector: "[data-testid='search-input']", text: "the" }
-  - { kind: wait, ms: 300 }
-success_signal:
-  selector: "[data-testid='search-results']"
-```
-
-## settings-open
-
-```yaml
-id: settings-open
-name: Open settings
+id: tab-shortcut-noops
+name: Tab navigation shortcuts when no tabs open (should noop)
 priority: 3
 steps:
-  - { kind: press, key: "Control+," }
-success_signal:
-  selector: "[data-testid='settings-dialog']"
-recovery:
-  - { kind: press, key: "Escape" }
+  - { kind: press, key: "Control+Tab" }
+  - { kind: wait, ms: 50 }
+  - { kind: press, key: "Control+Shift+Tab" }
+  - { kind: wait, ms: 50 }
+  - { kind: press, key: "Control+W" }
+  - { kind: wait, ms: 50 }
+  - { kind: press, key: "Control+Shift+W" }
+  - { kind: wait, ms: 50 }
 ```
 
 ## resize-narrow
 
 ```yaml
 id: resize-narrow
-name: Probe responsive behaviour
-priority: 3
+name: Probe responsive layout at narrow widths
+priority: 2
 steps:
   - { kind: resize, width: 600, height: 800 }
   - { kind: wait, ms: 200 }
+  - { kind: resize, width: 400, height: 800 }
+  - { kind: wait, ms: 200 }
+  - { kind: resize, width: 320, height: 600 }
+  - { kind: wait, ms: 200 }
   - { kind: resize, width: 1280, height: 800 }
+  - { kind: wait, ms: 100 }
+```
+
+## zoom-cycle
+
+```yaml
+id: zoom-cycle
+name: Zoom shortcuts
+priority: 3
+steps:
+  - { kind: press, key: "Control+=" }
+  - { kind: wait, ms: 80 }
+  - { kind: press, key: "Control+=" }
+  - { kind: wait, ms: 80 }
+  - { kind: press, key: "Control+-" }
+  - { kind: wait, ms: 80 }
+  - { kind: press, key: "Control+0" }
+  - { kind: wait, ms: 80 }
+```
+
+## check-updates
+
+```yaml
+id: check-updates
+name: Trigger updater check via menu event
+priority: 3
+steps:
+  - { kind: emit, event: "menu-check-updates" }
+  - { kind: wait, ms: 500 }
+```
+
+## close-folder-noop
+
+```yaml
+id: close-folder-noop
+name: Close-folder when none open (should be safe noop)
+priority: 3
+steps:
+  - { kind: emit, event: "menu-close-folder" }
+  - { kind: wait, ms: 100 }
+```
+
+## settings-then-about
+
+```yaml
+id: settings-then-about
+name: Open Settings, then About without closing — exposes layered-modal handling
+priority: 2
+steps:
+  - { kind: emit, event: "menu-open-settings" }
+  - { kind: wait, ms: 250 }
+  - { kind: emit, event: "menu-about" }
+  - { kind: wait, ms: 250 }
+  - { kind: press, key: "Escape" }
+  - { kind: wait, ms: 100 }
+  - { kind: press, key: "Escape" }
+  - { kind: wait, ms: 100 }
 ```
