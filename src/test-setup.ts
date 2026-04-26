@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { vi, beforeEach, afterEach, expect } from "vitest";
+import { __IPC_MOCK_LISTENERS_RESET } from "./__mocks__/@tauri-apps/api/__bus";
 
 // jsdom does not implement HTMLDialogElement.showModal/close (the spec
 // requires top-layer / inert support that jsdom omits). Polyfill the
@@ -42,4 +43,7 @@ afterEach(() => {
   expect(consoleErrorSpy, "Unexpected console.error call").not.toHaveBeenCalled();
   expect(consoleWarnSpy, "Unexpected console.warn call").not.toHaveBeenCalled();
   vi.restoreAllMocks();
+  // Drop every `listen("comments-changed", …)` subscription so a leaked
+  // handler from one test can't fire under another's invoke.
+  __IPC_MOCK_LISTENERS_RESET();
 });

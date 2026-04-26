@@ -196,16 +196,10 @@ test.describe("Iter 5 Group B — file-level comment entry points", () => {
     const calls = await readAddCommentCalls(page);
     expect(calls[calls.length - 1].anchor).toEqual({ kind: "file" });
 
-    // The Rust mutation pipeline emits 'comments-changed' which `useComments`
-    // listens for to reload. The IPC mock doesn't model the emit, so we
-    // dispatch it manually here.
-    await page.evaluate((path) => {
-      (window as Record<string, unknown> & {
-        __DISPATCH_TAURI_EVENT__?: (e: string, p: unknown) => void;
-      }).__DISPATCH_TAURI_EVENT__?.("comments-changed", { file_path: path });
-    }, `${FIXTURES_DIR}/blob.bin`);
-
     // The saved thread renders inside the placeholder (file-anchored, kind: "file").
+    // The IPC mock auto-emits `comments-changed` after every mutation invoke
+    // (mirrors the Rust contract), so `useComments` reloads without any
+    // manual dispatch here. See `e2e/browser/fixtures/error-tracking.ts`.
     await expect(placeholder.locator(".binary-placeholder-comments").getByText("inline binary note")).toBeVisible();
   });
 });

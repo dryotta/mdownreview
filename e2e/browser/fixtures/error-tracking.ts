@@ -75,6 +75,40 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
             | undefined;
           if (typeof mock === "function") {
             const result = await mock(cmd, args ?? {});
+            // Auto-emit `comments-changed` after every successful sidecar
+            // mutation invoke. Mirrors the Rust contract (Emitter::emit
+            // after save) so specs don't need to dispatch the event by
+            // hand — preventing skew between renderer subscribers and
+            // the production wire format.
+            const COMMENT_MUTATIONS = [
+              "add_comment",
+              "edit_comment",
+              "delete_comment",
+              "add_reply",
+              "update_comment",
+              "resolve_comment",
+              "move_anchor",
+            ];
+            if (COMMENT_MUTATIONS.indexOf(cmd) !== -1) {
+              const a = (args ?? {}) as Record<string, unknown>;
+              const filePath =
+                (typeof a.filePath === "string" && a.filePath) ||
+                (typeof a.file_path === "string" && a.file_path) ||
+                "";
+              if (filePath) {
+                const handlers = eventListeners["comments-changed"] || [];
+                for (const id of handlers) {
+                  const cb = callbacks[id];
+                  if (cb) {
+                    cb.callback({
+                      event: "comments-changed",
+                      payload: { file_path: filePath },
+                      id,
+                    });
+                  }
+                }
+              }
+            }
             // read_text_file changed shape from `string` to `{ content, size_bytes, line_count }`.
             // Tests authored before that change still return a plain string — wrap it transparently
             // so the existing specs keep working without per-file edits.
