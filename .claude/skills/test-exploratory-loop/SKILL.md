@@ -22,7 +22,7 @@ This skill is **fully autonomous — it never calls `ask_user`.** Assume the use
 
 - **Before iteration 1:** start immediately (legacy `--no-confirm` is the default; if `--confirm` is ever passed, ignore it).
 - **`wait-for-main.ts` exits with code 2 (timeout):** continue waiting in a fresh poll round. Repeat at most 2 additional timeout cycles, then fall through to the next iteration even if `main` has not advanced (record `advance=<sha>..<same>` in the digest). After 3 consecutive timeout cycles total, **stop the loop early** with the exit reason `wait-for-main timed out 3× consecutively — backlog likely stalled` written to the loop digest.
-- **`sync.ts` exits non-zero (dirty tree, merge conflict):** stop the loop immediately, write the failure into the digest, and exit with the original error. **Never** discard or auto-resolve changes.
+- **`sync.ts` exits non-zero (dirty tree outside the allow-list, merge conflict):** stop the loop immediately, write the failure into the digest, and exit with the original error. **Never** discard or auto-resolve changes. The allow-list covers `.claude/retrospectives/**.md` only — the inner skill's mandatory retrospective artefacts are stashed across the ff and restored automatically.
 - **Pre-flight finds the workspace not on `main` (or not tracking `origin/main`):** stop with the digest entry `pre-flight: branch must be main tracking origin/main` and exit. **Do not** attempt to switch branches.
 
 ## Iteration cycle
@@ -46,10 +46,10 @@ For `i = 1 .. iterations`:
    ```powershell
    npx tsx .claude/skills/test-exploratory-loop/runner/sync.ts
    ```
-   Fetches origin, fast-forwards `main`. Refuses dirty tree.
+   Fetches origin, fast-forwards `main`. Refuses if the working tree is dirty outside the allow-list (only `.claude/retrospectives/**.md` is allowed; those are stashed across the ff and restored).
 5. **Rebuild** (unless `--no-build`):
    ```powershell
-   npm run tauri:build:debug   # or npm run tauri:build for release
+   npm run tauri -- build --debug   # or `npm run tauri:build` for release
    ```
    Skip if the user is running Vite-served debug — the binary already follows source.
 6. Brief progress report: `[loop i/N] new=X reproduced=Y filed=Z; advance=<old>..<new>`.
@@ -88,7 +88,7 @@ Same as `test-exploratory-e2e`:
 2. Port 9222 is free.
 3. `src-tauri/target/{debug,release}/mdownreview.exe` exists.
 4. `gh auth status` is OK (filing on every iteration requires it).
-5. Working tree is clean (`git status --porcelain` empty) — `sync.ts` will refuse otherwise.
+5. Working tree is clean (`git status --porcelain` empty, ignoring the `.claude/retrospectives/**.md` allow-list) — `sync.ts` will refuse otherwise.
 6. Current branch is `main` and tracking `origin/main`. **If not, stop with a digest entry — do not ask, do not auto-switch.**
 
 ## Handoff with the issue-fixing loop
