@@ -124,6 +124,18 @@ test.describe("HtmlPreviewView link interception (safe mode)", () => {
 });
 
 test.describe("HtmlPreviewView link interception (scripts mode, bridge)", () => {
+  // When sandbox briefly transitions through allow-same-origin → allow-scripts,
+  // Chromium emits noisy CORS/sandbox errors from Vite's HMR client that get
+  // injected into the iframe before our re-render. These are environmental
+  // (dev server only) and don't reflect real product behaviour.
+  test.use({
+    consoleErrorAllowlist: [
+      "Blocked script execution in 'about:srcdoc'",
+      "blocked by CORS policy",
+      "Failed to load resource",
+    ],
+  });
+
   async function enableScripts(page: Page): Promise<void> {
     await page.getByRole("button", { name: /enable scripts/i }).click();
     // Sandbox flips to allow-scripts; iframe re-renders.

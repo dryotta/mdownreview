@@ -99,6 +99,7 @@ export function useFindInPage(
     if (!api) {
       // jsdom / older WebViews — degrade to no-op.
       rangesRef.current = [];
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- jsdom guard reset
       setMatches(0);
       setCurrent(-1);
       return;
@@ -115,7 +116,6 @@ export function useFindInPage(
 
     const found = findRangesInContainer(container, deferredQuery, MAX_FIND_MATCHES);
     if (found.length >= MAX_FIND_MATCHES) {
-      // eslint-disable-next-line no-console
       console.info(
         `[find-in-page] match cap reached (${MAX_FIND_MATCHES}); refine your query`,
       );

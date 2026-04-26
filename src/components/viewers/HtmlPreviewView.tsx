@@ -253,6 +253,10 @@ export function HtmlPreviewView({ content, filePath }: Props) {
       >
         <div ref={wrapperRef} style={{ position: "relative", flex: 1, display: "flex", minHeight: 0 }}>
           <iframe
+            // Chromium does not re-evaluate the sandbox attribute on srcdoc
+            // changes — keying the iframe on sandbox forces a full remount so
+            // allow-scripts actually applies to the new document.
+            key={sandbox}
             ref={iframeRef}
             srcDoc={srcDoc}
             sandbox={sandbox}
