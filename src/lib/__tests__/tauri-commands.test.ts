@@ -299,21 +299,12 @@ describe("onboarding & platform-integration wrappers", () => {
     const m = await getInvoke();
     m.mockResolvedValueOnce({
       schema_version: 1,
-      last_welcomed_version: null,
       last_seen_sections: [],
     });
     const { onboardingState } = await import("../tauri-commands");
     const r = await onboardingState();
     expect(m).toHaveBeenCalledWith("onboarding_state");
     expect(r.schema_version).toBe(1);
-  });
-
-  it("onboardingMarkWelcomed forwards version", async () => {
-    const m = await getInvoke();
-    m.mockResolvedValueOnce(undefined);
-    const { onboardingMarkWelcomed } = await import("../tauri-commands");
-    await onboardingMarkWelcomed("0.3.4");
-    expect(m).toHaveBeenCalledWith("onboarding_mark_welcomed", { version: "0.3.4" });
   });
 
   it("cliShimStatus returns the status string from invoke", async () => {
@@ -417,11 +408,11 @@ describe("system integration wrappers (Section E)", () => {
 
   it("statFile forwards path to stat_file and returns the FileStat", async () => {
     const m = await getInvoke();
-    m.mockResolvedValueOnce({ size_bytes: 4242 });
+    m.mockResolvedValueOnce({ size_bytes: 4242, mtime_ms: 1700000000000 });
     const { statFile } = await import("../tauri-commands");
     const result = await statFile("/ws/foo.bin");
     expect(m).toHaveBeenCalledWith("stat_file", { path: "/ws/foo.bin" });
-    expect(result).toEqual({ size_bytes: 4242 });
+    expect(result).toEqual({ size_bytes: 4242, mtime_ms: 1700000000000 });
   });
 
   it("revealInFolder propagates rejection (typed SystemError)", async () => {

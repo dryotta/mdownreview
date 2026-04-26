@@ -43,6 +43,12 @@ test("author identity round-trips through set_author / get_author", async ({ pag
       }
       if (cmd === "check_path_exists") return "file";
       if (cmd === "get_log_path") return "/mock/log.log";
+      // SettingsView mounts and refreshes onboarding statuses (B7).
+      if (cmd === "cli_shim_status") return "missing";
+      if (cmd === "default_handler_status") return "missing";
+      if (cmd === "folder_context_status") return "missing";
+      if (cmd === "onboarding_state")
+        return { schema_version: 1, last_seen_sections: [] };
       return null;
     };
   }, { dir: FIXTURES_DIR });
@@ -50,14 +56,19 @@ test("author identity round-trips through set_author / get_author", async ({ pag
   await page.goto("/");
   await expect(page.locator(".app-layout")).toBeVisible();
 
-  // Open Settings via the native menu event (toolbar button removed in #41 —
-  // Settings is reachable via File → Settings… (Cmd/Ctrl+,) which dispatches
-  // the `menu-open-settings` Tauri event).
-  await page.evaluate(() => {
-    (window as unknown as {
-      __DISPATCH_TAURI_EVENT__?: (event: string, payload: unknown) => void;
-    }).__DISPATCH_TAURI_EVENT__?.("menu-open-settings", null);
-  });
+  // Open Settings via the native menu event (`menu-open-settings`), then
+  // click the SettingsView footer link to mount the legacy author dialog —
+  // post-#79 the dialog has its own `authorDialogOpen` flag (B1 forward-fix)
+  // and is no longer auto-opened by `openSettings`.
+  const openAuthorDialog = async () => {
+    await page.evaluate(() => {
+      (window as unknown as {
+        __DISPATCH_TAURI_EVENT__?: (event: string, payload: unknown) => void;
+      }).__DISPATCH_TAURI_EVENT__?.("menu-open-settings", null);
+    });
+    await page.getByRole("button", { name: /Author & preferences/i }).click();
+  };
+  await openAuthorDialog();
   const input = page.getByLabel("Display name");
   await expect(input).toBeVisible();
   await expect(input).toHaveValue("OS-Default-User");
@@ -74,13 +85,9 @@ test("author identity round-trips through set_author / get_author", async ({ pag
     page.evaluate(() => (window as Record<string, unknown>).__SET_AUTHOR_CALLS__),
   ).toEqual([{ name: "Reviewer-2" }]);
 
-  // Re-open Settings — the input now reflects the persisted value via
-  // `useAuthor` reading the Zustand cache that was updated on save.
-  await page.evaluate(() => {
-    (window as unknown as {
-      __DISPATCH_TAURI_EVENT__?: (event: string, payload: unknown) => void;
-    }).__DISPATCH_TAURI_EVENT__?.("menu-open-settings", null);
-  });
+  // Re-open the author dialog via the same path — the input now reflects
+  // the persisted value via `useAuthor` reading the Zustand cache.
+  await openAuthorDialog();
   await expect(page.getByLabel("Display name")).toHaveValue("Reviewer-2");
 });
 

@@ -1,0 +1,67 @@
+/* #65 G1 — find-in-page. CSS Custom Highlight API paints over Range
+   objects held in JS without DOM mutation, so react-markdown re-renders
+   never blow them away. */
+::highlight(find-hit) {
+  background-color: #fff59d;
+  color: #1f2328;
+}
+
+::highlight(find-hit-current) {
+  background-color: #ffb74d;
+  color: #1f2328;
+}
+
+.find-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--color-surface, #f6f8fa);
+  color: var(--color-text, #24292f);
+  border-bottom: 1px solid var(--color-border, #d0d7de);
+  font-size: 13px;
+}
+
+.find-bar input {
+  flex: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--color-border, #d0d7de);
+  border-radius: 4px;
+  background: var(--color-bg, #ffffff);
+  color: var(--color-text, #24292f);
+  font: inherit;
+  outline: none;
+}
+
+.find-bar input:focus {
+  border-color: var(--color-accent, #0969da);
+}
+
+.find-bar button {
+  padding: 2px 8px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--color-muted, #6e7781);
+  font: inherit;
+}
+
+.find-bar button:hover:not(:disabled) {
+  background: var(--color-tab-hover, #f0f0f0);
+  color: var(--color-text, #24292f);
+}
+
+.find-bar button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.find-bar .count {
+  min-width: 60px;
+  text-align: right;
+  color: var(--color-muted, #6e7781);
+}

@@ -56,6 +56,8 @@ export const readBinaryFile = (path: string): Promise<string> =>
 
 export interface FileStat {
   size_bytes: number;
+  /** Last-modified time as epoch milliseconds; `null`/missing when the FS does not expose it. */
+  mtime_ms?: number | null;
 }
 
 export const statFile = (path: string): Promise<FileStat> =>
@@ -366,7 +368,6 @@ export const restartApp = (): Promise<void> => {
 
 export interface OnboardingState {
   schema_version: number;
-  last_welcomed_version: string | null;
   last_seen_sections: string[];
 }
 
@@ -379,12 +380,6 @@ export type FolderContextStatus = "done" | "missing" | "unsupported";
 
 export const onboardingState = (): Promise<OnboardingState> =>
   invoke<OnboardingState>("onboarding_state");
-
-export const onboardingMarkWelcomed = (version: string): Promise<void> =>
-  invoke<void>("onboarding_mark_welcomed", { version });
-
-export const onboardingShouldWelcome = (): Promise<boolean> =>
-  invoke<boolean>("onboarding_should_welcome");
 
 export const cliShimStatus = (): Promise<CliShimStatus> =>
   invoke<CliShimStatus>("cli_shim_status");

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { resolveHtmlAssets, openExternalUrl } from "@/lib/tauri-commands";
-import { dirname, resolveWorkspacePath } from "@/lib/path-utils";
-import { EXTERNAL_LINK_SCHEME, BLOCKED_LINK_SCHEME } from "@/lib/url-policy";
+import { dirname } from "@/lib/path-utils";
+import { routeLinkClick } from "@/lib/url-policy";
+import { rewriteRemoteImages } from "@/lib/html-image-rewrite";
 import { ReadingWidthHandle } from "./ReadingWidthHandle";
 import { useStore } from "@/store";
 import { useZoom } from "@/hooks/useZoom";
-import { warn } from "@/logger";
+import { warn, info } from "@/logger";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { CommentInput } from "@/components/comments/CommentInput";
 import { buildBridgeSrcDoc, isBridgeMsg } from "@/lib/html-bridge";
@@ -24,14 +25,19 @@ interface Composer {
 }
 
 export function HtmlPreviewView({ content, filePath }: Props) {
-  const [unsafeMode, setUnsafeMode] = useState(false);
+  // Two independent toggles — see the sandbox matrix below. We never combine
+  // allow-scripts + allow-same-origin (security.md rule 12a).
+  const [allowImages, setAllowImages] = useState(false);
+  const [allowScripts, setAllowScripts] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
+  const [resolvedBase, setResolvedBase] = useState(content);
   const [resolvedContent, setResolvedContent] = useState(content);
   const [resolving, setResolving] = useState(false);
   const [composer, setComposer] = useState<Composer | null>(null);
   const readingContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const revokeImagesRef = useRef<(() => void) | null>(null);
   const readingWidth = useStore((s) => s.readingWidth);
   const workspaceRoot = useStore((s) => s.root) ?? "";
   const { zoom } = useZoom(".html");
@@ -42,23 +48,34 @@ export function HtmlPreviewView({ content, filePath }: Props) {
   // crypto.randomUUID is available in Tauri's webview and modern jsdom.
   const nonce = useMemo(() => globalThis.crypto.randomUUID(), []);
 
-  // Sandbox semantics:
-  //   • safe (default):       allow-same-origin only — CSS/fonts but no JS.
-  //   • unsafe (toggle):      allow-scripts only — sandboxed scripts run,
-  //                            iframe is cross-origin (opaque), no parent access.
-  //   • comment mode:         allow-scripts only — required for the bridge IIFE.
-  //                            We never combine allow-scripts + allow-same-origin.
-  // Comment mode implies scripts (the bridge needs them); document this in the UI.
-  const sandbox = (unsafeMode || commentMode) ? "allow-scripts" : "allow-same-origin";
+  // Sandbox matrix:
+  //   allowImages | allowScripts | sandbox value
+  //   ------------|--------------|----------------------
+  //   false       | false        | allow-same-origin (default safe)
+  //   true        | false        | allow-same-origin
+  //   any         | true         | allow-scripts
+  // Comment mode implies scripts (the bridge needs them) so it forces the
+  // allow-scripts branch. We never combine allow-scripts + allow-same-origin.
+  const scriptsActive = allowScripts || commentMode;
+  const sandbox = scriptsActive ? "allow-scripts" : "allow-same-origin";
 
+  // When scripts/comment mode is on, install the bridge IIFE so anchor
+  // clicks come back to us via postMessage (the iframe is cross-origin in
+  // that mode and we cannot reach contentDocument). Safe mode keeps the
+  // raw resolved content + uses the onLoad contentDocument listener.
   const srcDoc = useMemo(() => {
-    if (!commentMode) return resolvedContent;
-    return buildBridgeSrcDoc(resolvedContent, { nonce });
-  }, [resolvedContent, commentMode, nonce]);
+    if (!scriptsActive) return resolvedContent;
+    return buildBridgeSrcDoc(resolvedContent, { nonce, commentMode });
+  }, [resolvedContent, scriptsActive, commentMode, nonce]);
 
+  // Effect 1 — local-asset resolution. Keyed only on inputs that affect the
+  // resolved-base HTML (path + content). The remote-image / scripts toggles
+  // do NOT belong here: they don't change what `resolveHtmlAssets` returns
+  // and re-running this effect on every toggle would burn an IPC round-trip
+  // per click (rule 2 in `docs/performance.md`).
   useEffect(() => {
     if (!filePath) {
-      setResolvedContent(content); // eslint-disable-line react-hooks/set-state-in-effect
+      setResolvedBase(content); // eslint-disable-line react-hooks/set-state-in-effect
       setResolving(false);
       return;
     }
@@ -66,10 +83,11 @@ export function HtmlPreviewView({ content, filePath }: Props) {
     setResolving(true);
     resolveHtmlAssets(content, dirname(filePath))
       .then((resolved) => {
-        if (!cancelled) setResolvedContent(resolved);
+        if (cancelled) return;
+        setResolvedBase(resolved);
       })
       .catch(() => {
-        if (!cancelled) setResolvedContent(content);
+        if (!cancelled) setResolvedBase(content);
       })
       .finally(() => {
         if (!cancelled) setResolving(false);
@@ -77,10 +95,54 @@ export function HtmlPreviewView({ content, filePath }: Props) {
     return () => { cancelled = true; };
   }, [content, filePath]);
 
-  // Bridge listener. Filter strictly by source-window AND nonce — drop anything
-  // else. Translates iframe-local clientX/Y to wrapper-local coords.
+  // Effect 2 — remote-image rewrite over the cached resolved-base HTML.
+  // Owns the blob-URL revoke lifecycle so toggling allowImages off (or
+  // flipping allowScripts on, which disables the rewrite path) cleans up
+  // the prior batch.
   useEffect(() => {
-    if (!commentMode) {
+    let cancelled = false;
+    const revokePrior = revokeImagesRef.current;
+    revokeImagesRef.current = null;
+    if (allowImages && !allowScripts) {
+      // Route http(s) <img> through the fetch_remote_asset chokepoint.
+      // CSP cannot be widened (security.md rule 17), so we materialise
+      // the bytes here and swap to blob: URLs.
+      rewriteRemoteImages(resolvedBase)
+        .then(({ html, revoke }) => {
+          if (cancelled) { revoke(); return; }
+          revokeImagesRef.current = revoke;
+          setResolvedContent(html);
+        })
+        .catch(() => {
+          if (!cancelled) setResolvedContent(resolvedBase);
+        })
+        .finally(() => {
+          // Revoke the prior batch only after we have new content in place,
+          // so the iframe never sees a dangling blob URL.
+          if (revokePrior) revokePrior();
+        });
+    } else {
+      setResolvedContent(resolvedBase); // eslint-disable-line react-hooks/set-state-in-effect
+      if (revokePrior) revokePrior();
+    }
+    return () => { cancelled = true; };
+  }, [resolvedBase, allowImages, allowScripts]);
+
+  // Cleanup blob URLs on unmount.
+  useEffect(() => {
+    return () => {
+      const revoke = revokeImagesRef.current;
+      if (revoke) revoke();
+      revokeImagesRef.current = null;
+    };
+  }, []);
+
+  // Bridge listener — installed whenever scripts OR comment mode is on, so
+  // both link routing (always) and the comment composer (commentMode only)
+  // can react to bridge messages. Filter strictly by source-window AND
+  // nonce — drop anything else.
+  useEffect(() => {
+    if (!commentMode && !scriptsActive) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset when toggling off
       setComposer(null);
       return;
@@ -90,6 +152,27 @@ export function HtmlPreviewView({ content, filePath }: Props) {
       if (!isBridgeMsg(event.data)) return;
       if (event.data.nonce !== nonce) return;
       const msg = event.data;
+      if (msg.type === "link") {
+        const route = routeLinkClick(msg.href, { baseDir, workspaceRoot });
+        switch (route.kind) {
+          case "blocked":
+            warn(`HtmlPreviewView: blocked iframe link (${route.reason}): ${route.href}`);
+            break;
+          case "external":
+            openExternalUrl(route.href).catch(() => {});
+            break;
+          case "fragment":
+            // Best-effort placeholder — full in-iframe scroll requires
+            // posting back to the bridge IIFE with the fragment id.
+            info(`HtmlPreviewView: in-iframe fragment scroll not yet implemented: #${route.fragment}`);
+            break;
+          case "workspace":
+            useStore.getState().openFile(route.path);
+            break;
+        }
+        return;
+      }
+      if (!commentMode) return;
       const wrap = wrapperRef.current;
       const iframe = iframeRef.current;
       let top = msg.clientY + 8;
@@ -118,7 +201,7 @@ export function HtmlPreviewView({ content, filePath }: Props) {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [commentMode, nonce]);
+  }, [commentMode, scriptsActive, nonce, baseDir, workspaceRoot]);
 
   const handleSaveComment = useCallback(
     (text: string) => {
@@ -139,11 +222,24 @@ export function HtmlPreviewView({ content, filePath }: Props) {
         {resolving && <span style={{ marginLeft: 8 }}>⏳ Resolving local images…</span>}
         <button
           className="comment-btn"
-          aria-label={unsafeMode ? "Disable scripts" : "Enable scripts"}
-          onClick={() => setUnsafeMode(!unsafeMode)}
+          type="button"
+          aria-pressed={allowImages}
+          aria-label={allowImages ? "Disallow external images" : "Allow external images"}
+          onClick={() => setAllowImages((v) => !v)}
           style={{ marginLeft: 8 }}
         >
-          {unsafeMode ? "Disable scripts" : "Enable scripts"}
+          {allowImages ? "Disallow external images" : "Allow external images"}
+        </button>
+        <button
+          className="comment-btn"
+          type="button"
+          aria-pressed={allowScripts}
+          aria-label={allowScripts ? "Disable scripts" : "Enable scripts"}
+          onClick={() => setAllowScripts((v) => !v)}
+          style={{ marginLeft: 8 }}
+        >
+          {allowScripts ? "Disable scripts" : "Enable scripts"}
+          <span style={{ marginLeft: 4, opacity: 0.7 }}>(higher risk — runs sandboxed JS)</span>
         </button>
         <button
           type="button"
@@ -157,11 +253,11 @@ export function HtmlPreviewView({ content, filePath }: Props) {
         >
           💬 Comment
         </button>
-        {(unsafeMode || commentMode) && (
+        {(allowScripts || commentMode) && (
           <span style={{ marginLeft: 8, fontStyle: "italic" }}>
             {commentMode
-              ? "Comment mode runs scripts in the iframe (sandboxed). Link routing disabled."
-              : "Link routing disabled in scripts-enabled mode (cross-origin sandbox)."}
+              ? "Comment mode runs scripts in the iframe (sandboxed)."
+              : "Scripts enabled — sandboxed JS runs inside the iframe."}
           </span>
         )}
       </div>
@@ -177,6 +273,10 @@ export function HtmlPreviewView({ content, filePath }: Props) {
       >
         <div ref={wrapperRef} style={{ position: "relative", flex: 1, display: "flex", minHeight: 0 }}>
           <iframe
+            // Chromium does not re-evaluate the sandbox attribute on srcdoc
+            // changes — keying the iframe on sandbox forces a full remount so
+            // allow-scripts actually applies to the new document.
+            key={sandbox}
             ref={iframeRef}
             srcDoc={srcDoc}
             sandbox={sandbox}
@@ -184,9 +284,10 @@ export function HtmlPreviewView({ content, filePath }: Props) {
             data-comment-mode={commentMode || undefined}
             style={{ width: "100%", border: "none", minHeight: 400, flex: 1, background: "white" }}
             onLoad={() => {
-              // In script-enabled modes the iframe is cross-origin and we
-              // cannot reach contentDocument; link routing is unavailable.
-              if (unsafeMode || commentMode) return;
+              // In script-enabled or comment modes the iframe is cross-origin
+              // and link routing is delivered via the bridge postMessage path
+              // (see the message-handler effect above).
+              if (scriptsActive) return;
               const doc = iframeRef.current?.contentDocument;
               if (!doc) return;
               doc.addEventListener("click", (event) => {
@@ -194,26 +295,24 @@ export function HtmlPreviewView({ content, filePath }: Props) {
                 const anchor = target?.closest?.("a") as HTMLAnchorElement | null;
                 if (!anchor) return;
                 const href = anchor.getAttribute("href");
-                if (!href) return;
-                if (href.startsWith("#")) return;
-                if (BLOCKED_LINK_SCHEME.test(href)) {
-                  event.preventDefault();
-                  warn(`HtmlPreviewView: blocked iframe link scheme: ${href}`);
-                  return;
+                if (href === null) return;
+                const route = routeLinkClick(href, { baseDir, workspaceRoot });
+                switch (route.kind) {
+                  case "fragment":
+                    return; // let the browser scroll natively
+                  case "blocked":
+                    event.preventDefault();
+                    warn(`HtmlPreviewView: blocked iframe link (${route.reason}): ${route.href}`);
+                    return;
+                  case "external":
+                    event.preventDefault();
+                    openExternalUrl(route.href).catch(() => {});
+                    return;
+                  case "workspace":
+                    event.preventDefault();
+                    useStore.getState().openFile(route.path);
+                    return;
                 }
-                if (EXTERNAL_LINK_SCHEME.test(href)) {
-                  event.preventDefault();
-                  openExternalUrl(href).catch(() => {});
-                  return;
-                }
-                event.preventDefault();
-                if (!baseDir) return;
-                const resolved = resolveWorkspacePath(workspaceRoot, baseDir, href);
-                if (!resolved) {
-                  warn(`HtmlPreviewView: dropped iframe link outside workspace: ${href}`);
-                  return;
-                }
-                useStore.getState().openFile(resolved.path);
               });
             }}
           />

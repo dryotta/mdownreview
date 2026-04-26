@@ -1,5 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { COMMENT_MUTATION_COMMANDS } from "../../../src/lib/comment-mutation-commands";
 
 interface ErrorTrackingOptions {
   consoleErrorAllowlist: string[];
@@ -19,7 +20,7 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
     // Provide __TAURI_INTERNALS__ before page scripts run so that
     // @tauri-apps/api's invoke() and listen() work in the Vite dev server.
     // Tests set window.__TAURI_IPC_MOCK__ to handle specific commands.
-    await page.addInitScript(() => {
+    await page.addInitScript((commentMutations: readonly string[]) => {
       const callbacks: Record<number, { callback: (...args: unknown[]) => void; once: boolean }> =
         {};
       const eventListeners: Record<string, number[]> = {};
@@ -75,6 +76,32 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
             | undefined;
           if (typeof mock === "function") {
             const result = await mock(cmd, args ?? {});
+            // Auto-emit `comments-changed` after every successful sidecar
+            // mutation invoke. Mirrors the Rust contract (Emitter::emit_to
+            // after save) so specs don't need to dispatch the event by
+            // hand — preventing skew between renderer subscribers and
+            // the production wire format. The list is passed in from
+            // `lib/comment-mutation-commands.ts` (single source of truth).
+            if (commentMutations.indexOf(cmd) !== -1) {
+              const a = (args ?? {}) as Record<string, unknown>;
+              const filePath =
+                (typeof a.filePath === "string" && a.filePath) ||
+                (typeof a.file_path === "string" && a.file_path) ||
+                "";
+              if (filePath) {
+                const handlers = eventListeners["comments-changed"] || [];
+                for (const id of handlers) {
+                  const cb = callbacks[id];
+                  if (cb) {
+                    cb.callback({
+                      event: "comments-changed",
+                      payload: { file_path: filePath },
+                      id,
+                    });
+                  }
+                }
+              }
+            }
             // read_text_file changed shape from `string` to `{ content, size_bytes, line_count }`.
             // Tests authored before that change still return a plain string — wrap it transparently
             // so the existing specs keep working without per-file edits.
@@ -109,16 +136,14 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
               )
                 return "missing";
               if (cmd === "onboarding_state")
-                return { schema_version: 1, last_welcomed_version: null, last_seen_sections: [] };
-              if (cmd === "onboarding_should_welcome") return false;
+                return { schema_version: 1, last_seen_sections: [] };
               if (cmd === "get_launch_args") return { files: [], folders: [] };
               if (
                 cmd === "install_cli_shim" ||
                 cmd === "remove_cli_shim" ||
                 cmd === "set_default_handler" ||
                 cmd === "register_folder_context" ||
-                cmd === "unregister_folder_context" ||
-                cmd === "onboarding_mark_welcomed"
+                cmd === "unregister_folder_context"
               )
                 return undefined;
             }
@@ -143,16 +168,14 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
           )
             return "missing";
           if (cmd === "onboarding_state")
-            return { schema_version: 1, last_welcomed_version: null, last_seen_sections: [] };
-          if (cmd === "onboarding_should_welcome") return false;
+            return { schema_version: 1, last_seen_sections: [] };
           if (cmd === "get_launch_args") return { files: [], folders: [] };
           if (
             cmd === "install_cli_shim" ||
             cmd === "remove_cli_shim" ||
             cmd === "set_default_handler" ||
             cmd === "register_folder_context" ||
-            cmd === "unregister_folder_context" ||
-            cmd === "onboarding_mark_welcomed"
+            cmd === "unregister_folder_context"
           )
             return undefined;
           return null;
@@ -177,7 +200,7 @@ const test = base.extend<ErrorTrackingFixtures & ErrorTrackingOptions>({
         registerListener: () => {},
         unregisterListener: () => {},
       };
-    });
+    }, [...COMMENT_MUTATION_COMMANDS]);
 
     page.on("pageerror", (error) => {
       pageErrors.push(error);

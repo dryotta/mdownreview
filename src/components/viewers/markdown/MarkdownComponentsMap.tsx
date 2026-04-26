@@ -11,10 +11,9 @@ import type { Components, ExtraProps } from "react-markdown";
 import { getSharedHighlighter } from "@/lib/shiki";
 import { openExternalUrl } from "@/lib/tauri-commands";
 import { warn, info } from "@/logger";
-import { resolveWorkspacePath, dirname } from "@/lib/path-utils";
-import { EXTERNAL_LINK_SCHEME, BLOCKED_LINK_SCHEME } from "@/lib/url-policy";
+import { dirname } from "@/lib/path-utils";
+import { routeLinkClick } from "@/lib/url-policy";
 import { useStore } from "@/store";
-import { useTheme } from "@/hooks/useTheme";
 import { lazyWithSuspense } from "../lazy";
 import {
   CommentableLi,
@@ -22,24 +21,31 @@ import {
   CommentableWrapper,
   makeCommentableBlock,
 } from "./CommentableBlocks";
+import { CodeBlockHost } from "./CodeBlockHost";
 
 type ImgComponent = ComponentType<ComponentPropsWithoutRef<"img"> & ExtraProps>;
 
-// Shiki-backed code block. Re-highlights on theme change and degrades to a
-// plain `<pre><code>` while the highlighter loads.
+// Shiki-backed code block. Emits dual-theme output (light + dark) where the
+// colors are encoded as CSS variables (`--shiki-light` / `--shiki-dark`).
+// `markdown.css` selects which set is active via the document `data-theme`,
+// and `print.css` (#65 G3) forces the light variant inside `@media print` so
+// printed code blocks render in black-on-white regardless of the on-screen
+// theme. Degrades to a plain `<pre><code>` while the highlighter loads.
 function HighlightedCode({ code, lang }: { code: string; lang: string }) {
   const [html, setHtml] = useState<string | null>(null);
-  const currentTheme = useTheme();
 
   useEffect(() => {
-    const theme = currentTheme === "dark" ? "github-dark" : "github-light";
     getSharedHighlighter()
       .then(async (h) => {
-        const result = await h.codeToHtml(code, { lang, theme, defaultColor: false });
+        const result = await h.codeToHtml(code, {
+          lang,
+          themes: { light: "github-light", dark: "github-dark" },
+          defaultColor: false,
+        });
         setHtml(result);
       })
       .catch(() => {});
-  }, [code, lang, currentTheme]);
+  }, [code, lang]);
 
   if (html) {
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
@@ -71,32 +77,26 @@ function makeAnchorComponent(filePath: string, workspaceRoot: string) {
   }: ComponentPropsWithoutRef<"a"> & ExtraProps) {
     const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (!href) return;
-      // Case 1: in-document scroll — let the browser handle it natively.
-      if (href.startsWith("#")) return;
-      // Case 3: explicitly dangerous scheme — drop and warn.
-      if (BLOCKED_LINK_SCHEME.test(href)) {
-        e.preventDefault();
-        warn(`MarkdownViewer: blocked link scheme: ${href}`);
-        return;
-      }
-      // Case 2: external (http/https/mailto/tel) — defer to the OS opener.
-      if (EXTERNAL_LINK_SCHEME.test(href)) {
-        e.preventDefault();
-        openExternalUrl(href).catch(() => {});
-        return;
-      }
-      // Case 4: workspace-relative path — open inside the app, but ONLY if
-      // the resolved target is contained within the workspace root.
-      e.preventDefault();
-      if (!baseDir) return;
-      const resolved = resolveWorkspacePath(workspaceRoot, baseDir, href);
-      if (!resolved) {
-        warn(`MarkdownViewer: dropped link outside workspace: ${href}`);
-        return;
-      }
-      useStore.getState().openFile(resolved.path);
-      if (resolved.fragment) {
-        info(`MarkdownViewer: link fragment "#${resolved.fragment}" not yet scrolled`);
+      const route = routeLinkClick(href, { baseDir: baseDir || undefined, workspaceRoot });
+      switch (route.kind) {
+        case "fragment":
+          // In-document scroll — let the browser handle it natively.
+          return;
+        case "blocked":
+          e.preventDefault();
+          warn(`MarkdownViewer: blocked link (${route.reason}): ${route.href}`);
+          return;
+        case "external":
+          e.preventDefault();
+          openExternalUrl(route.href).catch(() => {});
+          return;
+        case "workspace":
+          e.preventDefault();
+          useStore.getState().openFile(route.path);
+          if (route.fragment) {
+            info(`MarkdownViewer: link fragment "#${route.fragment}" not yet scrolled`);
+          }
+          return;
       }
     };
     return (
@@ -129,28 +129,41 @@ export function buildMarkdownComponents({
     ...props
   }: ComponentPropsWithoutRef<"pre"> & ExtraProps) => {
     let inner: ReactNode;
+    // #65 G2: every fenced code block (except mermaid) gets a hover-revealed
+    // copy button. We capture the raw source string here so the button
+    // writes the original text — not the shiki-highlighted HTML — to the
+    // clipboard. Mermaid blocks render as diagrams and are intentionally
+    // excluded.
+    let copySource: string | null = null;
     if (isValidElement(children)) {
       const el = children as ReactElement<{ className?: string; children?: ReactNode }>;
       if (el.type === "code") {
         const { className, children: codeChildren } = el.props;
         const lang = /language-([\w-]+)/.exec(className ?? "")?.[1];
+        const sourceText = String(codeChildren ?? "").replace(/\n$/, "");
         if (lang?.toLowerCase() === "mermaid") {
-          const source = String(codeChildren ?? "").replace(/\n$/, "");
-          inner = <MermaidEmbed content={source} />;
+          inner = <MermaidEmbed content={sourceText} />;
+          // mermaid → no copy button
         } else if (lang) {
-          inner = (
-            <HighlightedCode
-              code={String(codeChildren ?? "").replace(/\n$/, "")}
-              lang={lang}
-            />
-          );
+          inner = <HighlightedCode code={sourceText} lang={lang} />;
+          copySource = sourceText;
+        } else {
+          // plain ``` block (no language tag) — still copyable; let the
+          // default <pre> below render the content.
+          copySource = sourceText;
         }
       }
     }
     if (inner === undefined) {
       inner = <pre {...props}>{children}</pre>;
     }
-    return <CommentableWrapper node={node}>{inner}</CommentableWrapper>;
+    const wrapped =
+      copySource !== null ? (
+        <CodeBlockHost source={copySource}>{inner}</CodeBlockHost>
+      ) : (
+        inner
+      );
+    return <CommentableWrapper node={node}>{wrapped}</CommentableWrapper>;
   };
 
   // Wrap the per-doc `img` resolver in the commentable envelope so the gutter

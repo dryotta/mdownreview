@@ -32,6 +32,14 @@ interface Props {
    */
   onCommentOnFile?: () => void;
   /**
+   * #65 G3 — when provided, renders a "Print" button that invokes the
+   * supplied callback (typically `() => window.print()`). Only viewers
+   * whose visual output benefits from print (markdown/HTML preview) opt
+   * in via `EnhancedViewer`; source/binary viewers leave it undefined so
+   * the button is hidden.
+   */
+  onPrint?: () => void;
+  /**
    * Optional trailing slot rendered on the right edge of the toolbar.
    * `EnhancedViewer` plugs `FileActionsBar` in here so the file actions stay
    * pinned with the (sticky) toolbar instead of becoming a separate sibling
@@ -47,7 +55,7 @@ interface Props {
  * `EnhancedViewer`, or rendered above headerless media viewers by
  * `ViewerRouter`.
  */
-export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, onCommentOnFile, trailing }: Props) {
+export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle, wordWrap, onToggleWrap, zoom, onCommentOnFile, onPrint, trailing }: Props) {
   // Iter 6 F8 — workspace-wide "Next unresolved" surfacing. Reads the action
   // and tab count straight from the Zustand store (MVVM rule 9 single-field
   // selectors).
@@ -68,7 +76,7 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
     ([p, b]) => p !== activePath && (b?.count ?? 0) > 0,
   );
 
-  if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile) return null;
+  if (hidden && !showWrapToggle && !zoom && !trailing && !onCommentOnFile && !onPrint) return null;
 
   return (
     <div className="viewer-toolbar" role="toolbar" aria-label="View mode">
@@ -122,6 +130,17 @@ export function ViewerToolbar({ activeView, onViewChange, hidden, showWrapToggle
         >
           <span aria-hidden="true">→</span>
           <span className="viewer-toolbar-next-unresolved-label">Next unresolved</span>
+        </button>
+      )}
+      {onPrint && (
+        <button
+          type="button"
+          className="viewer-toolbar-btn viewer-toolbar-print"
+          onClick={onPrint}
+          aria-label="Print"
+          title="Print"
+        >
+          <span aria-hidden="true">🖨</span>
         </button>
       )}
       {trailing}

@@ -1,9 +1,9 @@
 //! `update_comment` — consolidated patch surface for per-comment mutations.
 
-use super::{enforce_workspace_path, CommentsChangedEvent};
+use super::{enforce_workspace_path, CommentsEmitter};
 use crate::core::types::{Anchor, Reaction};
 use crate::watcher::WatcherState;
-use tauri::{Emitter, State};
+use tauri::{AppHandle, Runtime, State};
 
 /// Patch payloads for `update_comment`. Discriminated enum (serde adjacent
 /// `kind`/`data` tags) so the TS side can branch cleanly. Every per-comment
@@ -34,31 +34,42 @@ pub enum CommentPatch {
 
 /// Apply a [`CommentPatch`] to a single comment.
 #[tauri::command]
-pub fn update_comment(
-    app: tauri::AppHandle,
+pub fn update_comment<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, WatcherState>,
     file_path: String,
     comment_id: String,
     patch: CommentPatch,
 ) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
+    update_comment_inner(&app, &state, file_path, comment_id, patch)
+}
+
+/// Test seam for [`update_comment`]. See `add_comment_inner` for rationale.
+/// Calls [`update_comment_apply`] and emits `comments-changed` only when
+/// the apply layer reports a real mutation.
+pub fn update_comment_inner<E: CommentsEmitter>(
+    emitter: &E,
+    state: &WatcherState,
+    file_path: String,
+    comment_id: String,
+    patch: CommentPatch,
+) -> Result<(), String> {
+    enforce_workspace_path(state, &file_path)?;
     let changed = update_comment_apply(&file_path, &comment_id, patch)?;
     if changed {
-        let _ = app.emit_to(
-            "main",
-            "comments-changed",
-            CommentsChangedEvent {
-                file_path: file_path.clone(),
-            },
-        );
+        emitter.emit_comments_changed(&file_path);
     }
     Ok(())
 }
 
 /// Pure helper for [`update_comment`] — no `AppHandle`, no event emission.
+/// **Does NOT emit `comments-changed`** — only call from a wrapper that
+/// does (e.g. `update_comment`, `resolve_comment`, `move_anchor`).
 /// Returns `true` if the sidecar was actually mutated, `false` for no-ops
 /// (e.g. `SetResolved { resolved }` matching the comment's current state)
 /// so the IPC entry point can skip both the save and the event emission.
+/// Kept `pub` for integration tests that exercise the patch dispatch
+/// without bringing up a Tauri runtime.
 pub fn update_comment_apply(
     file_path: &str,
     comment_id: &str,

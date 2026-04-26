@@ -86,10 +86,7 @@ async function setupImageMocks(page: Page) {
             : {}),
         });
         persist();
-        const dispatcher = (window as Record<string, unknown>).__DISPATCH_TAURI_EVENT__ as
-          | ((e: string, p: unknown) => void)
-          | undefined;
-        if (dispatcher) dispatcher("comments-changed", { file_path: args.filePath });
+        // IPC mock auto-emits 'comments-changed' centrally; see fixtures/error-tracking.ts.
         return null;
       }
       if (cmd === "update_comment") return null;
