@@ -21,7 +21,9 @@ export type Command =
       severity: "P1" | "P2" | "P3";
       anchor: string;
       detail: string;
-      screenshot: string }
+      screenshot: string;
+      group?: string }
+  | { act: "file_issues"; dryRun?: boolean }
   | { act: "stop" };
 
 export type Interactive = {
@@ -72,6 +74,24 @@ export type StopResult = {
   reportPath: string;
 };
 
+export type FiledGroup = {
+  group: string;
+  title: string;
+  severity: "P1" | "P2" | "P3";
+  findingCount: number;
+  status: "filed" | "dry-run" | "skipped-existing";
+  issue?: number;
+  url?: string;
+  reason?: string;
+};
+
+export type FileIssuesResult = {
+  groupCount: number;
+  filedCount: number;
+  dryRun: boolean;
+  groups: FiledGroup[];
+};
+
 export type Response =
   | { ok: true;  result:
         | { png: string }
@@ -79,7 +99,8 @@ export type Response =
         | { ok: true }
         | { hits: RuleHit[] }
         | RecordResult
-        | StopResult }
+        | StopResult
+        | FileIssuesResult }
   | { ok: false; error: string };
 
 export function parseCommand(line: string): Command {

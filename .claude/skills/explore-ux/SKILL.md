@@ -40,7 +40,8 @@ You write one JSON line to stdin, the REPL writes one JSON line to stdout. Use `
 | `{"act":"resize","width":480,"height":800}` | `{"ok":true}` |
 | `{"act":"emit","event":"menu-about"}` | `{"ok":true}` |
 | `{"act":"cli","args":["D:/work/mdownreview2/docs/architecture.md", ...]}` | `{"ok":true}` |
-| `{"act":"record","heuristic":"<id>","severity":"P1\|P2\|P3","anchor":"...","detail":"...","screenshot":"..."}` | `{"ok":true,"result":{"status":"NEW\|REPRODUCED"}}` |
+| `{"act":"record","heuristic":"<id>","severity":"P1\|P2\|P3","anchor":"...","detail":"...","screenshot":"...","group":"<tag>"}` | `{"ok":true,"result":{"status":"NEW\|REPRODUCED"}}` |
+| `{"act":"file_issues","dryRun":false}` | `{"ok":true,"result":{ groupCount, filedCount, dryRun, groups[] }}` |
 | `{"act":"stop"}` | `{"ok":true,"result":{ findings, newCount, reproducedCount, runDir, reportPath }}` |
 
 ## The exploration loop
@@ -63,10 +64,34 @@ Pick one or two persona seeds from `seeds/*.md`. Read them. Then loop until step
      - Pick a heuristic id from heuristics/*.md
        (NIELSEN-N1..N10, WCAG-1.4.3 / 4.1.2 / etc, MDR-* for app-specific
        rules, AP-* for anti-patterns)
-     - record with a detail that cites BOTH visual evidence and the
-       DOM evidence (selector, bbox, computed style, etc.)
+     - Decide which `group` this belongs in (responsive-layout,
+       visual-polish, modal-ux, accessibility, errors, performance, ...).
+       Reuse a group you've already used if a single PR would fix both.
+     - record with detail that cites BOTH visual evidence and the
+       DOM evidence (selector, bbox, computed style, etc.) PLUS the
+       group tag.
 6. Goto 1.
 ```
+
+## Grouping findings into fewer GitHub issues
+
+When you `record` a finding, **always set a `group` tag**. Findings sharing the same `group` are filed under a single GitHub issue by `file_issues`. Aim for **3-6 issues per run, not 10+**.
+
+Recommended group tags (invent more if needed):
+- `responsive-layout` — anything that breaks on resize: clipped toolbars, squeezed panes, chrome scrollbars, sticky scroll state.
+- `visual-polish` — emoji-as-icon, missing-glyph X, default browser titles, low-quality icons.
+- `modal-ux` — dialog focus traps, missing scrim, dismissal bugs.
+- `accessibility` — focus-ring invisibility, contrast, missing accessible names, keyboard reachability.
+- `errors` — console errors, IPC raw-JSON, blank screens.
+- `performance` — perceptible jank, slow opens, memory blow-ups.
+
+Two findings belong in the same group if a single PR would naturally fix both.
+
+## Filing issues
+
+After you have finished recording, send `{"act":"file_issues","dryRun":false}` (use `dryRun:true` first to preview titles). The REPL groups all NEW findings, calls `gh issue create` once per group, and stamps the resulting issue numbers into the dedupe store so future runs can comment on the same issue when a finding REPRODUCES.
+
+If the user did NOT explicitly approve filing, run `{"act":"file_issues","dryRun":true}` first and report the grouped titles back for confirmation.
 
 When you stop, send `{"act":"stop"}`. Read the response, view `reportPath`, and report findings to the user.
 
@@ -100,11 +125,12 @@ See `heuristics/{nielsen,wcag-aa,mdownreview-specific,anti-patterns}.md`. Exampl
 
 If you observe a UX failure that is not yet covered by an existing heuristic, invent a new id of the form `MDR-<SHORTNAME>` or `AP-<SHORTNAME>`, use it consistently for the rest of the run, and tell the user in your final report so the heuristic can be added later.
 
-## Filing issues
+## Filing issues (legacy section — kept for reference)
 
-After `stop`, if the user asks (or if you were invoked with `--file`):
-- `gh issue create` for each NEW finding, citing heuristic id, including the screenshot and the report excerpt.
-- `gh issue comment` "Reproduced in run <runId>" for each REPRODUCED finding whose `known-findings.json` entry already has an issue number.
+The `file_issues` REPL act handles this for you (see "Filing issues" above). The old per-finding flow below is no longer the recommended path:
+
+- ~~`gh issue create` for each NEW finding...~~ → use `{"act":"file_issues"}` instead.
+- ~~`gh issue comment` "Reproduced in run X"...~~ → handled automatically when `file_issues` stamps issue numbers into the dedupe store.
 
 ## Cleanup
 

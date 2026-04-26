@@ -9,6 +9,12 @@ export interface Finding {
   severity: "P1" | "P2" | "P3";
   detail: string;
   screenshot: string;
+  /**
+   * Optional grouping tag set by the agent. Findings sharing the same
+   * `group` are filed under a single GitHub issue by `file_issues`.
+   * Examples: "responsive-layout", "modal-ux", "visual-polish".
+   */
+  group?: string;
 }
 
 export interface StoredFinding {

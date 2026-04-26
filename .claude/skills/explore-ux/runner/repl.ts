@@ -10,16 +10,18 @@
 // All long-running setup (CDP attach, drains) happens before the first read,
 // so by the time the agent sees the "ready" line on stdout the REPL is hot.
 
-import { mkdirSync, appendFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, appendFileSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { attachDrains, capture } from "./capture";
 import { runRules } from "./analyze";
 import { loadStore, mergeFinding, saveStore, type Finding } from "./dedupe";
+import { fileGroupedIssue, type GroupedFinding } from "./issues";
 import {
   parseCommand, ok, err, type Command, type Response,
   type Interactive, type Landmark, type Observation, type StopResult,
+  type FiledGroup, type FileIssuesResult,
 } from "./tools";
 
 interface Session {
@@ -253,6 +255,7 @@ async function execute(cmd: Command, s: Session): Promise<Response> {
           severity: cmd.severity,
           detail: cmd.detail,
           screenshot: cmd.screenshot,
+          group: cmd.group,
         };
         const store = loadStore(s.storePath);
         const result = mergeFinding(store, finding, new Date().toISOString());
@@ -267,6 +270,10 @@ async function execute(cmd: Command, s: Session): Promise<Response> {
         if (result.status === "NEW") s.findingsCount.new += 1;
         else s.findingsCount.reproduced += 1;
         return ok({ status: result.status, key: result.key });
+      }
+      case "file_issues": {
+        const result = await fileIssuesGrouped(s, cmd.dryRun ?? false);
+        return ok(result);
       }
       case "stop": {
         const reportPath = join(s.runDir, "report.md");
@@ -287,17 +294,19 @@ async function execute(cmd: Command, s: Session): Promise<Response> {
   }
 }
 
+function readFindingsRecords(runDir: string): {
+  ts: string; step: number; heuristic_id: string; severity: "P1" | "P2" | "P3";
+  anchor: string; detail: string; screenshot: string; status: string;
+  group?: string; key: string;
+}[] {
+  const findingsPath = join(runDir, "findings.jsonl");
+  let raw: string;
+  try { raw = readFileSync(findingsPath, "utf8"); } catch { return []; }
+  return raw.split("\n").filter(Boolean).map((l) => JSON.parse(l));
+}
+
 function writeReport(s: Session, path: string): void {
-  const findingsPath = join(s.runDir, "findings.jsonl");
-  let lines: string[] = [];
-  try {
-    const { readFileSync } = require("node:fs") as typeof import("node:fs");
-    lines = readFileSync(findingsPath, "utf8").split("\n").filter(Boolean);
-  } catch { /* no findings */ }
-  const recs = lines.map((l) => JSON.parse(l) as {
-    ts: string; step: number; heuristic_id: string; severity: string;
-    anchor: string; detail: string; screenshot: string; status: string;
-  });
+  const recs = readFindingsRecords(s.runDir);
   const md = [
     `# explore-ux v2 run ${s.runId}`,
     ``,
@@ -306,13 +315,96 @@ function writeReport(s: Session, path: string): void {
     ``,
     `## Findings`,
     ``,
-    `| # | Status | Sev | Heuristic | Anchor | Detail | Screenshot |`,
-    `|---|---|---|---|---|---|---|`,
+    `| # | Status | Sev | Heuristic | Group | Anchor | Detail | Screenshot |`,
+    `|---|---|---|---|---|---|---|---|`,
     ...recs.map((r, i) =>
-      `| ${i + 1} | ${r.status} | ${r.severity} | ${r.heuristic_id} | \`${r.anchor}\` | ${r.detail.replace(/\|/g, "\\|").slice(0, 200)} | ${r.screenshot} |`),
+      `| ${i + 1} | ${r.status} | ${r.severity} | ${r.heuristic_id} | ${r.group ?? "—"} | \`${r.anchor}\` | ${r.detail.replace(/\|/g, "\\|").slice(0, 200)} | ${r.screenshot} |`),
     ``,
   ].join("\n");
   writeFileSync(path, md);
+}
+
+function inferGroup(heuristicId: string): string {
+  // Fallback grouping when the agent didn't supply a `group` tag.
+  if (/TABSTRIP|TOOLBAR|VIEWER-HSCROLL|SQUEEZED|HEADER-CLIPPED|TAB-SCROLL/i.test(heuristicId))
+    return "responsive-layout";
+  if (heuristicId.startsWith("WCAG-") || /A11Y|FOCUS|CONTRAST/i.test(heuristicId))
+    return "accessibility";
+  if (heuristicId === "NIELSEN-N4" || /MODAL|DIALOG/i.test(heuristicId))
+    return "modal-ux";
+  if (heuristicId === "AP-EMOJI-AS-ICON" || /TITLE|EMOJI|ICON/i.test(heuristicId))
+    return "visual-polish";
+  if (heuristicId === "MDR-CONSOLE-ERROR" || heuristicId === "MDR-IPC-RAW-JSON-ERROR")
+    return "errors";
+  return "misc";
+}
+
+async function fileIssuesGrouped(s: Session, dryRun: boolean): Promise<FileIssuesResult> {
+  const recs = readFindingsRecords(s.runDir);
+  const newRecs = recs.filter((r) => r.status === "NEW");
+  // Group by explicit `group` (agent-supplied) → fallback to inferred group.
+  const buckets = new Map<string, GroupedFinding[]>();
+  const SEV_RANK = { P1: 0, P2: 1, P3: 2 } as const;
+  for (const r of newRecs) {
+    const groupKey = r.group ?? inferGroup(r.heuristic_id);
+    const arr = buckets.get(groupKey) ?? [];
+    arr.push({
+      heuristic_id: r.heuristic_id,
+      severity: r.severity,
+      anchor: r.anchor,
+      detail: r.detail,
+      screenshot: r.screenshot,
+      step: r.step,
+      reproductions: 1,
+      firstSeen: r.ts,
+    });
+    buckets.set(groupKey, arr);
+  }
+  const groups: FiledGroup[] = [];
+  let filedCount = 0;
+  const store = loadStore(s.storePath);
+  for (const [group, findings] of buckets) {
+    findings.sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+    try {
+      const filed = await fileGroupedIssue(
+        { group, runId: s.runId, findings },
+        { dryRun },
+      );
+      groups.push({
+        group,
+        title: filed.title,
+        severity: filed.severity,
+        findingCount: findings.length,
+        status: filed.status,
+        issue: filed.issue,
+        url: filed.url,
+      });
+      if (filed.status === "filed") {
+        filedCount += 1;
+        // Stamp the issue number onto every finding in the group so future
+        // runs that REPRODUCE one of them can comment on the existing issue.
+        if (filed.issue !== undefined) {
+          for (const r of newRecs) {
+            const groupKey = r.group ?? inferGroup(r.heuristic_id);
+            if (groupKey !== group) continue;
+            const stored = store.findings[r.key];
+            if (stored && stored.issue === null) stored.issue = filed.issue;
+          }
+        }
+      }
+    } catch (e) {
+      groups.push({
+        group,
+        title: `[explore-ux] ${group}`,
+        severity: findings[0].severity,
+        findingCount: findings.length,
+        status: "skipped-existing",
+        reason: e instanceof Error ? e.message.slice(0, 200) : String(e),
+      });
+    }
+  }
+  saveStore(s.storePath, store);
+  return { groupCount: buckets.size, filedCount, dryRun, groups };
 }
 
 async function main(): Promise<void> {
