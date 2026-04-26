@@ -152,8 +152,10 @@ test.describe("Viewer toolbar sticky positioning (#90)", () => {
     // stacking-context-heavy DOM. We do not require the SVG to fully
     // render; the markdown body alone (≥ 4500 lines) is what makes the
     // page scrollable, and the mermaid wrapper is enough to introduce
-    // additional stacking contexts above it.
-    await expect(page.locator("pre.mermaid, .mermaid").first()).toBeAttached();
+    // additional stacking contexts above it. Embedded mermaid blocks
+    // render through `MermaidView` whose root element has class
+    // `.mermaid-view` (see src/components/viewers/MermaidView.tsx).
+    await expect(page.locator(".mermaid-view").first()).toBeAttached();
     await assertStickyAtCheckpoints(page, "mermaid-md");
   });
 });
