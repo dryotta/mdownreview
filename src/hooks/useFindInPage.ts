@@ -7,6 +7,7 @@ import {
   type RefObject,
 } from "react";
 import { findRangesInContainer } from "@/lib/find-in-page";
+import { info } from "@/logger";
 
 /**
  * #65 G1 — Ctrl+F find-in-page. Uses the CSS Custom Highlight API
@@ -16,8 +17,8 @@ import { findRangesInContainer } from "@/lib/find-in-page";
  * `::highlight(find-hit)`. (docs/design-patterns.md rule 1: hooks are wires,
  * not state owners.)
  *
- * Hard cap of 1000 matches; beyond that we log once via `console.info` and
- * stop accumulating. jsdom does not implement the Highlight API → the hook
+ * Hard cap of 1000 matches; beyond that we log once via `@/logger` `info`
+ * and stop accumulating. jsdom does not implement the Highlight API → the hook
  * degrades to a no-op in unit tests so they don't crash.
  */
 export const FIND_HIT_KEY = "find-hit";
@@ -116,8 +117,8 @@ export function useFindInPage(
 
     const found = findRangesInContainer(container, deferredQuery, MAX_FIND_MATCHES);
     if (found.length >= MAX_FIND_MATCHES) {
-      console.info(
-        `[find-in-page] match cap reached (${MAX_FIND_MATCHES}); refine your query`,
+      info(
+        `useFindInPage: match cap reached (${MAX_FIND_MATCHES}); refine your query`,
       );
     }
     rangesRef.current = found;

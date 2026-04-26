@@ -30,6 +30,7 @@ export function HtmlPreviewView({ content, filePath }: Props) {
   const [allowImages, setAllowImages] = useState(false);
   const [allowScripts, setAllowScripts] = useState(false);
   const [commentMode, setCommentMode] = useState(false);
+  const [resolvedBase, setResolvedBase] = useState(content);
   const [resolvedContent, setResolvedContent] = useState(content);
   const [resolving, setResolving] = useState(false);
   const [composer, setComposer] = useState<Composer | null>(null);
@@ -67,46 +68,65 @@ export function HtmlPreviewView({ content, filePath }: Props) {
     return buildBridgeSrcDoc(resolvedContent, { nonce, commentMode });
   }, [resolvedContent, scriptsActive, commentMode, nonce]);
 
+  // Effect 1 — local-asset resolution. Keyed only on inputs that affect the
+  // resolved-base HTML (path + content). The remote-image / scripts toggles
+  // do NOT belong here: they don't change what `resolveHtmlAssets` returns
+  // and re-running this effect on every toggle would burn an IPC round-trip
+  // per click (rule 2 in `docs/performance.md`).
   useEffect(() => {
     if (!filePath) {
-      setResolvedContent(content); // eslint-disable-line react-hooks/set-state-in-effect
+      setResolvedBase(content); // eslint-disable-line react-hooks/set-state-in-effect
       setResolving(false);
       return;
     }
     let cancelled = false;
     setResolving(true);
-    const revokePrior = revokeImagesRef.current;
-    revokeImagesRef.current = null;
     resolveHtmlAssets(content, dirname(filePath))
-      .then(async (resolved) => {
+      .then((resolved) => {
         if (cancelled) return;
-        if (allowImages && !allowScripts) {
-          // Route http(s) <img> through the fetch_remote_asset chokepoint.
-          // CSP cannot be widened (security.md rule 17), so we materialise
-          // the bytes here and swap to blob: URLs.
-          try {
-            const { html, revoke } = await rewriteRemoteImages(resolved);
-            if (cancelled) { revoke(); return; }
-            revokeImagesRef.current = revoke;
-            setResolvedContent(html);
-          } catch {
-            if (!cancelled) setResolvedContent(resolved);
-          }
-        } else {
-          setResolvedContent(resolved);
-        }
+        setResolvedBase(resolved);
       })
       .catch(() => {
-        if (!cancelled) setResolvedContent(content);
+        if (!cancelled) setResolvedBase(content);
       })
       .finally(() => {
         if (!cancelled) setResolving(false);
-        // Revoke the prior batch only after we have new content in place,
-        // so the iframe never sees a dangling blob URL.
-        if (revokePrior) revokePrior();
       });
     return () => { cancelled = true; };
-  }, [content, filePath, allowImages, allowScripts]);
+  }, [content, filePath]);
+
+  // Effect 2 — remote-image rewrite over the cached resolved-base HTML.
+  // Owns the blob-URL revoke lifecycle so toggling allowImages off (or
+  // flipping allowScripts on, which disables the rewrite path) cleans up
+  // the prior batch.
+  useEffect(() => {
+    let cancelled = false;
+    const revokePrior = revokeImagesRef.current;
+    revokeImagesRef.current = null;
+    if (allowImages && !allowScripts) {
+      // Route http(s) <img> through the fetch_remote_asset chokepoint.
+      // CSP cannot be widened (security.md rule 17), so we materialise
+      // the bytes here and swap to blob: URLs.
+      rewriteRemoteImages(resolvedBase)
+        .then(({ html, revoke }) => {
+          if (cancelled) { revoke(); return; }
+          revokeImagesRef.current = revoke;
+          setResolvedContent(html);
+        })
+        .catch(() => {
+          if (!cancelled) setResolvedContent(resolvedBase);
+        })
+        .finally(() => {
+          // Revoke the prior batch only after we have new content in place,
+          // so the iframe never sees a dangling blob URL.
+          if (revokePrior) revokePrior();
+        });
+    } else {
+      setResolvedContent(resolvedBase); // eslint-disable-line react-hooks/set-state-in-effect
+      if (revokePrior) revokePrior();
+    }
+    return () => { cancelled = true; };
+  }, [resolvedBase, allowImages, allowScripts]);
 
   // Cleanup blob URLs on unmount.
   useEffect(() => {
