@@ -66,7 +66,7 @@ Terminal B (explore loop, Windows-only):
 
 This is the intended steady-state for the project.
 
-### Flow 3 — Self-improvement towards a goal (fully autonomous)
+### Flow 3 — Self-iterate towards a human-initiated goal
 
 When you have a freeform goal that doesn't decompose into known issues, hand it to `iterate-one-issue` directly. The `exe-goal-assessor` agent decides when "done" is true.
 
