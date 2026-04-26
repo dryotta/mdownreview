@@ -144,10 +144,19 @@ interface OnboardingSlice {
   onboardingErrors: Record<string, string>;
   // Panel visibility (transient, not persisted)
   settingsOpen: boolean;
+  /**
+   * Transient flag for the legacy author/preferences dialog (B1 forward-fix).
+   * Decoupled from `settingsOpen` so opening SettingsView never simultaneously
+   * mounts the modal `<SettingsDialog>`, whose `showModal()` would `inert` the
+   * region and block all interaction with the new surface.
+   */
+  authorDialogOpen: boolean;
   // Actions
   refreshOnboarding: () => Promise<void>;
   openSettings: () => void;
   closeSettings: () => void;
+  openAuthorDialog: () => void;
+  closeAuthorDialog: () => void;
   installCliShim: () => Promise<void>;
   removeCliShim: () => Promise<void>;
   setDefaultHandler: () => Promise<void>;
@@ -251,6 +260,7 @@ export const useStore = create<Store>()(
       onboardingState: null,
       onboardingErrors: {},
       settingsOpen: false,
+      authorDialogOpen: false,
       refreshOnboarding: async () => {
         const [cli, def, folder, state] = await Promise.allSettled([
           ipcCliShimStatus(),
@@ -285,6 +295,8 @@ export const useStore = create<Store>()(
       },
       openSettings: () => set({ settingsOpen: true }),
       closeSettings: () => set({ settingsOpen: false }),
+      openAuthorDialog: () => set({ authorDialogOpen: true }),
+      closeAuthorDialog: () => set({ authorDialogOpen: false }),
       installCliShim: () => runOnboardingAction("cliShim", ipcInstallCliShim),
       removeCliShim: () => runOnboardingAction("cliShim", ipcRemoveCliShim),
       setDefaultHandler: () => runOnboardingAction("defaultHandler", ipcSetDefaultHandler),

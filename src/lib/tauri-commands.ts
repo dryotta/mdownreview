@@ -379,7 +379,7 @@ export type FolderContextStatus = "done" | "missing" | "unsupported";
 export const onboardingState = (): Promise<OnboardingState> =>
   invoke<OnboardingState>("onboarding_state");
 
-export const cliShimStatus= (): Promise<CliShimStatus> =>
+export const cliShimStatus = (): Promise<CliShimStatus> =>
   invoke<CliShimStatus>("cli_shim_status");
 
 export const installCliShim = (): Promise<void> =>

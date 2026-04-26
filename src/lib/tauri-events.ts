@@ -45,7 +45,6 @@ export interface EventPayloads {
   "menu-about": void;
   "menu-open-settings": void;
   "menu-check-updates": void;
-  "menu-help-welcome": void;
   "menu-help-settings": void;
 }
 

@@ -28,6 +28,7 @@ type SwitchAction = "install" | "remove" | "noop";
 interface IntegrationRow {
   key: OnboardingSectionKey;
   label: string;
+  description: string;
   status: OnboardingStatus;
   error?: string;
   /** What clicking the switch should do, given the current status. */
@@ -109,6 +110,7 @@ export function SettingsView() {
     {
       key: "cliShim",
       label: "CLI shim",
+      description: "Install the `mdownreview` CLI to open files from the terminal.",
       status: statuses.cliShim,
       error: errors.cliShim,
       action: statuses.cliShim === "done" ? "remove" : "install",
@@ -118,6 +120,7 @@ export function SettingsView() {
     {
       key: "defaultHandler",
       label: "Default handler",
+      description: "Make mdownreview the default app for `.md`/`.mdx` files.",
       status: statuses.defaultHandler,
       error: errors.defaultHandler,
       // No "remove" IPC — switch is read-only once "done".
@@ -127,6 +130,7 @@ export function SettingsView() {
     {
       key: "folderContext",
       label: "Folder context",
+      description: "Add 'Open with mdownreview' to the Windows folder right-click menu.",
       status: statuses.folderContext,
       error: errors.folderContext,
       action: statuses.folderContext === "done" ? "remove" : "install",
@@ -153,26 +157,33 @@ export function SettingsView() {
 
   return (
     <div role="region" aria-label="Settings" className="settings-view">
-      <div className="onboarding-header">
+      <div className="settings-header">
         <h2>Settings</h2>
         <button
           type="button"
-          className="onboarding-close"
+          className="settings-close"
           aria-label="Close"
           onClick={handleClose}
         >
           ×
         </button>
       </div>
-      <div className="onboarding-body">
+      <div className="settings-body">
         {rows.map((row) => {
           const isPending = pending[row.key];
           const checked = row.status === "done";
-          // Disabled when the platform doesn't support the action, OR when
-          // the row has no actionable direction (e.g. default-handler "done"
-          // with no remove IPC).
-          const disabled =
+          // Hide the switch entirely when there's no actionable direction
+          // (e.g. defaultHandler "done" with no remove IPC) or when the
+          // platform doesn't support the integration at all. The fallback
+          // text below replaces the affordance.
+          const hideSwitch =
             row.status === "unsupported" || row.action === "noop";
+          const fallbackText =
+            row.status === "unsupported"
+              ? "Not available on this platform."
+              : row.action === "noop"
+                ? "Already the default — change in System Settings."
+                : null;
           return (
             <div
               key={row.key}
@@ -188,13 +199,28 @@ export function SettingsView() {
                   {STATUS_BADGE[row.status]}
                 </span>
               </div>
-              <Switch
-                label={row.label}
-                checked={checked}
-                pending={isPending}
-                disabled={disabled}
-                onToggle={handleToggle(row)}
-              />
+              {hideSwitch ? (
+                <span
+                  className="settings-row-fallback"
+                  data-testid={`settings-row-fallback-${row.key}`}
+                >
+                  {fallbackText}
+                </span>
+              ) : (
+                <Switch
+                  label={row.label}
+                  checked={checked}
+                  pending={isPending}
+                  disabled={false}
+                  onToggle={handleToggle(row)}
+                />
+              )}
+              <div
+                className="settings-row-description"
+                data-testid={`settings-row-description-${row.key}`}
+              >
+                {row.description}
+              </div>
               {row.error && (
                 <div
                   className="settings-row-error"
@@ -207,6 +233,15 @@ export function SettingsView() {
             </div>
           );
         })}
+        <div className="settings-footer">
+          <button
+            type="button"
+            className="settings-footer-link"
+            onClick={() => useStore.getState().openAuthorDialog()}
+          >
+            Author &amp; preferences…
+          </button>
+        </div>
       </div>
     </div>
   );

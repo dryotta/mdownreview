@@ -76,22 +76,21 @@ First-launch and "what's new" UX is driven by a small Rust ViewModel persisted a
 ```jsonc
 {
   "schema_version": 1,                          // u32; future versions are refused
-  "last_welcomed_version": "0.3.4",             // Option<String> — last app version the user was welcomed into
   "last_seen_sections": ["cli", "default-handler"]  // Vec<String> — onboarding cards already dismissed
 }
 ```
 
-Source: `src-tauri/src/core/onboarding.rs:10-28`. **Forward-compat refusal:** any file with `schema_version > 1`, malformed JSON, or I/O error returns `OnboardingState::default()` (a fresh state) — old binaries never blow up on a future-format file. Saves go through `core/atomic.rs::write_atomic` so a crash mid-write cannot corrupt the file (`core/onboarding.rs:48-51`).
+Source: `src-tauri/src/core/onboarding.rs:13-24`. **Forward-compat refusal:** any file with `schema_version > 1`, malformed JSON, or I/O error returns `OnboardingState::default()` (a fresh state) — old binaries never blow up on a future-format file. Saves go through `core/atomic.rs::write_atomic` so a crash mid-write cannot corrupt the file (`core/onboarding.rs:54-57`).
 
 The frontend reads via the `OnboardingSlice` in the Zustand store (`src/store/index.ts`) — `refreshOnboarding()` runs `Promise.allSettled` over all status reads + `onboarding_state`, and per-section action wrappers (e.g. `installCliShim`) chain a status refresh on settle.
 
 ## Platform integration commands
 
-11 IPC commands expose the iter-2 onboarding/integration surface (registered in `src-tauri/src/lib.rs` `shared_commands!` block, typed wrappers in `src/lib/tauri-commands.ts`). All status enums are `lowercase`-serialized to keep the TS union minimal.
+9 IPC commands expose the iter-2 onboarding/integration surface (registered in `src-tauri/src/lib.rs` `shared_commands!` block, typed wrappers in `src/lib/tauri-commands.ts`). All status enums are `lowercase`-serialized to keep the TS union minimal.
 
 | Group | Commands | Behavior |
 |---|---|---|
-| **Onboarding** (`commands/onboarding.rs`) | `onboarding_state`, `onboarding_mark_welcomed(version)`, `onboarding_should_welcome` | Load/save the state above; "Skip for now" is a pure-frontend dismissal that intentionally does **not** call `mark_welcomed`. |
+| **Onboarding** (`commands/onboarding.rs`) | `onboarding_state` | Loads the schema-versioned state above. (The legacy `onboarding_mark_welcomed` / `onboarding_should_welcome` IPCs were removed in #79 along with the welcome/setup modal flow.) |
 | **CLI shim** (`commands/cli_shim.rs`) | `cli_shim_status` → `Done \| Missing \| Broken \| Unsupported`, `install_cli_shim`, `remove_cli_shim` | macOS: manages `/usr/local/bin/mdownreview` symlink into the `.app` bundle; **destructive ops refuse unless the symlink's canonical target is inside the canonical app-bundle root** (`commands/cli_shim/macos.rs::remove_at`). Windows: status detects `mdownreview-cli.exe` next to the app exe and the install dir on `HKCU\Environment\Path` via `winreg`. Iter-4 onwards, `install_cli_shim` and `remove_cli_shim` mutate the same `HKCU\Environment\Path` value (dedup-aware add / case-insensitive filter), preserve REG_EXPAND_SZ vs REG_SZ value type, and broadcast `WM_SETTINGCHANGE` for `"Environment"`. This is complementary to the NSIS install-time hook (`installer-hooks.nsh`) — both writers target the same registry key with the same dedupe contract, so reinstalling and toggling in-app never double up. **HKCU only — never HKLM, no admin elevation.** |
 | **Default handler** (`commands/default_handler.rs`) | `default_handler_status` → `Done \| Other \| Unknown \| Unsupported`, `set_default_handler` | Windows: reads `HKCU\…\FileExts\.md\UserChoice\ProgId` via `winreg` and matches `mdownreview`. macOS: returns `Unknown` (programmatic `LSCopyDefaultRoleHandlerForContentType` requires `core-foundation` FFI; deferred). `set_*` always punts to the OS UI (`ms-settings:defaultapps` / `x-apple.systempreferences:com.apple.preference.general`) via `tauri-plugin-opener` — UserChoice is hash-protected since Win10 and cannot be set programmatically. |
 | **Folder context** (`commands/folder_context.rs`) | `folder_context_status` → `Done \| Missing \| Unsupported`, `register_folder_context`, `unregister_folder_context` | Windows-only. Writes `HKCU\Software\Classes\Directory\shell\Open with mdownreview` (and the `Directory\Background\shell` twin) with the running exe path; `unregister` deletes both subtrees. Other platforms report `Unsupported`. |
@@ -110,8 +109,8 @@ Each command file with OS divergence follows the **platform sub-module pattern**
 - `src-tauri/installer/installer-hooks.nsh` — NSIS POST/PREINSTALL macros (HKCU PATH + folder context menu)
 - `src-tauri/dmg/` — DMG layout assets (background image placeholder, `README.txt` shipped at DMG root via `bundle.resources`)
 - `src-tauri/src/core/onboarding.rs` — schema-versioned onboarding state (load/save on injectable path)
-- `src-tauri/src/commands/{onboarding,cli_shim,default_handler,folder_context}.rs` — 11 platform-integration IPC commands
-- `src/store/index.ts` — `OnboardingSlice` (state + actions) consumed by the welcome/setup panels
+- `src-tauri/src/commands/{onboarding,cli_shim,default_handler,folder_context}.rs` — 9 platform-integration IPC commands
+- `src/store/index.ts` — `OnboardingSlice` (state + actions) consumed by SettingsView and WelcomeView
 - `scripts/stage-cli.mjs` — places the CLI at `src-tauri/binaries/mdownreview-cli-<triple>` so Tauri's `externalBin` build-time check passes
 - `.github/workflows/release.yml` — build pipeline + codesign verification + DMG layout verification
 

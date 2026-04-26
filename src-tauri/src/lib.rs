@@ -160,8 +160,6 @@ pub fn run() {
                 .build()?;
 
             // Help menu
-            let help_welcome =
-                MenuItem::with_id(app, "help-welcome", "Welcome…", true, None::<&str>)?;
             let help_settings =
                 MenuItem::with_id(app, "help-settings", "Settings…", true, None::<&str>)?;
             let about_item =
@@ -174,7 +172,6 @@ pub fn run() {
                 None::<&str>,
             )?;
             let help_menu = SubmenuBuilder::new(app, "Help")
-                .item(&help_welcome)
                 .item(&help_settings)
                 .separator()
                 .item(&about_item)
@@ -210,7 +207,6 @@ pub fn run() {
                     "about" => "menu-about",
                     "open-settings" => "menu-open-settings",
                     "check-updates" => "menu-check-updates",
-                    "help-welcome" => "menu-help-welcome",
                     "help-settings" => "menu-help-settings",
                     _ => return,
                 };

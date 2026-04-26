@@ -20,7 +20,9 @@ describe("WelcomeView – settings link (B11)", () => {
 
     render(<WelcomeView onOpenFile={() => {}} onOpenFolder={() => {}} />);
 
-    const link = screen.getByRole("button", { name: /settings/i });
+    const link = screen.getByRole("button", {
+      name: /Set up CLI, file associations, and agent integration → Settings/i,
+    });
     fireEvent.click(link);
 
     expect(openSettings).toHaveBeenCalledOnce();

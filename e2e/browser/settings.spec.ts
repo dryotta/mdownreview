@@ -25,13 +25,6 @@ declare global {
  */
 async function installDefaultMock(page: Page) {
   await page.addInitScript(() => {
-    // The legacy `<SettingsDialog>` opens as a true modal via showModal(),
-    // which marks every element outside the dialog (including SettingsView's
-    // switches) as inert and intercepts pointer events. Demote it to a
-    // non-modal dialog so the new region remains interactive in tests. The
-    // legacy overlay is owned by another group and slated for removal.
-    HTMLDialogElement.prototype.showModal = HTMLDialogElement.prototype.show;
-
     // Mutable per-page state so the success-path test sees the status flip
     // from "missing" → "done" after install_cli_shim resolves.
     const state = { cliShim: "missing" as "missing" | "done" };
@@ -72,7 +65,8 @@ async function installDefaultMock(page: Page) {
 }
 
 const settingsRegion = (page: Page) => page.getByRole("region", { name: "Settings" });
-const settingsLink = (page: Page) => page.getByRole("button", { name: "→ Settings" });
+const settingsLink = (page: Page) =>
+  page.getByRole("button", { name: /Set up CLI.*Settings/i });
 const toolbarGear = (page: Page) => page.locator(".toolbar").getByRole("button", { name: "Settings" });
 const cliSwitch = (page: Page) =>
   page.getByTestId("settings-row-cliShim").getByRole("switch", { name: "CLI shim" });
@@ -93,6 +87,19 @@ test.describe("Settings region (#79)", () => {
 
     await toolbarGear(page).click();
     await expect(settingsRegion(page)).toBeVisible();
+  });
+
+  test("Top toolbar gear does NOT mount the legacy <dialog> modal (regression for B1)", async ({
+    page,
+  }) => {
+    await installDefaultMock(page);
+    await page.goto("/");
+
+    await toolbarGear(page).click();
+    await expect(settingsRegion(page)).toBeVisible();
+    // The legacy author/preferences SettingsDialog must NOT co-mount —
+    // otherwise its `showModal()` would `inert` the whole SettingsView.
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
   });
 
   test("menu-help-settings event opens the Settings region", async ({ page }) => {
@@ -147,8 +154,6 @@ test.describe("Settings region (#79)", () => {
   }) => {
     // Override the default mock with one where install_cli_shim rejects.
     await page.addInitScript(() => {
-      // See installDefaultMock for why we demote showModal → show.
-      HTMLDialogElement.prototype.showModal = HTMLDialogElement.prototype.show;
       window.__TAURI_IPC_MOCK__ = async (cmd: string) => {
         if (cmd === "get_launch_args") return { files: [], folders: [] };
         if (cmd === "cli_shim_status") return "missing";

@@ -63,7 +63,7 @@ export function WelcomeView({ onOpenFile, onOpenFolder }: WelcomeViewProps) {
           className="welcome-settings-link"
           onClick={() => useStore.getState().openSettings()}
         >
-          → Settings
+          Set up CLI, file associations, and agent integration → Settings
         </button>
 
         {recentItems.length > 0 && (

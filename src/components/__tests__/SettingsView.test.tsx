@@ -154,4 +154,73 @@ describe("SettingsView", () => {
     expect(container.querySelector(".onboarding-overlay")).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  // ── B5: hidden switch + fallback text ────────────────────────────────────
+
+  it('hides the switch and shows fallback text when defaultHandler status is "done" (noop branch — B5)', async () => {
+    mockedInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "default_handler_status") return "done";
+      if (cmd === "cli_shim_status") return "missing";
+      if (cmd === "folder_context_status") return "missing";
+      if (cmd === "onboarding_state")
+        return { schema_version: 1, last_seen_sections: [] };
+      return undefined;
+    });
+    await act(async () => {
+      render(<SettingsView />);
+    });
+    const row = screen.getByTestId("settings-row-defaultHandler");
+    // No switch in this row.
+    expect(within(row).queryByRole("switch")).toBeNull();
+    // Fallback text rendered instead.
+    expect(within(row).getByTestId("settings-row-fallback-defaultHandler"))
+      .toHaveTextContent(/Already the default/i);
+  });
+
+  it('hides the switch and shows fallback when status is "unsupported" (B5)', async () => {
+    mockedInvoke.mockImplementation(async (cmd: string) => {
+      if (cmd === "folder_context_status") return "unsupported";
+      if (cmd === "cli_shim_status") return "missing";
+      if (cmd === "default_handler_status") return "missing";
+      if (cmd === "onboarding_state")
+        return { schema_version: 1, last_seen_sections: [] };
+      return undefined;
+    });
+    await act(async () => {
+      render(<SettingsView />);
+    });
+    const row = screen.getByTestId("settings-row-folderContext");
+    expect(within(row).queryByRole("switch")).toBeNull();
+    expect(within(row).getByTestId("settings-row-fallback-folderContext"))
+      .toHaveTextContent(/Not available on this platform/i);
+  });
+
+  it("renders a one-line description under each row label (B5)", async () => {
+    await act(async () => {
+      render(<SettingsView />);
+    });
+    expect(screen.getByTestId("settings-row-description-cliShim")).toHaveTextContent(/CLI/);
+    expect(screen.getByTestId("settings-row-description-defaultHandler")).toHaveTextContent(/default app/);
+    expect(screen.getByTestId("settings-row-description-folderContext")).toHaveTextContent(/right-click/);
+  });
+
+  // ── B7: mount-side IPC ───────────────────────────────────────────────────
+
+  it("fires onboarding status IPC on mount (B7 regression — must keep view honest)", async () => {
+    await act(async () => {
+      render(<SettingsView />);
+    });
+    const calls = mockedInvoke.mock.calls.map((c) => c[0]);
+    expect(calls).toContain("cli_shim_status");
+  });
+
+  // ── B1 footer link to legacy author/preferences dialog ───────────────────
+
+  it("footer link calls openAuthorDialog (B1)", async () => {
+    await act(async () => {
+      render(<SettingsView />);
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Author & preferences/i }));
+    expect(useStore.getState().authorDialogOpen).toBe(true);
+  });
 });

@@ -55,6 +55,10 @@ export default function App() {
   // Welcome/toolbar entry points all dispatch through `openSettings`, and the
   // no-tab branch swaps in <SettingsView/> when this flips true.
   const settingsOpen = useStore((s) => s.settingsOpen);
+  // Forward-fix B1: the legacy author/preferences dialog has its own flag so
+  // it can never co-mount with SettingsView (which `<dialog>.showModal()`
+  // would otherwise inert).
+  const authorDialogOpen = useStore((s) => s.authorDialogOpen);
   const dragRef= useRef<{ startX: number; startWidth: number } | null>(null);
 
   const { handleOpenFile, handleOpenFolder } = useDialogActions();
@@ -231,10 +235,10 @@ export default function App() {
 
         <div className="viewer-area">
           <ErrorBoundary>
-            {activeTabPath ? (
-              <ViewerRouter path={activeTabPath} />
-            ) : settingsOpen ? (
+            {settingsOpen ? (
               <SettingsView />
+            ) : activeTabPath ? (
+              <ViewerRouter path={activeTabPath} />
             ) : (
               <WelcomeView onOpenFile={handleOpenFile} onOpenFolder={handleOpenFolder} />
             )}
@@ -253,10 +257,9 @@ export default function App() {
       </ErrorBoundary>
 
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
-      {/* Legacy author/preferences dialog. SettingsDialog → SettingsView
-          migration is tracked separately; for B10 the dialog stays mounted
-          so other entry points (menu items wired before B6) still work. */}
-      {settingsOpen && <SettingsDialog onClose={() => useStore.getState().closeSettings()} />}
+      {/* Legacy author/preferences dialog. Reachable from SettingsView footer
+          link until folded into SettingsView. */}
+      {authorDialogOpen && <SettingsDialog onClose={() => useStore.getState().closeAuthorDialog()} />}
     </div>
   );
 }

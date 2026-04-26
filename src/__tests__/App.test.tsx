@@ -169,6 +169,17 @@ describe("App – toolbar rendering", () => {
     expect(screen.getByTestId("welcome-view")).toBeInTheDocument();
     expect(screen.queryByTestId("settings-view")).not.toBeInTheDocument();
   });
+
+  it("renders SettingsView even when an active tab is open (settingsOpen wins over the viewer — B2)", async () => {
+    useStore.setState({
+      settingsOpen: true,
+      tabs: [{ path: "/foo.md", scrollTop: 0 }],
+      activeTabPath: "/foo.md",
+    });
+    await renderApp();
+    expect(screen.getByTestId("settings-view")).toBeInTheDocument();
+    expect(screen.queryByTestId("viewer-router")).not.toBeInTheDocument();
+  });
 });
 
 describe("App – keyboard shortcuts", () => {
