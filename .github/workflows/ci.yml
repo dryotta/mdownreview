@@ -63,6 +63,9 @@ jobs:
       - name: Vitest unit tests
         run: npm test
 
+      - name: Lint skill docs (npm-script references)
+        run: npm run lint:skills
+
       - name: Install Playwright (Chromium only)
         run: npx playwright install --with-deps chromium
 

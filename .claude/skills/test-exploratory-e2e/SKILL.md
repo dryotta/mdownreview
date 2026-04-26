@@ -20,7 +20,7 @@ You ARE the exploration loop. The skill ships a thin Playwright REPL; you drive 
 
 ```
 powershell mode: async, shellId: explore-ux-repl,
-  command: npm run explore-ux:repl
+  command: npm run test-exploratory-e2e:repl
 ```
 
 Wait for stdout line `{"ready":true,"runDir":"..."}`. Capture the runDir.
