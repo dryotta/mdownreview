@@ -33,6 +33,23 @@ async function setupMocks(page: Page): Promise<void> {
         if (cmd === "get_file_comments") return [];
         return null;
       };
+      // Pre-seed the persisted UI store with a tiny sidebar so the markdown
+      // column gets the bulk of the viewport — otherwise the default 240 px
+      // folder pane plus a comments panel would leave only a sliver of
+      // measurable column width at the 600 px viewport. The bug is about
+      // the markdown column overflowing horizontally regardless of how wide
+      // it is; the test must let the column be wide enough to exercise that.
+      try {
+        localStorage.setItem(
+          "mdownreview-ui",
+          JSON.stringify({
+            state: { folderPaneWidth: 80, commentsPaneVisible: false },
+            version: 1,
+          }),
+        );
+      } catch {
+        // localStorage may be unavailable in some test sandboxes — best effort.
+      }
     },
     { dir: FIXTURES_DIR, file: FILE, body: FIXTURE_BODY },
   );
