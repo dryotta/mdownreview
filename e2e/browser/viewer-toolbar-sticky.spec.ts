@@ -29,13 +29,19 @@ const TALL_TS = Array.from({ length: 5000 }, (_, i) =>
   `// Line ${i}: const value_${i} = ${i}; // padding text to force a wide-enough single line so wrap is irrelevant`,
 ).join("\n");
 
-// Stacking-context-heavy variant: same tall markdown body interleaved
-// with mermaid code blocks. Mermaid renders SVGs that establish their
-// own stacking contexts via transforms; we want to confirm the sticky
-// bar still pins despite those.
+// Stacking-context-heavy variant: a moderate-sized tall markdown body
+// (still > 1 viewport so the scroll case is real) interleaved with a
+// mermaid code block. Mermaid renders SVGs that establish their own
+// stacking contexts via transforms; we want to confirm the sticky bar
+// still pins despite those. Kept smaller than `TALL_MD` so the
+// react-markdown parse + mermaid lazy-mount stays well under the
+// per-test timeout.
+const TALL_MD_MEDIUM = Array.from({ length: 800 }, (_, i) =>
+  `## Heading ${i}\n\nParagraph ${i} with sufficient text to give this section vertical height when rendered through react-markdown.\n`,
+).join("\n");
 const MERMAID_BLOCK =
   "\n```mermaid\nflowchart TD\n  A[Start] --> B[End]\n```\n\n";
-const TALL_MERMAID_MD = TALL_MD + MERMAID_BLOCK + TALL_MD;
+const TALL_MERMAID_MD = TALL_MD_MEDIUM + MERMAID_BLOCK + TALL_MD_MEDIUM;
 
 interface FileSeed { name: string; content: string }
 
