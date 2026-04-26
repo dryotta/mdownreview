@@ -20,6 +20,7 @@ One evergreen file per major user-facing feature area of mdownreview. The taxono
 | [watcher.md](watcher.md) | File-system watching, hot reload, ghost-entry detection |
 | [updates.md](updates.md) | Auto-update with stable and canary release channels |
 | [cli-and-associations.md](cli-and-associations.md) | CLI file-open and OS file associations |
+| [settings.md](settings.md) | Full-page Settings region — CLI, default handler, folder context toggles |
 | [logging.md](logging.md) | Frontend + Rust logging, single chokepoint, exception capture |
 
 Adding a new area means adding a new file here AND updating this index. See the documentation-expert agent for the full rule set.

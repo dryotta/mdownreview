@@ -138,7 +138,7 @@ src-tauri/src/
   commands/                 ← Tauri commands grouped by feature area:
     fs.rs · comments/ · search.rs · html.rs · launch.rs
     config.rs               ← author / preferences IPC (set_author, get_author)
-    onboarding.rs           ← onboarding state IPC (load/save/skip)
+    onboarding.rs           ← onboarding state IPC (state read)
     cli_shim.rs             ← CLI shim install/status/remove (+ macos/windows/unsupported submodules)
     default_handler.rs      ← .md default-handler status + open System Settings (+ os submodules)
     folder_context.rs       ← Windows folder context menu register/unregister/status (+ os submodules)
@@ -170,6 +170,7 @@ e2e/
 - [Updates](docs/features/updates.md) — stable + canary release channels, signed updater
 - [Installation](docs/features/installation.md) — install scripts, DMG quarantine, ad-hoc signing posture
 - [CLI & File Associations](docs/features/cli-and-associations.md) — CLI file-open, single-instance, OS associations
+- [Settings](docs/features/settings.md) — full-page Settings region (CLI shim, default handler, folder context)
 - [Logging](docs/features/logging.md) — frontend + Rust logging chokepoint, exception capture
 
 Taxonomy + drift enforcement is owned by the `documentation-expert` agent (`.claude/agents/documentation-expert.md`).
