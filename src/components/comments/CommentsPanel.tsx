@@ -50,15 +50,14 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
     }
   }, [pendingFileLevelInputFor, filePath]);
 
-  const { sorted: _sorted, unresolved, resolved } = useMemo(() => {
-    const sorted = [...threads].sort(
-      (a, b) => (a.root.matchedLineNumber ?? a.root.line ?? 0) - (b.root.matchedLineNumber ?? b.root.line ?? 0)
-    );
-
-    const unresolved = sorted.filter(t => !t.root.resolved);
-    const resolved = sorted.filter(t => t.root.resolved);
-    return { sorted, unresolved, resolved };
-  }, [threads]);
+  // B2 (iter 9 forward-fix): the rendered list comes from
+  // `useFilteredComments`; the panel header only needs the unresolved /
+  // resolved counts of the *active file*, not a sorted thread array.
+  const unresolvedCount = useMemo(
+    () => threads.reduce((n, t) => n + (t.root.resolved ? 0 : 1), 0),
+    [threads],
+  );
+  const resolvedCount = threads.length - unresolvedCount;
 
   const filters = useMemo(
     () => ({ search, severities, showResolved, workspaceWide }),
@@ -77,9 +76,24 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
       // idempotent for already-open tabs and falls back to setActiveTab.
       openFile(threadFilePath);
       setActiveTab(threadFilePath);
-    } else {
-      onScrollToLine?.(line);
+      // B4 (iter 9 forward-fix): the destination viewer mounts on the next
+      // commit and registers its scroll-to-line listener at that point.
+      // Dispatching synchronously would deliver the event to the OLD
+      // viewer's listener (or no one). rAF×2 + setTimeout(0) waits for the
+      // tab switch + viewer mount before firing. Best-effort timing — if
+      // the viewer takes longer than that to mount, the focus is preserved
+      // (setFocusedThread fired above) but the scroll won't land. A proper
+      // pending-target store path is deferred to a future iter.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("scroll-to-line", { detail: { line } }));
+          }, 0);
+        });
+      });
+      return;
     }
+    onScrollToLine?.(line);
     window.dispatchEvent(new CustomEvent("scroll-to-line", { detail: { line } }));
   }, [onScrollToLine, filePath, openFile, setActiveTab, setFocusedThread]);
 
@@ -159,7 +173,7 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
   return (
     <div className="comments-panel">
       <div className="comments-panel-header">
-        <span className="comments-panel-title">Comments ({unresolved.length})</span>
+        <span className="comments-panel-title">Comments ({unresolvedCount})</span>
         <button
           className="comment-btn comment-btn-add-file"
           onClick={() => setShowFileLevelInput(v => !v)}
@@ -179,7 +193,7 @@ export function CommentsPanel({ filePath, onScrollToLine }: Props) {
           Export
         </button>
         <button className="comment-btn" onClick={() => setShowResolved(v => !v)}>
-          {showResolved ? "Hide resolved" : `Show resolved (${resolved.length})`}
+          {showResolved ? "Hide resolved" : `Show resolved (${resolvedCount})`}
         </button>
         {exportStatus && (
           <span className="comments-panel-status" role="status" aria-live="polite">

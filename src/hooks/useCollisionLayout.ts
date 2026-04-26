@@ -23,7 +23,13 @@ const PIN_FALLBACK = 24;
 type Box = { left: number; top: number; right: number; bottom: number };
 
 function toBox(r: CollisionItem["rect"]): Box {
-  if (r.width !== undefined && r.height !== undefined) {
+  // B6 (iter 9 forward-fix): treat non-positive width/height as missing.
+  // A zero-or-negative dimension produces a degenerate / inside-out box
+  // that never overlaps with anything (since `a.left < b.right` fails on
+  // `a.left === a.right`), which would silently break stacking for marker
+  // pins whose underlying DOM rect has not yet laid out. Falling back to
+  // the pin square keeps clustering behaviour consistent.
+  if (r.width !== undefined && r.height !== undefined && r.width > 0 && r.height > 0) {
     return { left: r.left, top: r.top, right: r.left + r.width, bottom: r.top + r.height };
   }
   const half = PIN_FALLBACK / 2;

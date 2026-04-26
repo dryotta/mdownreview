@@ -560,6 +560,10 @@ describe("CommentsPanel  filter & search (iter 9 F3)", () => {
     expect(screen.getByText("alpha first")).toBeInTheDocument();
     expect(screen.queryByText("beta second")).not.toBeInTheDocument();
     expect(screen.queryByText("gamma third")).not.toBeInTheDocument();
+
+    // B1.3 — case-insensitive lock: uppercase needle matches lowercase body.
+    fireEvent.change(searchBox, { target: { value: "ALPHA" } });
+    expect(screen.getByText("alpha first")).toBeInTheDocument();
   });
 
   it("severity chip narrows list to matching threads", () => {
@@ -608,5 +612,58 @@ describe("CommentsPanel  filter & search (iter 9 F3)", () => {
 
     fireEvent.click(screen.getByText(/show resolved/i));
     expect(screen.getByText("all resolved")).toBeInTheDocument();
+  });
+
+  // B1.3 — toggling a severity chip on then off returns to "no severity
+  // filter" (empty Set), which is equivalent to "all toggled off". Both
+  // variants must show every thread.
+  it("clicking high chip on then off restores all threads", () => {
+    setMockComments([
+      makeThread(makeComment("h", "high one", { line: 1, matchedLineNumber: 1, severity: "high" })),
+      makeThread(makeComment("l", "low one", { line: 2, matchedLineNumber: 2, severity: "low" })),
+    ]);
+
+    render(<CommentsPanel filePath={FILE} />);
+    const highChip = screen.getByRole("button", { name: /severity high/i });
+
+    fireEvent.click(highChip);
+    expect(screen.queryByText("low one")).not.toBeInTheDocument();
+
+    fireEvent.click(highChip);
+    expect(screen.getByText("high one")).toBeInTheDocument();
+    expect(screen.getByText("low one")).toBeInTheDocument();
+  });
+
+  // B1.3 — cross-file click navigation. When the user clicks a thread row
+  // that lives in a different file (workspace-wide mode), openFile,
+  // setActiveTab, and setFocusedThread must all be called with the foreign
+  // file path / thread id. The scroll-to-line dispatch is deferred via rAF
+  // (see B4) so we don't assert it here — the focus call is the contract.
+  it("clicking a cross-file row calls openFile + setActiveTab + setFocusedThread", () => {
+    const openFile = vi.fn();
+    const setActiveTab = vi.fn();
+    const setFocusedThread = vi.fn();
+    useStore.setState({
+      openFile,
+      setActiveTab,
+      setFocusedThread,
+      root: "/docs",
+    } as Partial<ReturnType<typeof useStore.getState>>);
+
+    setMockComments([]);
+    mockUseWorkspaceComments.mockReturnValue({
+      "/docs/other.md": [
+        makeThread(makeComment("ext", "external note", { line: 7, matchedLineNumber: 7 })),
+      ],
+    });
+
+    render(<CommentsPanel filePath={FILE} />);
+    fireEvent.click(screen.getByLabelText("Show all files"));
+
+    fireEvent.click(screen.getByText("external note").closest(".comment-panel-item")!);
+
+    expect(openFile).toHaveBeenCalledWith("/docs/other.md");
+    expect(setActiveTab).toHaveBeenCalledWith("/docs/other.md");
+    expect(setFocusedThread).toHaveBeenCalledWith("ext");
   });
 });

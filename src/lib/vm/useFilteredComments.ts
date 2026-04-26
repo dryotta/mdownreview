@@ -32,8 +32,11 @@ function threadMatchesSeverity(t: CommentThread, sev: Set<SeverityFilter>): bool
 }
 
 function threadMatchesSearch(t: CommentThread, q: string): boolean {
-  if (!q) return true;
-  const needle = q.toLowerCase();
+  // B5 (iter 9 forward-fix): trim before testing emptiness, so a query of
+  // pure whitespace ("   ") is treated as "no filter" rather than as a
+  // literal substring that matches nothing.
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
   for (const c of [t.root, ...t.replies]) {
     if (c.text.toLowerCase().includes(needle)) return true;
   }

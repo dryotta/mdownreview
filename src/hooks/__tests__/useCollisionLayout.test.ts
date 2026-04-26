@@ -110,4 +110,27 @@ describe("layoutCollisions", () => {
   it("empty input → empty output", () => {
     expect(layoutCollisions([])).toEqual([]);
   });
+
+  // B6 (iter 9 forward-fix) — non-positive width/height must fall through
+  // to the pin fallback. A zero/negative dimension produces a degenerate
+  // box that never overlaps; we want such items clustered with neighbours.
+  it("rect with width: 0 falls back to pin and clusters with neighbours", () => {
+    const items: CollisionItem[] = [
+      { id: "a", rect: { top: 50, left: 50, width: 0, height: 0 } },
+      { id: "b", rect: { top: 51, left: 51 } },
+    ];
+    const out = layoutCollisions(items);
+    expect(out).toHaveLength(2);
+    expect(out.every((r) => r.kind === "stack")).toBe(true);
+  });
+
+  it("rect with negative width falls back to pin and clusters with neighbours", () => {
+    const items: CollisionItem[] = [
+      { id: "a", rect: { top: 50, left: 50, width: -5, height: -5 } },
+      { id: "b", rect: { top: 52, left: 52 } },
+    ];
+    const out = layoutCollisions(items);
+    expect(out).toHaveLength(2);
+    expect(out.every((r) => r.kind === "stack")).toBe(true);
+  });
 });
