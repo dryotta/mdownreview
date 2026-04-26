@@ -216,7 +216,73 @@ describe("useGlobalShortcuts", () => {
     });
   });
 
-  // B1 — editable-target guard.
+  // F6 — Shift+F10 / ContextMenu key reachability.
+  describe("F6 keyboard reachability (Shift+F10 / ContextMenu)", () => {
+    function makeFocusableTarget() {
+      const target = document.createElement("div");
+      target.tabIndex = -1;
+      document.body.appendChild(target);
+      target.focus();
+      // Defensive: jsdom can lag; force activeElement explicitly when needed.
+      // (Asserted below to make debug obvious if this regresses.)
+      return target;
+    }
+
+    it("Shift+F10 dispatches a synthetic contextmenu MouseEvent", () => {
+      renderHook(() => useGlobalShortcuts(callbacks));
+      const target = makeFocusableTarget();
+      expect(document.activeElement).toBe(target);
+      let seen: MouseEvent | null = null;
+      target.addEventListener("contextmenu", (e) => {
+        seen = e as MouseEvent;
+      });
+      const ev = new KeyboardEvent("keydown", {
+        key: "F10",
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(ev);
+      expect(seen).not.toBeNull();
+      expect((seen as unknown as MouseEvent).type).toBe("contextmenu");
+      expect(ev.defaultPrevented).toBe(true);
+      target.remove();
+    });
+
+    it("ContextMenu key dispatches synthetic contextmenu", () => {
+      renderHook(() => useGlobalShortcuts(callbacks));
+      const target = makeFocusableTarget();
+      expect(document.activeElement).toBe(target);
+      const seen: MouseEvent[] = [];
+      target.addEventListener("contextmenu", (e) => seen.push(e as MouseEvent));
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ContextMenu", bubbles: true, cancelable: true }),
+      );
+      expect(seen.length).toBe(1);
+      target.remove();
+    });
+
+    it("Shift+F10 with no focused element + no selection is a no-op", () => {
+      renderHook(() => useGlobalShortcuts(callbacks));
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      let seen = false;
+      const onCm = () => {
+        seen = true;
+      };
+      document.addEventListener("contextmenu", onCm);
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "F10",
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(seen).toBe(false);
+      document.removeEventListener("contextmenu", onCm);
+    });
+  });
+
   describe("editable-target guard (B1)", () => {
     it("ignores Ctrl+= when target is an INPUT", () => {
       renderHook(() => useGlobalShortcuts(callbacks));

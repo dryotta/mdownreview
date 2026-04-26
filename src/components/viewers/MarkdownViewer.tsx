@@ -36,6 +36,9 @@ import { SIZE_WARN_THRESHOLD } from "@/lib/comment-utils";
 import { useThreadsByLine } from "@/hooks/useThreadsByLine";
 import { useScrollToLine } from "@/hooks/useScrollToLine";
 import { useSelectionToolbar } from "@/hooks/useSelectionToolbar";
+import { useContextMenu } from "@/hooks/useContextMenu";
+import { buildCommentLink } from "@/lib/comment-link";
+import type { CommentContextMenuAction } from "@/components/comments/CommentContextMenu";
 import "@/styles/markdown.css";
 
 interface Props {
@@ -251,6 +254,47 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
     });
   }, [handleAddSelectionComment]);
 
+  // F6 — right-click context menu. Owns its own open/position state; we just
+  // feed it the click location plus the (line, hasSelection) payload computed
+  // here so the menu can render gating + the action handler can route.
+  const ctxMenu = useContextMenu<{ line: number | null; hasSelection: boolean }>();
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    const lineEl = (e.target as HTMLElement).closest<HTMLElement>("[data-source-line]");
+    let line: number | null = null;
+    if (lineEl) {
+      const n = Number(lineEl.getAttribute("data-source-line"));
+      if (Number.isFinite(n) && n > 0) line = n;
+    }
+    const sel = window.getSelection();
+    const hasSelection = !!sel && !sel.isCollapsed && !!sel.toString().trim();
+    // Prime the SelectionToolbar state so handleAddSelectionComment can
+    // commit it when the user picks "Comment on selection". Same path the
+    // existing mouseup-driven flow uses.
+    if (hasSelection) handleMouseUp();
+    e.preventDefault();
+    ctxMenu.openAt({ clientX: e.clientX, clientY: e.clientY }, { line, hasSelection });
+  }, [ctxMenu, handleMouseUp]);
+
+  const handleContextAction = useCallback((action: CommentContextMenuAction) => {
+    const payload = ctxMenu.state.payload;
+    if (!payload) return;
+    const { line } = payload;
+    if (action === "comment") {
+      handleSelectionAdd();
+    } else if (action === "copy-link") {
+      const link = buildCommentLink({
+        filePath,
+        line: line ?? undefined,
+        workspaceRoot: useStore.getState().root,
+      });
+      void navigator.clipboard?.writeText?.(link);
+    } else if (action === "discussed") {
+      if (line != null) {
+        void addComment(filePath, "discussed", { kind: "line", line }, undefined, "none");
+      }
+    }
+  }, [ctxMenu.state.payload, filePath, addComment, handleSelectionAdd]);
+
   return (
     <div className="markdown-viewer" data-zoom={zoom} style={{ fontSize: `${zoom * 100}%` }}>
       <div
@@ -295,6 +339,7 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
             ref={bodyRef}
             onClick={handleGutterClick}
             onMouseUp={handleMouseUp}
+            onContextMenu={handleContextMenu}
             style={{ position: "relative" }}
           >
             <ReactMarkdown
@@ -319,6 +364,14 @@ export function MarkdownViewer({ content, filePath, fileSize }: Props) {
               selectionToolbar={selectionToolbar}
               dismissSelectionToolbar={() => setSelectionToolbar(null)}
               onAddSelectionComment={handleSelectionAdd}
+              contextMenu={{
+                open: ctxMenu.state.open,
+                x: ctxMenu.state.x,
+                y: ctxMenu.state.y,
+                hasSelection: ctxMenu.state.payload?.hasSelection ?? false,
+              }}
+              onContextMenuAction={handleContextAction}
+              onContextMenuClose={ctxMenu.close}
             />
           </div>
         </MdCommentContext.Provider>
