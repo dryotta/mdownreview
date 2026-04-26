@@ -1,6 +1,6 @@
 # Agentic Development Process
 
-`mdownreview` is built by AI agents driven from short scenario prompts. This doc maps the moving parts and gives copy-pasteable prompts for the **three workflows** that cover ~all day-to-day work.
+`mdownreview` embraces agentic development. This doc maps the moving parts and gives copy-pasteable prompts for the **three workflows** that cover ~all day-to-day work.
 
 For the **rules** every agent must follow, read [`AGENTS.md`](AGENTS.md). This doc is the **process** layer.
 
