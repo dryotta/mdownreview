@@ -4,11 +4,50 @@
  * The HTML preview is rendered in a sandboxed iframe (cross-origin srcdoc).
  * To let the user select/click content and turn it into a comment anchor we
  * inject a tiny IIFE that posts events back via `postMessage`. The host
- * filters by `event.source` and a per-mount `nonce`.
+ * filters by `event.source` (the iframe's contentWindow) AND a per-mount
+ * `nonce`. Anything else is dropped.
  *
  * Pure helpers — no React, no DOM. The script string is constructed but
  * never evaluated here; it runs inside the iframe at load time.
  */
+
+/* ------------------------------------------------------------------ *
+ * Bridge message contracts (the iframe IIFE posts these; the host    *
+ * narrows incoming postMessage events through `isBridgeMsg`).        *
+ * ------------------------------------------------------------------ */
+
+export interface BridgeSelection {
+  source: "mdr-html-bridge";
+  nonce: string;
+  type: "selection";
+  selectorPath: string;
+  startOffset: number;
+  endOffset: number;
+  selectedText: string;
+  clientX: number;
+  clientY: number;
+}
+
+export interface BridgeClick {
+  source: "mdr-html-bridge";
+  nonce: string;
+  type: "click";
+  selectorPath: string;
+  tag: string;
+  textPreview: string;
+  clientX: number;
+  clientY: number;
+}
+
+export type BridgeMsg = BridgeSelection | BridgeClick;
+
+export function isBridgeMsg(d: unknown): d is BridgeMsg {
+  if (!d || typeof d !== "object") return false;
+  const o = d as Record<string, unknown>;
+  return o.source === "mdr-html-bridge" &&
+    typeof o.nonce === "string" &&
+    (o.type === "selection" || o.type === "click");
+}
 
 export interface BuildBridgeOptions {
   /** Per-mount nonce. The host validates incoming messages against this. */
@@ -16,21 +55,45 @@ export interface BuildBridgeOptions {
 }
 
 /**
- * Returns a `<script>…</script>` block to splice into the iframe srcdoc.
- * Behavior:
- *   - On `mouseup` with non-empty selection → posts a `selection` event with
- *     a CSS selector path of the selection's anchor element + offsets.
- *   - On `click` with no selection → posts a `click` event with the target's
- *     selector path, tag, and a short text preview.
+ * One-shot builder for the iframe `srcDoc` in comment mode. Replaces the
+ * older two-step `buildBridgeScript` + `injectBridgeScript` pair.
+ *
+ * Steps:
+ *   1. If `html` lacks a `<body>` tag, wrap it (so the bridge has somewhere
+ *      to read `data-mdr-comment-mode` from).
+ *   2. Splice `data-mdr-comment-mode="true"` onto the first `<body…>` tag.
+ *   3. Build the bridge IIFE with the supplied nonce.
+ *   4. Insert the script immediately before `</body>` (or append if none).
+ *
+ * Behavior of the IIFE:
+ *   - On `mouseup` with non-empty selection → posts a `selection` event
+ *     with a CSS selector path of the anchor element + offsets.
+ *   - On `click` with no selection → posts a `click` event with the
+ *     target's selector path, tag, and a short text preview.
+ *   - **Anchor clicks** in comment mode call `preventDefault` +
+ *     `stopPropagation` so the iframe does NOT navigate to the link
+ *     while the host is opening the comment composer (B2 forward-fix).
  *   - Suppressed entirely when `document.body.dataset.mdrCommentMode !== "true"`.
  *   - Skipped on form/button/input targets (preserve native behavior).
  *
  * Selector path: `nth-of-type` chain capped at 5 levels (e.g.
  *   `body > div:nth-of-type(2) > section > p:nth-of-type(3)`).
  */
-export function buildBridgeScript(opts: BuildBridgeOptions): string {
+export function buildBridgeSrcDoc(
+  html: string,
+  opts: BuildBridgeOptions,
+): string {
+  const tagged = /<body\b/i.test(html)
+    ? html.replace(/<body\b([^>]*)>/i, '<body$1 data-mdr-comment-mode="true">')
+    : `<body data-mdr-comment-mode="true">${html}</body>`;
+  const script = buildBridgeScript(opts);
+  const m = tagged.match(/<\/body\s*>/i);
+  if (!m || m.index === undefined) return tagged + script;
+  return tagged.slice(0, m.index) + script + tagged.slice(m.index);
+}
+
+function buildBridgeScript(opts: BuildBridgeOptions): string {
   const nonce = JSON.stringify(opts.nonce);
-  // The IIFE is a single string so it serializes deterministically into srcdoc.
   return `<script>(function(){
   var NONCE=${nonce};
   function path(el){
@@ -84,6 +147,13 @@ export function buildBridgeScript(opts: BuildBridgeOptions): string {
     if(sel&&sel.toString().length>0) return;
     var t=e.target;
     if(!t||t.nodeType!==1) return;
+    // B2 forward-fix: anchor clicks in comment mode must NOT navigate the
+    // iframe. The host opens the comment composer; the link should not
+    // also follow. preventDefault/stopPropagation BEFORE posting.
+    if(t.closest && t.closest("a")){
+      e.preventDefault();
+      e.stopPropagation();
+    }
     parent.postMessage({
       source:"mdr-html-bridge",nonce:NONCE,type:"click",
       selectorPath:path(t),
@@ -93,15 +163,4 @@ export function buildBridgeScript(opts: BuildBridgeOptions): string {
     },"*");
   },true);
 })();</script>`;
-}
-
-/**
- * Splices `script` into `html` immediately before `</body>`. If no `</body>`
- * is present (fragment input), appends to the end. Case-insensitive match.
- */
-export function injectBridgeScript(html: string, script: string): string {
-  const m = html.match(/<\/body\s*>/i);
-  if (!m || m.index === undefined) return html + script;
-  const i = m.index;
-  return html.slice(0, i) + script + html.slice(i);
 }

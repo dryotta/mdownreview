@@ -8,7 +8,7 @@ import { useZoom } from "@/hooks/useZoom";
 import { warn } from "@/logger";
 import { useCommentActions } from "@/lib/vm/use-comment-actions";
 import { CommentInput } from "@/components/comments/CommentInput";
-import { buildBridgeScript, injectBridgeScript } from "@/lib/html-bridge";
+import { buildBridgeSrcDoc, isBridgeMsg } from "@/lib/html-bridge";
 import type { Anchor } from "@/types/comments";
 import "@/styles/html-preview.css";
 
@@ -17,42 +17,10 @@ interface Props {
   filePath?: string;
 }
 
-// Bridge message contracts (mirror what the IIFE in html-bridge.ts posts).
-interface BridgeSelection {
-  source: "mdr-html-bridge";
-  nonce: string;
-  type: "selection";
-  selectorPath: string;
-  startOffset: number;
-  endOffset: number;
-  selectedText: string;
-  clientX: number;
-  clientY: number;
-}
-interface BridgeClick {
-  source: "mdr-html-bridge";
-  nonce: string;
-  type: "click";
-  selectorPath: string;
-  tag: string;
-  textPreview: string;
-  clientX: number;
-  clientY: number;
-}
-type BridgeMsg = BridgeSelection | BridgeClick;
-
 interface Composer {
   anchor: Anchor;
   top: number;
   left: number;
-}
-
-function isBridgeMsg(d: unknown): d is BridgeMsg {
-  if (!d || typeof d !== "object") return false;
-  const o = d as Record<string, unknown>;
-  return o.source === "mdr-html-bridge" &&
-    typeof o.nonce === "string" &&
-    (o.type === "selection" || o.type === "click");
 }
 
 export function HtmlPreviewView({ content, filePath }: Props) {
@@ -85,14 +53,7 @@ export function HtmlPreviewView({ content, filePath }: Props) {
 
   const srcDoc = useMemo(() => {
     if (!commentMode) return resolvedContent;
-    const script = buildBridgeScript({ nonce });
-    // Mark <body> with data-mdr-comment-mode so the bridge activates without
-    // an extra postMessage round-trip. We splice the attribute into the first
-    // <body…> tag if present; otherwise the bridge wraps the content in one.
-    const tagged = /<body\b/i.test(resolvedContent)
-      ? resolvedContent.replace(/<body\b([^>]*)>/i, '<body$1 data-mdr-comment-mode="true">')
-      : `<body data-mdr-comment-mode="true">${resolvedContent}</body>`;
-    return injectBridgeScript(tagged, script);
+    return buildBridgeSrcDoc(resolvedContent, { nonce });
   }, [resolvedContent, commentMode, nonce]);
 
   useEffect(() => {

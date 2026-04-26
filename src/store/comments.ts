@@ -30,14 +30,13 @@ import { error } from "@/logger";
  * the field iff the queued `filePath` matches. This replaces the iter 9
  * `requestAnimationFrame×2 + setTimeout(0)` hack (B4 forward-fix).
  *
- * `nonce` is a monotonic counter assigned by `setPendingScrollTarget`; rapid
- * clicks supersede earlier targets because each `set` overwrites the field.
+ * Rapid clicks supersede earlier targets because each `set` overwrites the
+ * field — the field itself is the supersession primitive (no nonce needed).
  */
 export interface PendingScrollTarget {
   filePath: string;
   line: number;
   commentId?: string;
-  nonce: number;
 }
 
 export interface CommentsSlice {
@@ -52,9 +51,7 @@ export interface CommentsSlice {
   _resolveFocusedThreadHandler: (() => Promise<void>) | null;
 
   setFocusedThread: (id: string | null) => void;
-  setPendingScrollTarget: (
-    target: Omit<PendingScrollTarget, "nonce"> | null,
-  ) => void;
+  setPendingScrollTarget: (target: PendingScrollTarget | null) => void;
   consumePendingScrollTarget: (
     filePath: string,
   ) => { line: number; commentId?: string } | null;
@@ -94,11 +91,6 @@ function lineOf(t: CommentThread): number {
   return t.root.matchedLineNumber ?? t.root.line ?? 1;
 }
 
-// Module-scoped monotonic nonce. Slice instances are singletons (one Zustand
-// store per app) so this is effectively per-store. Used by tests and viewers
-// to detect whether a target was superseded between set and consume.
-let pendingScrollTargetNonce = 0;
-
 export function createCommentsSlice(
   set: SliceSet,
   get: SliceGet,
@@ -111,14 +103,7 @@ export function createCommentsSlice(
     setFocusedThread: (id) => set({ focusedThreadId: id }),
 
     setPendingScrollTarget: (target) => {
-      if (target === null) {
-        set({ pendingScrollTarget: null });
-        return;
-      }
-      pendingScrollTargetNonce += 1;
-      set({
-        pendingScrollTarget: { ...target, nonce: pendingScrollTargetNonce },
-      });
+      set({ pendingScrollTarget: target });
     },
 
     consumePendingScrollTarget: (filePath) => {

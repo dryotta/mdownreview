@@ -3,7 +3,7 @@
  *
  * The cross-file scroll handoff between `CommentsPanel` (producer) and
  * the destination viewer's `useScrollToLine` (consumer) hinges on:
- *   - monotonic nonce so rapid clicks supersede earlier targets,
+ *   - subsequent set overwrites prior target (rapid clicks supersede),
  *   - consume-by-filePath atomicity so a viewer mounting for the wrong
  *     file cannot accidentally drain someone else's queued target.
  */
@@ -25,7 +25,6 @@ describe("pendingScrollTarget slice", () => {
     expect(t).not.toBeNull();
     expect(t!.filePath).toBe("/a.md");
     expect(t!.line).toBe(12);
-    expect(typeof t!.nonce).toBe("number");
 
     const consumed = useStore.getState().consumePendingScrollTarget("/a.md");
     expect(consumed).toEqual({ line: 12, commentId: undefined });
@@ -45,13 +44,11 @@ describe("pendingScrollTarget slice", () => {
     expect(remaining!.commentId).toBe("c1");
   });
 
-  it("subsequent set supersedes prior target with a fresh, larger nonce", () => {
+  it("subsequent set supersedes prior target (overwrite semantics)", () => {
     useStore.getState().setPendingScrollTarget({ filePath: "/a.md", line: 1 });
-    const first = useStore.getState().pendingScrollTarget!;
     useStore.getState().setPendingScrollTarget({ filePath: "/a.md", line: 99 });
     const second = useStore.getState().pendingScrollTarget!;
     expect(second.line).toBe(99);
-    expect(second.nonce).toBeGreaterThan(first.nonce);
 
     const consumed = useStore.getState().consumePendingScrollTarget("/a.md");
     expect(consumed).toEqual({ line: 99, commentId: undefined });
