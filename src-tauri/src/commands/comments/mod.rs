@@ -14,7 +14,7 @@ use crate::core::types::{
 };
 use serde::Deserialize;
 use std::path::Path;
-use tauri::{Emitter, State};
+use tauri::{AppHandle, Emitter, Runtime, State};
 
 use crate::watcher::WatcherState;
 
@@ -26,7 +26,7 @@ pub mod update;
 pub use badges::{get_file_badges, get_file_badges_inner, FileBadge};
 pub use export::{export_review_summary, export_review_summary_inner};
 pub use get::{get_file_comments, get_file_comments_inner};
-pub use update::{update_comment, update_comment_apply, CommentPatch};
+pub use update::{update_comment, update_comment_apply, update_comment_inner, CommentPatch};
 
 /// Payload emitted to the frontend after a mutation command modifies a sidecar.
 #[derive(Clone, serde::Serialize)]
@@ -56,9 +56,39 @@ pub(crate) fn enforce_workspace_path(state: &WatcherState, file_path: &str) -> R
     }
 }
 
+/// Test seam over the renderer-event channel. Production calls go through
+/// `Emitter::emit_to(self, "main", …)` per `docs/design-patterns.md` rule 4
+/// (Rust emits window-scoped events, never app-wide broadcasts). The trait
+/// exists *only* so integration tests can substitute a counter-backed mock —
+/// `tauri::test::mock_app()` cannot run on the Windows dev host (the test
+/// feature pulls webview2/wry GUI DLLs that fail with
+/// STATUS_ENTRYPOINT_NOT_FOUND), so a real-runtime emit is not reachable
+/// from a `cargo test` binary.
+pub trait CommentsEmitter {
+    fn emit_comments_changed(&self, file_path: &str);
+}
+
+impl<R: Runtime> CommentsEmitter for AppHandle<R> {
+    fn emit_comments_changed(&self, file_path: &str) {
+        // Window-scoped emit per docs/design-patterns.md rule 4. The renderer
+        // subscribes via `listen("comments-changed", …)` on the "main" window,
+        // which receives both window-scoped and app-wide events.
+        if let Err(e) = Emitter::emit_to(
+            self,
+            "main",
+            "comments-changed",
+            CommentsChangedEvent {
+                file_path: file_path.to_string(),
+            },
+        ) {
+            tracing::warn!(error = ?e, "failed to emit comments-changed");
+        }
+    }
+}
+
 /// Load a sidecar, apply a mutation, save, and emit `comments-changed`.
-fn with_sidecar_mut(
-    app: &tauri::AppHandle,
+fn with_sidecar_mut<E: CommentsEmitter>(
+    emitter: &E,
     file_path: &str,
     mutate: impl FnOnce(&mut MrsfSidecar) -> Result<(), String>,
 ) -> Result<(), String> {
@@ -68,19 +98,15 @@ fn with_sidecar_mut(
     mutate(&mut sidecar)?;
     crate::core::sidecar::save_sidecar(file_path, &sidecar.document, &sidecar.comments)
         .map_err(|e| e.to_string())?;
-    let _ = app.emit_to(
-        "main",
-        "comments-changed",
-        CommentsChangedEvent {
-            file_path: file_path.to_string(),
-        },
-    );
+    emitter.emit_comments_changed(file_path);
     Ok(())
 }
 
 /// Pure helper: load an existing sidecar OR create an empty default,
-/// apply a mutation, then save. Does NOT emit (so it can be unit-tested
-/// without a Tauri AppHandle). Used by `with_sidecar_or_create`.
+/// apply a mutation, then save. **Does NOT emit `comments-changed`** —
+/// only call from a wrapper that does (e.g. `with_sidecar_or_create`).
+/// Kept `pub` for integration tests that exercise the create-or-update
+/// path without bringing up a Tauri runtime.
 pub fn mutate_sidecar_or_create(
     file_path: &str,
     document_default: Option<String>,
@@ -106,20 +132,14 @@ pub fn mutate_sidecar_or_create(
 
 /// Like `with_sidecar_mut` but creates an empty default sidecar if none exists.
 /// Use for "create" operations (e.g. adding the first comment to a file).
-fn with_sidecar_or_create(
-    app: &tauri::AppHandle,
+fn with_sidecar_or_create<E: CommentsEmitter>(
+    emitter: &E,
     file_path: &str,
     document_default: Option<String>,
     mutate: impl FnOnce(&mut MrsfSidecar) -> Result<(), String>,
 ) -> Result<(), String> {
     mutate_sidecar_or_create(file_path, document_default, mutate)?;
-    let _ = app.emit_to(
-        "main",
-        "comments-changed",
-        CommentsChangedEvent {
-            file_path: file_path.to_string(),
-        },
-    );
+    emitter.emit_comments_changed(file_path);
     Ok(())
 }
 
@@ -235,8 +255,8 @@ impl NewCommentAnchor {
 /// into a struct would change the wire contract.
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
-pub fn add_comment(
-    app: tauri::AppHandle,
+pub fn add_comment<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, WatcherState>,
     file_path: String,
     author: String,
@@ -246,7 +266,38 @@ pub fn add_comment(
     severity: Option<String>,
     document: Option<String>,
 ) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
+    add_comment_inner(
+        &app,
+        &state,
+        file_path,
+        author,
+        text,
+        anchor,
+        comment_type,
+        severity,
+        document,
+    )
+}
+
+/// Test seam for [`add_comment`]. Production code should never call this
+/// directly — it exists so the integration tests in
+/// `tests/comments_emit_test.rs` can exercise the full mutation +
+/// emit pipeline without bringing up a Tauri runtime (which on Windows
+/// pulls in a heavier-than-test-binary set of GUI DLLs via tauri's
+/// `test` feature). Mirrors the public signature 1:1.
+#[allow(clippy::too_many_arguments)]
+pub fn add_comment_inner<E: CommentsEmitter>(
+    emitter: &E,
+    state: &WatcherState,
+    file_path: String,
+    author: String,
+    text: String,
+    anchor: Option<NewCommentAnchor>,
+    comment_type: Option<String>,
+    severity: Option<String>,
+    document: Option<String>,
+) -> Result<(), String> {
+    enforce_workspace_path(state, &file_path)?;
     // Convert wire anchor → (canonical Anchor, optional flat legacy fields).
     // For Line/Legacy we pass the flat shape into `create_comment` so the
     // MrsfComment's legacy `line`/`selected_text` fields stay populated.
@@ -281,7 +332,7 @@ pub fn add_comment(
         }
         comment.anchor = canonical;
     }
-    with_sidecar_or_create(&app, &file_path, document, |sidecar| {
+    with_sidecar_or_create(emitter, &file_path, document, |sidecar| {
         sidecar.comments.push(comment);
         Ok(())
     })
@@ -302,16 +353,28 @@ pub fn check_workspace_for(
 
 /// Create a reply to an existing comment, save to sidecar.
 #[tauri::command]
-pub fn add_reply(
-    app: tauri::AppHandle,
+pub fn add_reply<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, WatcherState>,
     file_path: String,
     parent_id: String,
     author: String,
     text: String,
 ) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
-    with_sidecar_mut(&app, &file_path, |sidecar| {
+    add_reply_inner(&app, &state, file_path, parent_id, author, text)
+}
+
+/// Test seam for [`add_reply`]. See [`add_comment_inner`] for rationale.
+pub fn add_reply_inner<E: CommentsEmitter>(
+    emitter: &E,
+    state: &WatcherState,
+    file_path: String,
+    parent_id: String,
+    author: String,
+    text: String,
+) -> Result<(), String> {
+    enforce_workspace_path(state, &file_path)?;
+    with_sidecar_mut(emitter, &file_path, |sidecar| {
         let parent = sidecar
             .comments
             .iter()
@@ -326,15 +389,26 @@ pub fn add_reply(
 
 /// Edit a comment's text, save to sidecar.
 #[tauri::command]
-pub fn edit_comment(
-    app: tauri::AppHandle,
+pub fn edit_comment<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, WatcherState>,
     file_path: String,
     comment_id: String,
     text: String,
 ) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
-    with_sidecar_mut(&app, &file_path, |sidecar| {
+    edit_comment_inner(&app, &state, file_path, comment_id, text)
+}
+
+/// Test seam for [`edit_comment`]. See [`add_comment_inner`] for rationale.
+pub fn edit_comment_inner<E: CommentsEmitter>(
+    emitter: &E,
+    state: &WatcherState,
+    file_path: String,
+    comment_id: String,
+    text: String,
+) -> Result<(), String> {
+    enforce_workspace_path(state, &file_path)?;
+    with_sidecar_mut(emitter, &file_path, |sidecar| {
         let comment = sidecar
             .comments
             .iter_mut()
@@ -347,14 +421,24 @@ pub fn edit_comment(
 
 /// Delete a comment (with reply reparenting per MRSF §9.1), save to sidecar.
 #[tauri::command]
-pub fn delete_comment(
-    app: tauri::AppHandle,
+pub fn delete_comment<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, WatcherState>,
     file_path: String,
     comment_id: String,
 ) -> Result<(), String> {
-    enforce_workspace_path(&state, &file_path)?;
-    with_sidecar_mut(&app, &file_path, |sidecar| {
+    delete_comment_inner(&app, &state, file_path, comment_id)
+}
+
+/// Test seam for [`delete_comment`]. See [`add_comment_inner`] for rationale.
+pub fn delete_comment_inner<E: CommentsEmitter>(
+    emitter: &E,
+    state: &WatcherState,
+    file_path: String,
+    comment_id: String,
+) -> Result<(), String> {
+    enforce_workspace_path(state, &file_path)?;
+    with_sidecar_mut(emitter, &file_path, |sidecar| {
         sidecar.comments = crate::core::comments::delete_comment(&sidecar.comments, &comment_id);
         Ok(())
     })
@@ -365,3 +449,8 @@ pub fn delete_comment(
 pub fn compute_anchor_hash(text: String) -> String {
     crate::core::anchors::compute_selected_text_hash(&text)
 }
+
+// Note: `set_resolved` and `move_anchor` are exposed via `update_comment` patch
+// kinds (see `update.rs::CommentPatch`). The frontend uses
+// `updateComment(...)` with `{ kind: "set_resolved" | "move_anchor", ... }`
+// rather than dedicated IPC commands.
